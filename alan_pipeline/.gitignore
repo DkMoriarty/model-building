@@ -1,0 +1,5 @@
+node_modules/
+dist/
+output_renders/*
+!output_renders/.gitkeep
+*.log
