@@ -1,5 +1,5 @@
 // Writes audio/master_track.wav: a deterministic placeholder track with a low
-// drone and a sharp transient at every marker in master_track.markers.json.
+// drone, a beat grid at `bpm`, and a sharp transient at every marker in master_track.markers.json.
 // Replace the .wav with the real mix and edit the marker times to match it.
 import {readFileSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
@@ -31,6 +31,20 @@ for (const [name, at] of Object.entries(track.markers)) {
     const thump = Math.sin(2 * Math.PI * (40 + 120 * Math.exp(-t * 30)) * t) * Math.exp(-t * 14);
     const click = rand() * Math.exp(-t * 90);
     samples[start + j] += 0.7 * thump + 0.35 * click;
+  }
+}
+
+// Beat grid: soft kick on every beat, short hi-hat tick on every eighth note
+// (the walk cycles plant a foot on each eighth).
+const beat = 60 / track.bpm;
+for (let n = 0; n * (beat / 2) < track.duration; n++) {
+  const start = Math.round(n * (beat / 2) * rate);
+  const onBeat = n % 2 === 0;
+  for (let j = 0; j < 0.08 * rate && start + j < length; j++) {
+    const t = j / rate;
+    const tick = rand() * Math.exp(-t * 160) * 0.12;
+    const kick = onBeat ? Math.sin(2 * Math.PI * (50 + 60 * Math.exp(-t * 40)) * t) * Math.exp(-t * 30) * 0.25 : 0;
+    samples[start + j] += tick + kick;
   }
 }
 

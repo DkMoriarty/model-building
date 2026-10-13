@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Parallel headless renderer.
 //
-//   npm run render -- [--concurrency=4] [--lossless] [--keep-frames]
+//   npm run render -- [--concurrency=4] [--lossless] [--keep-frames] [--strict]
 //                     [--audio=audio/master_track.wav] [--name=opening_fight]
 //
 // 1. Boots the Vite dev server (Motion Canvas plugin) in-process.
@@ -71,13 +71,22 @@ async function launchBrowser() {
   );
 }
 
+// Late-beat warnings from syncTo(); --strict turns them into a failed render.
+const timingWarnings = [];
+
 async function runPage(browser, url, label) {
   const page = await browser.newPage();
   page.on('console', msg => {
     // Scene meta autosave races between parallel workers; it is editor-only
     // state and does not affect rendered frames, so drop that notice.
     if (msg.text().includes('Connection timeout when updating metadata')) return;
-    if (process.env.DEBUG || msg.type() === 'error') console.error(`[${label}] ${msg.text()}`);
+    if (msg.text().startsWith('[warn]')) {
+      if (!label.startsWith('probe')) return; // reported once, by the probe
+      timingWarnings.push(msg.text());
+    }
+    if (process.env.DEBUG || msg.type() === 'error' || msg.text().startsWith('[warn]')) {
+      console.error(`[${label}] ${msg.text()}`);
+    }
   });
   page.on('pageerror', e => console.error(`[${label}] ${e.message}`));
   await page.goto(url);
@@ -118,6 +127,9 @@ try {
   const fps = Number(args.fps ?? 60);
   const lastFrame = frames;
   console.log(`project: ${frames + 1} frames @ ${fps} fps`);
+  if (args.strict && timingWarnings.length) {
+    throw new Error(`--strict: ${timingWarnings.length} beat(s) land off their audio marker`);
+  }
 
   const total = lastFrame + 1;
   const size = Math.ceil(total / concurrency);

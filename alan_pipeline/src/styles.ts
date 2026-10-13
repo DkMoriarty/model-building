@@ -45,8 +45,8 @@ export const Output = {
 export const Springs = {
   /** UI window arrival: one overshoot, settles in ~0.45s. */
   windowPop: makeSpring(1, 240, 18),
-  /** Body knocked back by a hit: heavy, barely overshoots. */
-  knockback: makeSpring(1, 120, 18),
-  /** Joint reaction to an impact: snappy whip with a small rebound. */
-  recoil: makeSpring(1, 400, 22),
+  /** Body knocked back by a hit: critically damped, settles in ~0.3s. */
+  knockback: makeSpring(1, 300, 35),
+  /** Joint reaction to an impact: snappy whip with a small rebound, ~0.3s. */
+  recoil: makeSpring(1, 600, 34),
 } as const;

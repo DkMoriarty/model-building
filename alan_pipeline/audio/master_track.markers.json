@@ -2,13 +2,15 @@
   "file": "master_track.wav",
   "sampleRate": 48000,
   "duration": 5.0,
+  "bpm": 150,
   "markers": {
     "walkIn": 0.0,
-    "windup": 1.25,
+    "windup": 1.2,
     "impact": 1.6,
-    "land": 2.15,
-    "popup": 2.6,
+    "land": 2.4,
+    "popup": 2.8,
     "click": 3.6,
-    "end": 4.6
+    "backstep": 4.0,
+    "end": 4.4
   }
 }

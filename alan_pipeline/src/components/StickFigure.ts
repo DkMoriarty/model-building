@@ -10,6 +10,7 @@ import {
   Spring,
   ThreadGenerator,
   TimingFunction,
+  useTime,
 } from '@motion-canvas/core';
 import {Colors, Stroke} from '../styles';
 
@@ -17,6 +18,14 @@ import {Colors, Stroke} from '../styles';
  * Every rotatable joint on the rig. Angles are in degrees and are LOCAL to the
  * parent bone: 0 means "hanging straight down" for limbs and "straight up" for
  * the torso/head. Positive values rotate clockwise (canvas convention).
+ *
+ * The rig is authored FACING RIGHT (+x). In that frame the sign convention is:
+ *   hip / shoulder   negative = swing forward, positive = swing back
+ *   knee             positive = flex (shin folds back, as a real knee does)
+ *   elbow            negative = flex (forearm folds forward)
+ *   torso            positive = lean forward, negative = lean back
+ * A figure facing left is the same rig with `scale.x < 0`, so every pose and
+ * gait reads correctly in both directions without mirrored angle tables.
  */
 export const JOINTS = [
   'torso',
@@ -65,15 +74,48 @@ const DEFAULT_PROPORTIONS: Proportions = {
 export const IDLE: Pose = {
   torso: 0,
   head: 0,
-  leftShoulder: 18,
-  leftElbow: -12,
-  rightShoulder: -18,
-  rightElbow: 12,
-  leftHip: 10,
-  leftKnee: -4,
-  rightHip: -10,
-  rightKnee: 4,
+  leftShoulder: 14,
+  leftElbow: -10,
+  rightShoulder: -14,
+  rightElbow: -14,
+  leftHip: 8,
+  leftKnee: 3,
+  rightHip: -8,
+  rightKnee: 3,
 };
+
+/** +1 = facing right (+x), -1 = facing left. */
+export type Facing = 1 | -1;
+
+/**
+ * How `walkTo` relates the direction of travel to the way the figure faces.
+ * - `auto`: turn to face the destination, then walk forward (default).
+ * - `forward`: walk forward; turns first if the target is behind.
+ * - `backward`: keep facing the same way and back-pedal.
+ */
+export type WalkMode = 'auto' | 'forward' | 'backward';
+
+export interface WalkOptions {
+  mode?: WalkMode;
+  /** Number of footfalls. Defaults to `distance / stride`, rounded. */
+  steps?: number;
+  /** Target step length in px when `steps` is not given. Default 90. */
+  stride?: number;
+  /** Absolute scene time (s) at which the final foot lands, e.g. an audio marker. */
+  arriveAt?: number;
+  /** Walk duration (s) when `arriveAt` is not given. Default 0.25 s per step. */
+  duration?: number;
+  /**
+   * Ease back into IDLE after the last footfall (default true). Pass false to
+   * flow straight into the next action from the planted end-of-walk stance.
+   */
+  settle?: boolean;
+}
+
+/** Peak knee flex of the swinging leg, degrees. */
+const SWING_KNEE = 48;
+const frac = (v: number) => v - Math.floor(v);
+const deg = (rad: number) => (rad * 180) / Math.PI;
 
 /**
  * Hierarchical kinematic stick-figure rig.
@@ -265,37 +307,105 @@ export class StickFigure extends Node {
     );
   }
 
+  /** Which way the figure currently faces, from the sign of `scale.x`. */
+  public get facing(): Facing {
+    return this.scale.x() < 0 ? -1 : 1;
+  }
+
+  /** Turn to face `direction` with a quick squash-through-zero flip. */
+  public *face(direction: Facing, duration = 0.1): ThreadGenerator {
+    if (this.facing === direction) return;
+    yield* this.scale.x(direction * Math.abs(this.scale.x()), duration, easeInOutSine);
+  }
+
   /**
-   * Walk to `x` with a procedural gait: legs and arms swing in counter-phase
-   * while the pelvis translates linearly, so foot timing is locked to the
-   * stride length rather than hand-placed keys.
+   * Walk to `x` with a zero-slip procedural gait.
+   *
+   * Every joint is DERIVED from how far the pelvis has travelled, rather than
+   * tweened on its own clock. The planted foot moves backwards relative to
+   * the pelvis by exactly the distance the pelvis moves forward, so it stays
+   * glued to the ground. Footfalls land at equal time intervals between now
+   * and `arriveAt`, so with an audio marker as `arriveAt` the steps fall on
+   * that beat grid and the last foot lands on the marker.
+   *
+   *   yield* fig.walkTo(400, {steps: 6, arriveAt: markers.windup});
+   *   yield* fig.walkTo(-200, {mode: 'backward', steps: 2, duration: 0.4});
    */
-  public *walkTo(x: number, stride = 90, stepTime = 0.22): ThreadGenerator {
-    const distance = x - this.x();
-    const steps = Math.max(1, Math.round(Math.abs(distance) / stride));
-    const dir = Math.sign(distance) || 1;
-    const swing = 28 * dir;
-    yield* all(
-      this.x(x, steps * stepTime, linear),
-      (function* (fig: StickFigure) {
-        for (let i = 0; i < steps; i++) {
-          const s = i % 2 === 0 ? 1 : -1;
-          yield* fig.pose(
-            {
-              leftHip: swing * s,
-              leftKnee: s > 0 ? -6 : -28,
-              rightHip: -swing * s,
-              rightKnee: s > 0 ? -28 : -6,
-              leftShoulder: -swing * s * 0.8,
-              rightShoulder: swing * s * 0.8,
-              torso: 6 * dir,
-            },
-            stepTime,
-            easeInOutSine,
-          );
-        }
-        yield* fig.pose(IDLE, stepTime);
-      })(this),
-    );
+  public *walkTo(x: number, options: WalkOptions = {}): ThreadGenerator {
+    const startX = this.x();
+    const distance = x - startX;
+    if (Math.abs(distance) < 1) return;
+
+    const mode = options.mode ?? 'auto';
+    const travel: Facing = distance > 0 ? 1 : -1;
+    if (mode !== 'backward') yield* this.face(travel);
+    // +1 when travelling the way the figure faces, -1 when back-pedalling.
+    const local = travel * this.facing;
+
+    const steps =
+      options.steps ?? Math.max(1, Math.round(Math.abs(distance) / (options.stride ?? 90)));
+    // Exact step length, so the walk ends precisely on a footfall.
+    const step = Math.abs(distance) / steps;
+    const duration =
+      options.arriveAt !== undefined
+        ? Math.max(1 / 60, options.arriveAt - useTime())
+        : (options.duration ?? steps * 0.25);
+
+    const leg = this.legLength;
+    const baseY = this.y();
+    const lean = local > 0 ? 5 : -4;
+
+    // Steps travelled so far, signed: forward walking counts up, back-pedalling
+    // counts down, which runs the same cycle in reverse.
+    const progress = () => (local * Math.abs(this.x() - startX)) / step;
+
+    /** Hip angle (deg) that puts the foot `footX` px ahead of the pelvis. */
+    const hipFor = (footX: number) => deg(Math.asin(Math.max(-1, Math.min(1, -footX / leg))));
+
+    /**
+     * One leg over a two-step cycle. t in [0, 0.5): stance, the foot is planted
+     * and slides from +step/2 to -step/2 relative to the pelvis (leg straight).
+     * t in [0.5, 1): swing, the foot travels back to the front with the knee
+     * flexed so it clears the ground.
+     */
+    const legAt = (t: number) => {
+      if (t < 0.5) {
+        const u = t / 0.5;
+        return {hip: hipFor(step / 2 - step * u), knee: 0, stance: true};
+      }
+      const u = (t - 0.5) / 0.5;
+      return {
+        hip: hipFor(-step / 2 + step * easeInOutSine(u)),
+        knee: SWING_KNEE * Math.sin(Math.PI * u),
+        stance: false,
+      };
+    };
+    const left = () => legAt(frac(progress() / 2));
+    const right = () => legAt(frac(progress() / 2 + 0.5));
+
+    this.joints.leftHip(() => left().hip);
+    this.joints.leftKnee(() => left().knee);
+    this.joints.rightHip(() => right().hip);
+    this.joints.rightKnee(() => right().knee);
+    // Arms counter-swing against the leg on the same side.
+    this.joints.leftShoulder(() => -0.9 * left().hip);
+    this.joints.rightShoulder(() => -0.9 * right().hip);
+    this.joints.leftElbow(() => -14 + 0.4 * Math.min(0, this.joints.leftShoulder()));
+    this.joints.rightElbow(() => -14 + 0.4 * Math.min(0, this.joints.rightShoulder()));
+    this.joints.torso(lean);
+    // Pelvis rides on the straight stance leg: lowest at contact, highest mid-stance.
+    this.y(() => {
+      const planted = left().stance ? left() : right();
+      return baseY + leg * (1 - Math.cos((planted.hip * Math.PI) / 180));
+    });
+
+    yield* this.x(x, duration, linear);
+
+    // Freeze the derived values, then (optionally) settle into the idle stance.
+    for (const joint of JOINTS) this.joints[joint](this.joints[joint]());
+    this.y(this.y());
+    if (options.settle ?? true) {
+      yield* all(this.pose(IDLE, 0.18), this.y(baseY, 0.18));
+    }
   }
 }
