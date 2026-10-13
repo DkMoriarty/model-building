@@ -1,5 +1,6 @@
 import {Circle, Line, Rect} from '@motion-canvas/2d';
 import {StickFigure, StickFigureProps} from '../../components/StickFigure';
+import {BIPED, LONG_BIPED, proportionsOf, strokeOf} from '../../figureSpec';
 import {Colors} from '../../styles';
 import {Blade} from './Blade';
 
@@ -10,78 +11,79 @@ export const ALIEN_BLADE = '#9dfcd6';
 /** Masses used for momentum: the alien is heavier, so it recoils less. */
 export const MASS = {keeper: 1, alien: 1.5};
 
+/** Shared head unit and weights (docs/STYLE_BIBLE.md, section 2). */
+const H = BIPED.H;
+const STROKE = strokeOf(BIPED);
+/** Blades are props: a touch lighter than limbs so the body stays dominant. */
+const BLADE_STROKE = STROKE * 0.85;
+
 export interface Fighter {
   body: StickFigure;
   blade: Blade;
 }
 
-/** The keeper: our stick figure in a pressure helmet with a thruster pack. */
+/**
+ * The keeper (original design): BIPED proportions, a pressure-helmet ring
+ * 0.45 H wider than the head, and a thruster pack on the back.
+ */
 export function createKeeper(props: StickFigureProps = {}): Fighter {
-  const body = new StickFigure({color: Colors.accent, ...props});
-  const r = body.proportions.headRadius;
+  const body = new StickFigure({color: Colors.accent, proportions: proportionsOf(BIPED), ...props});
   body.bones.head.add(
     new Circle({
-      size: r * 2 + 30,
-      stroke: 'rgba(200,230,255,0.55)',
-      lineWidth: 4,
-      fill: 'rgba(170,210,255,0.08)',
-      children: [new Circle({x: -12, y: -14, size: [14, 8], rotation: -35, fill: 'rgba(255,255,255,0.5)'})],
+      size: H * 1.45,
+      stroke: 'rgba(200,230,255,0.5)',
+      lineWidth: STROKE * 0.45,
+      fill: 'rgba(170,210,255,0.06)',
+      children: [new Circle({x: -H * 0.24, y: -H * 0.27, size: [H * 0.22, H * 0.12], rotation: -35, fill: 'rgba(255,255,255,0.45)'})],
     }),
   );
+  const torso = body.proportions.torso;
   body.bones.torso.add(
     new Rect({
-      x: -20,
-      y: -body.proportions.torso * 0.62,
-      width: 24,
-      height: 66,
-      radius: 6,
-      fill: '#2a2a33',
+      x: -H * 0.32,
+      y: -torso * 0.6,
+      width: H * 0.36,
+      height: torso * 0.5,
+      radius: H * 0.1,
+      fill: '#22222a',
       stroke: Colors.accent,
-      lineWidth: 3,
+      lineWidth: STROKE * 0.45,
     }),
   );
-  const blade = new Blade({color: KEEPER_BLADE, rotation: -70});
+  const blade = new Blade({color: KEEPER_BLADE, length: H * 3.2, width: BLADE_STROKE, rotation: -70});
   blade.extend(0);
   body.bones.rightFist.add(blade);
   return {body, blade};
 }
 
-/** The traveller: long limbs, tall head, big eyes, no helmet (it breathes nothing). */
+/**
+ * The traveller (original design): LONG_BIPED proportions, a tall elliptical
+ * head (0.85 H x 1.3 H) with one large eye, and two antennae.
+ */
 export function createAlien(props: StickFigureProps = {}): Fighter {
-  const body = new StickFigure({
-    color: ALIEN_COLOR,
-    proportions: {headRadius: 30, neck: 22, torso: 150, upperArm: 82, forearm: 82, thigh: 88, shin: 96},
-    ...props,
-  });
+  const body = new StickFigure({color: ALIEN_COLOR, proportions: proportionsOf(LONG_BIPED), ...props});
   const head = body.bones.head;
-  const r = body.proportions.headRadius;
-  head.size([r * 1.7, r * 2.6]);
-  head.y(-(body.proportions.neck + r * 1.3));
+  head.size([H * 0.85 - STROKE, H * 1.3 - STROKE]);
+  head.y(-(body.proportions.neck + H * 0.65));
+  const antenna = (x0: number, x1: number, y1: number) => [
+    new Line({
+      points: [
+        [x0, -H * 0.62],
+        [x1, y1],
+      ],
+      stroke: ALIEN_COLOR,
+      lineWidth: STROKE * 0.6,
+      lineCap: 'round',
+    }),
+    new Circle({x: x1, y: y1, size: H * 0.2, fill: ALIEN_COLOR}),
+  ];
   head.add([
-    new Circle({x: 10, y: -4, size: [18, 26], rotation: 15, fill: '#05140e'}),
-    new Circle({x: 14, y: -9, size: 6, fill: '#ffffff'}),
-    new Line({
-      points: [
-        [-6, -r * 1.25],
-        [-22, -r * 2.1],
-      ],
-      stroke: ALIEN_COLOR,
-      lineWidth: 5,
-      lineCap: 'round',
-    }),
-    new Circle({x: -22, y: -r * 2.1, size: 12, fill: ALIEN_COLOR}),
-    new Line({
-      points: [
-        [8, -r * 1.25],
-        [16, -r * 2.2],
-      ],
-      stroke: ALIEN_COLOR,
-      lineWidth: 5,
-      lineCap: 'round',
-    }),
-    new Circle({x: 16, y: -r * 2.2, size: 12, fill: ALIEN_COLOR}),
+    new Circle({x: H * 0.12, y: -H * 0.06, size: [H * 0.3, H * 0.42], rotation: 15, fill: '#0b2a1d'}),
+    new Circle({x: H * 0.18, y: -H * 0.14, size: H * 0.1, fill: '#ffffff'}),
+    ...antenna(-H * 0.1, -H * 0.38, -H * 1.1),
+    ...antenna(H * 0.12, H * 0.28, -H * 1.18),
   ]);
-  const blade = new Blade({color: ALIEN_BLADE, length: 220, rotation: -70});
+  const blade = new Blade({color: ALIEN_BLADE, length: H * 3.6, width: BLADE_STROKE, rotation: -70});
   blade.extend(0);
   body.bones.rightFist.add(blade);
   return {body, blade};

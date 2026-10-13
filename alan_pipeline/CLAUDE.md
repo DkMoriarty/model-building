@@ -1,10 +1,14 @@
 # Alien Becker studio (alan_pipeline)
 
 Code-driven, deterministic Alan Becker-style animation on Motion Canvas.
-**Read `ALIEN_BECKER_HANDOVER.md` first.** It has setup, architecture, the
-engineering rules, current state and next steps.
+**Read `ALIEN_BECKER_HANDOVER.md` first**, then `docs/STYLE_BIBLE.md`. They
+hold setup, architecture, the engineering and style rules, current state and
+next steps.
 
 Non-negotiables (details in the handover, §6):
+- Show, don't narrate: voice only for a cold open and character dialogue.
+- Figures come from `src/figureSpec.ts` (ratios of H; stroke 0.14 H; open-ring
+  heads). Never loose pixel lengths. Characters are original designs.
 - Every action anchors to an absolute cue with `syncTo(cue, lead)`. A
   `[warn] ... late` or `contact ... miss` line is a bug. Render with `--strict`.
 - Rig sign convention, authored facing +x: hip/shoulder negative = forward,

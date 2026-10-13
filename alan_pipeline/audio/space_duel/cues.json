@@ -8,135 +8,49 @@
       "voice": "narrator",
       "text": "Space is silent. With no air to carry it, even a scream dies at the lips."
     },
-    "n2": {
-      "start": 11.0,
-      "end": 16.9675,
-      "voice": "narrator",
-      "text": "Past the Moon, where the pull of Earth and the pull of the Moon balance out, a single keeper tends the relay."
-    },
-    "n3": {
-      "start": 18.5,
-      "end": 23.2601,
-      "voice": "narrator",
-      "text": "On day four hundred, a ship came falling inward, at eight tenths of the speed of light."
-    },
-    "n4": {
-      "start": 24.5,
-      "end": 33.3933,
-      "voice": "narrator",
-      "text": "At that speed, space itself shortens along the line of motion. The ship arrives squeezed to three fifths of its length, and its light is pushed toward blue."
-    },
-    "n5": {
-      "start": 35.0,
-      "end": 39.7369,
-      "voice": "narrator",
-      "text": "Its clocks run slow. While the keeper waited five years, the traveler aged three."
-    },
-    "n6": {
-      "start": 41.0,
-      "end": 47.5597,
-      "voice": "narrator",
-      "text": "And light takes time to travel. The ship he saw was already a memory. By the time its image arrived, the traveler was here."
-    },
     "a1": {
       "start": 51.5,
       "end": 55.7291,
       "voice": "alien",
       "text": "Keeper. You hold the other half of my blade."
     },
-    "n7": {
-      "start": 57.0,
-      "end": 61.5047,
-      "voice": "narrator",
-      "text": "Two blades, forged as an entangled pair. Two halves of a single quantum state."
-    },
     "a2": {
       "start": 62.5,
       "end": 65.3225,
       "voice": "alien",
       "text": "Return it. Or fight for it."
-    },
-    "n8": {
-      "start": 66.5,
-      "end": 73.7795,
-      "voice": "narrator",
-      "text": "One more thing. What you are about to hear is not sound crossing space. It is vibration, carried through steel, glove, and bone."
-    },
-    "n9": {
-      "start": 87.0,
-      "end": 93.8731,
-      "voice": "narrator",
-      "text": "Every push is shared. When the blades meet, both fighters fly apart, equal and opposite. Momentum is conserved."
-    },
-    "n10": {
-      "start": 100.5,
-      "end": 105.6084,
-      "voice": "narrator",
-      "text": "The keeper pulls his limbs in. Same angular momentum, smaller body. He spins faster."
-    },
-    "n11": {
-      "start": 114.0,
-      "end": 119.1316,
-      "voice": "narrator",
-      "text": "The alien's blade is not in one place. It is a cloud of maybes, until something touches it."
-    },
-    "n12": {
-      "start": 131.0,
-      "end": 137.3507,
-      "voice": "narrator",
-      "text": "He raises a barrier. Most of the wave reflects. But a quantum wave never fully stops. A sliver tunnels through."
-    },
-    "n13": {
-      "start": 158.0,
-      "end": 159.8808,
-      "voice": "narrator",
-      "text": "Then the keeper measures his own blade."
-    },
-    "n14": {
-      "start": 161.5,
-      "end": 166.0395,
-      "voice": "narrator",
-      "text": "Spin up. And across the gap, with nothing crossing it, the other blade is spin down."
-    },
-    "n15": {
-      "start": 171.5,
-      "end": 177.8042,
-      "voice": "narrator",
-      "text": "No signal outran light. The answer was shared from the start. Entanglement carries no message. Only agreement."
-    },
-    "n16": {
-      "start": 180.5,
-      "end": 186.3979,
-      "voice": "narrator",
-      "text": "The traveler left, its light sliding into red. Three years home, by its own clock. Five, by ours."
-    },
-    "n17": {
-      "start": 189.0,
-      "end": 194.178,
-      "voice": "narrator",
-      "text": "And the lost blade drifts on, in a straight line, forever. Nothing out here will ever stop it."
     }
   },
   "events": {
+    "open": 1.5,
     "title": 7.0,
     "station": 10.5,
     "diagram": 18.0,
+    "lblLength": 24.5,
+    "lblTime": 35.0,
     "decel": 40.0,
+    "lblLight": 41.0,
     "arrive": 48.0,
     "alienOut": 50.0,
+    "lblPair": 57.0,
     "drawAlien": 58.5,
     "drawKeeper": 60.0,
+    "lblVacuum": 66.5,
     "fight": 77.0,
     "clash1": 80.0,
     "clash2": 82.0,
     "clash3": 85.0,
+    "lblMomentum": 87.0,
     "clash4": 92.0,
+    "momentumEnd": 93.87,
     "clash5": 94.0,
     "clash6": 97.0,
+    "lblSpin": 100.5,
     "tuck": 101.0,
     "untuck": 106.0,
     "clash7": 108.0,
     "superpose": 112.0,
+    "lblSuper": 114.0,
     "ghostMiss": 120.0,
     "collapse1": 125.0,
     "barrier": 133.0,
@@ -156,9 +70,14 @@
     "f12": 155.0,
     "lock": 156.0,
     "measure": 160.0,
+    "singlet": 161.5,
+    "spinDown": 166.04,
     "disarm": 169.0,
+    "lblSignal": 171.5,
+    "lblSignalEnd": 177.8,
     "depart": 179.0,
     "drift": 188.0,
+    "newton": 189.0,
     "end": 197.0
   }
 }

@@ -47,32 +47,31 @@ export class PhysicsLabel extends Node {
   private readonly box: Rect;
 
   public constructor(props: NodeProps = {}) {
-    super({x: -900, y: -470, opacity: 0, ...props});
+    // Anchored to the 96 px safe margin, top-left.
+    super({x: -864, y: -444, opacity: 0, ...props});
     this.eq = new Txt({
       text: '',
       offset: [-1, -1],
       fill: '#ffd166',
       fontFamily: Typography.mono,
-      fontSize: 34,
+      fontSize: 28,
     });
     this.note = new Txt({
       text: '',
       offset: [-1, -1],
-      y: 50,
-      fill: Colors.inkMuted,
+      y: 40,
+      fill: 'rgba(242,242,242,0.6)',
       fontFamily: Typography.family,
-      fontSize: 24,
+      fontSize: 20,
     });
+    // A thin gold rule instead of a box: an annotation, not a slide.
     this.box = new Rect({
       offset: [-1, -1],
-      x: -18,
-      y: -14,
-      width: () => Math.max(this.eq.width(), this.note.width()) + 36,
-      height: 104,
-      radius: 8,
-      fill: 'rgba(10,10,14,0.72)',
-      stroke: 'rgba(255,209,102,0.35)',
-      lineWidth: 2,
+      x: -16,
+      y: 2,
+      width: 3,
+      height: 64,
+      fill: 'rgba(255,209,102,0.7)',
     });
     this.add([this.box, this.eq, this.note]);
   }

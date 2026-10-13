@@ -34,6 +34,8 @@ export interface Stage {
   keeperClock: ClockDial;
   travelerClock: ClockDial;
   blackout: Rect;
+  /** Full-frame white for 1-2 frame impact flashes. */
+  whiteout: Rect;
   /** Fight frame: centre of mass (fixed: no external forces) and separation. */
   com: SimpleSignal<Vector2, void>;
   sep: SimpleSignal<Vector2, void>;
@@ -68,8 +70,9 @@ export function buildStage(view: View2D): Stage {
   const ship = new Ship({scale: 0.5, opacity: 0});
   const fx = new Node({});
 
-  const keeper = createKeeper({scale: 0.62});
-  const alien = createAlien({scale: [-0.62, 0.62]});
+  // Fighters at 0.8: the BIPED keeper stands 4.85 H x 0.8 = 217 px before camera zoom.
+  const keeper = createKeeper({scale: 0.8});
+  const alien = createAlien({scale: [-0.8, 0.8]});
   keeper.body.opacity(0);
   alien.body.opacity(0);
 
@@ -82,7 +85,8 @@ export function buildStage(view: View2D): Stage {
   const travelerClock = new ClockDial({label: 'TRAVELER', color: '#3ddc97', x: 840});
   const clocks = new Node({y: -390, opacity: 0, children: [keeperClock, travelerClock]});
   const blackout = new Rect({width: 1920, height: 1080, fill: '#000000', opacity: 1});
-  const hud = new Node({children: [title, clocks, label, subs, blackout]});
+  const whiteout = new Rect({width: 1920, height: 1080, fill: '#ffffff', opacity: 0});
+  const hud = new Node({children: [whiteout, title, clocks, label, subs, blackout]});
   view.add(hud);
   const queue: ThreadGenerator[] = [];
 
@@ -108,6 +112,7 @@ export function buildStage(view: View2D): Stage {
     keeperClock,
     travelerClock,
     blackout,
+    whiteout,
     com: createSignal(Vector2.zero),
     sep: createSignal(new Vector2(600, 0)),
     shake: createSignal(Vector2.zero),

@@ -39,7 +39,7 @@ export function* departure(s: Stage): ThreadGenerator {
     s.world.scale(1);
     s.world.position(() => blade.position().scale(-1).add([-160, 60]));
   }
-  yield* syncTo('n17.start', -2.5);
+  yield* syncTo('newton', -2.5);
   const note = new Txt({
     y: -420,
     text: 'NEWTON I: no force, no change in motion',

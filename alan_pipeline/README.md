@@ -44,7 +44,7 @@ bundled via `@ffmpeg-installer/ffmpeg` (override with `FFMPEG_PATH`).
 | project | what | render |
 | --- | --- | --- |
 | `alan_pipeline` | `opening_fight`: 5 s stick-figure test scene | `npm run render` |
-| `space_duel` | **The Entangled Blade**: a 3 min 20 s narrated sword fight in space | `npm run render -- --project=space_duel` |
+| `space_duel` | **The Entangled Blade**: a 3 min 20 s sword fight in space, told visually | `npm run render -- --project=space_duel` |
 
 The editor (`npm start`) lists both projects.
 
@@ -70,12 +70,12 @@ on screen is computed, not hand-drawn:
 | Keeper reads ↑, the other blade shows ↓ | singlet anti-correlation, no signalling | `acts/fight.ts: finale` |
 | Sparks fly straight; the lost blade drifts and spins forever | Newton I, conserved angular momentum | `Effects.ts`, `acts/fight.ts` |
 | Stars do not twinkle | no atmosphere | `components/Starfield.ts` |
-| Sound "through steel, glove and bone" | vacuum carries no sound | narration |
+| Sound despite the vacuum | none travels through space; audio is contact vibration | on-screen tag, `acts/arrival.ts` |
 
 **How everything lands on time:**
-- **One timing file.** `audio/space_duel/story.json` holds all narration,
+- **One timing file.** `audio/space_duel/story.json` holds every spoken line,
   events and sound effects.
-- **Audio builder.** `tools/build_space_audio.py` synthesizes the narration,
+- **Audio builder.** `tools/build_space_audio.py` synthesizes the spoken lines,
   measures each clip, and fails if a line overruns its slot. It renders the
   music and effects at the same times, and writes `cues.json` for the scene.
 - **Late beats.** Every action waits on `syncTo(cue)` and warns if it is late;
@@ -93,6 +93,14 @@ npm run audio:space                                  # rebuild master.wav + cues
 npm run render -- --project=space_duel --strict      # ~12,000 frames -> output_renders/space_duel.mp4
 npm run render -- --project=space_duel --at=80,125   # just a few stills, for checking
 ```
+
+### Look and motion
+
+Figures are built from a measured head-unit system (`src/figureSpec.ts`), and
+motion follows the timing tables in
+[`docs/STYLE_BIBLE.md`](./docs/STYLE_BIBLE.md): contact holds, flash frames,
+short shakes, smear trails. The style bible is a living document; update it
+whenever you study a new reference.
 
 ## Layout
 

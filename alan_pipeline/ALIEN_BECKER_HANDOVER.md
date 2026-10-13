@@ -4,7 +4,8 @@
 > code-driven, deterministic vector animation (Alan Becker style) built on
 > Motion Canvas. Read it fully before changing anything. It supersedes nothing
 > in `ALAN_BECKER_PIPELINE_HANDOVER.md` (the original spec); it records what
-> was built, what was learned, and how to continue.
+> was built, what was learned, and how to continue. **Also read
+> `docs/STYLE_BIBLE.md`** before touching any figure, motion or fight code.
 
 **Owner:** Dhiraj · **Repo:** `github.com/DkMoriarty/model-building` · **Project folder:** `alan_pipeline/`
 **Target machine:** Lenovo Legion 5 (Windows, 4 GB VRAM, multi-core CPU, NVMe SSD)
@@ -15,7 +16,7 @@
 
 Produce Alan Becker–style stick-figure animation **entirely from code**:
 no generative AI video, zero drift, frame-perfect. Every frame is a pure function
-of code + time. Picture, narration, music and sound effects come from one
+of code + time. Picture, dialogue, music and sound effects come from one
 timeline, so nothing lands off its beat.
 
 ## 2. Current state (as of 2026-10-13)
@@ -23,7 +24,8 @@ timeline, so nothing lands off its beat.
 | item | status |
 | --- | --- |
 | PR #1: pipeline scaffold, `StickFigure`, `UIWindow`, `opening_fight` (5 s test), parallel renderer, doctor | **merged** into `main` |
-| PR #2: `space_duel`, "The Entangled Blade" (3 min 20 s narrated physics-true space sword fight), shared timeline, audio builder, faster renderer | **open**: https://github.com/DkMoriarty/model-building/pull/2 |
+| PR #2: `space_duel`, "The Entangled Blade" (3 min 20 s physics-true space sword fight, told visually), shared timeline, audio builder, faster renderer | **open**: https://github.com/DkMoriarty/model-building/pull/2 |
+| Revision 2 (in PR #2): explanatory voice-over removed (only a one-line cold open + the traveller's two lines remain); figures rebuilt from a measured head-unit spec; contact holds, flash frames, tight shake, smear trails; quieter physics tags; living style bible | **done**, `--strict` clean |
 | Working branch | `claude/motion-canvas-pipeline-init-ky3xh9` (PR #2 head) |
 | Last full render | `space_duel.mp4`: 12,001 frames, 1080p60, AAC, 3:20.04, `--strict` clean, rendered in about 12 min on 4 workers |
 
@@ -49,7 +51,7 @@ pip install numpy
 npm run audio:space       # rebuilds master.wav + cues.json from story.json and the committed voice clips
 ```
 
-Piper (the TTS tool) is **only** needed when narration text changes; see §7.
+Piper (the TTS tool) is **only** needed when a spoken line's text changes; see §7.
 
 **Browser for rendering.** The renderer tries `CHROME_PATH`, then
 Playwright's Chromium, then installed Chrome, then installed Edge. On Windows,
@@ -110,7 +112,9 @@ alan_pipeline/
     master_track.wav + .markers.json        opening_fight
     space_duel/story.json                   SOURCE OF TRUTH: lines, events, sfx, music
     space_duel/cues.json                    generated: resolved times the scene animates to
-    space_duel/voice/*.wav + *.key          cached TTS clips (committed)
+    space_duel/voice/*.wav + *.key          cached TTS clips (committed): n1, a1, a2
+  docs/STYLE_BIBLE.md                       living style guide: measured figures, timing, fight grammar
+  src/figureSpec.ts                         head-unit figure system (BIPED, LONG_BIPED)
   tools/build_space_audio.py                TTS + numpy synth + mix + overrun check
   scripts/render.mjs, render-entry.ts, render.html, doctor.mjs
 ```
@@ -177,14 +181,14 @@ Each one exists because breaking it caused a real bug.
 
 ### Audio
 18. **`story.json` is the source of truth.** After editing it, run
-    `npm run audio:space`. The build **fails** if a narration line overruns
+    `npm run audio:space`. The build **fails** if a spoken line overruns
     its slot; fix the times, never the check.
 19. **Piper TTS is not bit-deterministic.** Cached clips in
     `audio/space_duel/voice/` are the source of truth, and re-synthesis only
     happens when a line's text, voice or speed changes (`.key` hash).
-20. **Physics honesty in narration:** vacuum carries no sound (the narration
-    says audio is vibration through contact), and entanglement carries no
-    message (the no-signalling caveat is narrated).
+20. **Physics honesty:** vacuum carries no sound (an on-screen tag says audio
+    is contact vibration), and entanglement carries no message (the
+    no-signalling tag appears after the finale).
 
 ### Rendering
 21. **CPU rasterization (`--disable-gpu`) is the default.** It is deterministic
@@ -194,7 +198,25 @@ Each one exists because breaking it caused a real bug.
 23. **Parallel output must stay byte-identical** to single-worker output
     (verified for `opening_fight`).
 
-## 7. Changing narration (Piper TTS)
+### Style (see docs/STYLE_BIBLE.md)
+24. **Show, don't narrate.** Voice is only for a cold open and character
+    dialogue. Never add voice-over that explains what's on screen.
+25. **Figures are measured.** Build every figure from `src/figureSpec.ts` (all
+    lengths are ratios of H, the stroke is 0.14 H, heads are open rings).
+    Size with node `scale`, never by editing ratios. New body types get a new
+    spec, documented in the style bible §2.
+26. **Every hit has four layers:** contact on the cue frame, a 2–4 frame hold,
+    sparks, and a short shake (4 single-frame jolts). White-out flashes only
+    on the biggest hits, about 1 per 20 s.
+27. **Hierarchy:** characters get the thickest, most saturated lines;
+    environment lines are 50–65% of the figure stroke; gold only for payoffs;
+    text sits inside the 96 px safe margin.
+28. **Originality:** study references for technique only. Our characters are
+    original; never recreate another creator's characters or signature designs.
+29. **Keep the style bible alive:** after analysing a new reference, add a row
+    to its source log and update the rules it changes.
+
+## 7. Changing spoken lines (Piper TTS)
 
 ```powershell
 pip install -r tools/requirements.txt          # numpy + piper-tts
@@ -206,6 +228,8 @@ cd ..\..
 npm run audio:space
 ```
 
+- **Lines in use:** `n1` (cold open), `a1`, `a2` (the traveller). Keep it
+  that way: the story is told visually (rule 24).
 - **Voices:** narrator `en-us-ryan-high` (length scale 1.08); alien
   `en-gb-alan-low`, slowed and lowered, with ring modulation and a flange.
 - **Measured pace:** about 2.9 words per second. Leave at least 0.25 s between
@@ -269,6 +293,9 @@ npm run audio:space
 | `NaN` colour crash | `Math.pow` of a negative channel for UV wavelengths | return transparent outside 380–780 nm |
 | Disarm missed by 300+ px | strike pose solved before the target pose settled | solve after the pose settles; search arm angle too |
 | `pkill -f <pattern>` killed its own shell (Linux) | the pattern matched the command line | kill by PID |
+| Figures looked random | loose pixel lengths per character | head-unit spec (`figureSpec.ts`) |
+| Smear trails read as solid wedges | 4-frame history at 40% opacity | 3 frames, up to 22%, scaled by speed |
+| Video felt like a lecture | explanatory voice-over | cut to cold open + dialogue; small tags |
 
 ## 11. Kick-off prompt for Claude Code Desktop
 

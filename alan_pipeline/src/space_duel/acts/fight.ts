@@ -135,16 +135,57 @@ function* checkContact(s: Stage, id: string, a: Blade = s.keeper.blade, b: Blade
   return contact.point;
 }
 
+/** Impact shake: 4 single-frame jolts of ~8 px, then rest (style bible, section 4). */
 function* shake(s: Stage, strength = 1): ThreadGenerator {
+  const f = 1 / 60;
   for (const [dx, dy] of [
-    [16, -8],
-    [-13, 6],
     [8, -4],
-    [-4, 2],
-    [0, 0],
+    [-6, 3],
+    [4, -2],
+    [-2, 1],
   ]) {
-    yield* s.shake(new Vector2(dx * strength, dy * strength), 0.035);
+    s.shake(new Vector2(dx * strength, dy * strength));
+    yield* waitFor(f);
   }
+  s.shake(Vector2.zero);
+}
+
+/** 2-frame white-out, reserved for the biggest hits. */
+function* whiteout(s: Stage, strength = 0.8): ThreadGenerator {
+  s.whiteout.opacity(strength);
+  yield* waitFor(1 / 60);
+  s.whiteout.opacity(strength * 0.4);
+  yield* waitFor(1 / 60);
+  s.whiteout.opacity(0);
+}
+
+/**
+ * Smear trails: each frame, fill the area the blade swept over the last 3
+ * frames. Fades with tip speed, so slow moves leave nothing and fast swings
+ * leave a clean arc (style bible, section 3).
+ */
+function* smearTrails(s: Stage, until: number): ThreadGenerator {
+  const toLocal = (p: Vector2) => p.sub(s.world.absolutePosition()).scale(1 / s.world.scale().x);
+  const trails = [
+    {blade: s.keeper.blade, color: KEEPER_BLADE},
+    {blade: s.alien.blade, color: ALIEN_BLADE},
+  ].map(({blade, color}) => {
+    const poly = new Line({closed: true, fill: color, points: [], opacity: 0});
+    s.world.add(poly);
+    poly.moveBelow(s.alien.body);
+    return {blade, poly, history: [] as [Vector2, Vector2][]};
+  });
+  yield* everyFrame(until, () => {
+    for (const t of trails) {
+      t.history.push([toLocal(t.blade.absolutePosition()), toLocal(t.blade.tip())]);
+      if (t.history.length > 3) t.history.shift();
+      if (t.history.length < 2) continue;
+      const speed = t.history[t.history.length - 1][1].sub(t.history[0][1]).magnitude / (t.history.length - 1);
+      t.poly.opacity(Math.max(0, Math.min(0.22, (speed - 14) / 120)));
+      t.poly.points([...t.history.map(h => h[1]), ...[...t.history].reverse().map(h => h[0])]);
+    }
+  });
+  for (const t of trails) t.poly.remove();
 }
 
 /** A thruster burn: exhaust from the pack while the separation eases to its target. */
@@ -197,9 +238,12 @@ function* exchange(s: Stage, id: Cue, o: ExchangeOptions = {}): ThreadGenerator 
     s.spawn(all(ring.size(260, 0.5, easeOutCubic), ring.opacity(0, 0.5)));
   }
   const recoil = o.recoil ?? 160;
+  if ((o.sparkScale ?? 1) >= 1.3) s.spawn(whiteout(s));
+  // Contact hold: both freeze on the hit for 3 frames before the recoil reads.
+  s.spawn(sparks(s.fx, point, '#ffd27a', o.sparkScale ?? 1));
+  s.spawn(shake(s, o.shakeStrength ?? 1));
+  yield* waitFor(3 / 60);
   s.spawn(all(
-    sparks(s.fx, point, '#ffd27a', o.sparkScale ?? 1),
-    shake(s, o.shakeStrength ?? 1),
     s.sep(s.sep().add([recoil, 0]), 0.6, linear),
     s.keeper.body.pose(GUARD, 0.45, easeOutCubic),
     s.alien.body.pose(GUARD, 0.45, easeOutCubic),
@@ -223,10 +267,11 @@ export function* fight(s: Stage): ThreadGenerator {
   s.com(kp.scale(1 / 2.5).add(ap.scale(1.5 / 2.5)));
   s.sep(ap.sub(kp));
   bindToCentreOfMass(s);
-  const scale = 1.08;
-  s.world.position(() => s.com().scale(-scale).add(s.shake()));
+  s.spawn(smearTrails(s, at('disarm')));
+  // Frame the centre of mass at the live zoom, so it stays centred mid-zoom.
+  s.world.position(() => s.com().scale(-s.world.scale().x).add(s.shake()));
   yield* all(
-    s.world.scale(scale, 1.5, easeInOutCubic),
+    s.world.scale(1.2, 1.5, easeInOutCubic),
     s.label.show('frame: centre of mass', 'no outside force acts, so this point never moves'),
   );
 
@@ -235,7 +280,7 @@ export function* fight(s: Stage): ThreadGenerator {
   yield* exchange(s, 'clash2', {keeper: 'low', sepY: 20});
   yield* exchange(s, 'clash3', {keeper: 'mid', recoil: 260, sparkScale: 1.3, shakeStrength: 1.4});
   s.spawn(momentumArrows(s));
-  yield* syncTo('n9.start');
+  yield* syncTo('lblMomentum');
   yield* s.label.show('m₁Δv₁ = −m₂Δv₂', 'equal and opposite: the lighter keeper flies 1.5× faster');
   yield* exchange(s, 'clash4', {keeper: 'high', sepY: -20});
   yield* exchange(s, 'clash5', {keeper: 'low'});
@@ -267,7 +312,7 @@ export function* fight(s: Stage): ThreadGenerator {
     ['f12', 'mid', 'mid'],
   ];
   s.world.position(() => s.com().scale(-s.world.scale().x).add(s.shake()));
-  s.spawn(s.world.scale(1.25, 0.8, easeInOutCubic));
+  s.spawn(s.world.scale(1.35, 0.8, easeInOutCubic));
   for (const [id, ks, as] of flurry) {
     yield* quickStrike(s, id, ks, as);
   }
@@ -291,6 +336,7 @@ function* quickStrike(s: Stage, id: Cue, ks: Style, as: Style): ThreadGenerator 
   const point = yield* checkContact(s, id);
   s.spawn(sparks(s.fx, point, '#ffd27a', 0.8));
   s.spawn(shake(s, 0.6));
+  yield* waitFor(2 / 60);
   s.spawn(s.sep(s.sep().add([40, 0]), 0.12, linear));
 }
 
@@ -317,7 +363,7 @@ function* momentumArrows(s: Stage): ThreadGenerator {
   const a1 = arrow(s.keeper.body, -1, Colors.accent);
   const a2 = arrow(s.alien.body, 1, ALIEN_COLOR);
   yield* all(a1.opacity(1, 0.3), a2.opacity(1, 0.3));
-  yield* syncTo('n9.end');
+  yield* syncTo('momentumEnd');
   yield* all(a1.opacity(0, 0.4), a2.opacity(0, 0.4));
   a1.remove();
   a2.remove();
@@ -347,7 +393,7 @@ function* spin(s: Stage): ThreadGenerator {
     body.rotation(body.rotation() + omega * dt);
     readout.text(`ω = ${omega.toFixed(0)}°/s   I = ${(I / 1000).toFixed(0)}k`);
   }));
-  yield* syncTo('n10.start');
+  yield* syncTo('lblSpin');
   yield* all(
     s.label.show('L = I ω = constant', 'pull mass inward, I falls, ω rises'),
     readout.opacity(1, 0.3),
@@ -374,7 +420,7 @@ function* superposition(s: Stage): ThreadGenerator {
   const blade = s.alien.blade;
   yield* syncTo('superpose');
   yield* blade.spread(11, 2.0, easeInOutSine);
-  yield* syncTo('n11.start');
+  yield* syncTo('lblSuper');
   yield* s.label.show('Δx · Δp ≥ ħ / 2', 'a superposition: every angle at once, weighted by |ψ|²');
 
   // The keeper parries a ghost (branch +2): nothing there to hit.
@@ -496,11 +542,11 @@ function* finale(s: Stage): ThreadGenerator {
     alien.blade.rotation(k.grip, 0.38),
   );
   yield* checkContact(s, 'lock');
-  s.spawn(all(alien.blade.spread(7, 2.5, easeInOutSine), s.world.scale(1.4, 4, easeInOutSine)));
+  s.spawn(all(alien.blade.spread(7, 2.5, easeInOutSine), s.world.scale(1.5, 4, easeInOutSine)));
   s.spawn(s.label.hide());
   // Grinding: the locked blades shed sparks while they push.
   s.spawn((function* () {
-    while (useTime() < at('n14.end') - 0.3) {
+    while (useTime() < at('spinDown') - 0.3) {
       yield* sparks(s.fx, bladeContact(keeper.blade, alien.blade).point, '#ffd27a', 0.45);
     }
   })());
@@ -514,9 +560,9 @@ function* finale(s: Stage): ThreadGenerator {
   yield* s.label.show('measure A → ↑', 'the keeper reads his own blade');
 
   // Across the gap, with nothing crossing it, the other blade is down.
-  yield* syncTo('n14.start', -1.5);
+  yield* syncTo('singlet', -1.5);
   yield* s.label.show('singlet: A ↑  ⇒  B ↓', 'perfectly anti-correlated, always');
-  yield* syncTo('n14.end');
+  yield* syncTo('spinDown');
   alien.blade.spin(-1);
   alien.blade.spread(0);
   const ring2 = new Circle({size: 60, stroke: ALIEN_BLADE, lineWidth: 4});
@@ -528,7 +574,7 @@ function* finale(s: Stage): ThreadGenerator {
     alien.blade.rotation(alien.blade.rotation() + 80, 0.25, easeOutCubic),
     // Arm stays forward, blade tipped back over the shoulder: the line is open.
     alien.body.pose({rightShoulder: -150, rightElbow: -20, torso: -10}, 0.4, easeOutCubic),
-    s.world.scale(1.15, 1.5, easeInOutCubic),
+    s.world.scale(1.25, 1.5, easeInOutCubic),
   ));
 
   // The disarm: a rising cut through the traveller's grip.
@@ -568,6 +614,7 @@ function* finale(s: Stage): ThreadGenerator {
   const v = new Vector2(260, -120);
   const omega = 220;
   const life = 40;
+  s.spawn(whiteout(s, 0.9));
   s.spawn(all(
     sparks(s.fx, contact.point, '#ffffff', 1.8),
     shake(s, 2),
@@ -578,12 +625,12 @@ function* finale(s: Stage): ThreadGenerator {
   ));
   s.freeBlade = free;
 
-  yield* syncTo('n15.start');
+  yield* syncTo('lblSignal');
   yield* s.label.show('no-signalling theorem', 'entanglement shares correlations, never messages');
   yield* all(
     keeper.body.pose({...GUARD, rightShoulder: -20, rightElbow: -30, torso: 0}, 1.5),
     alien.body.pose({torso: 35, head: 25, rightShoulder: 10, rightElbow: -20, leftShoulder: 10, leftElbow: -20, leftHip: -5, leftKnee: 10, rightHip: 5, rightKnee: 10}, 2),
   );
-  yield* syncTo('n15.end');
+  yield* syncTo('lblSignalEnd');
   yield* s.label.hide();
 }

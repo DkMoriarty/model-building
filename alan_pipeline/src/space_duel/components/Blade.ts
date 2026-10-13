@@ -5,6 +5,8 @@ import {Typography} from '../../styles';
 export interface BladeProps extends NodeProps {
   length?: number;
   color?: string;
+  /** Edge stroke in px (set from the figure spec by the fighters). */
+  width?: number;
 }
 
 /** Ghost offsets (in units of `spread`) and their amplitudes |psi|^2 ~ gaussian. */
@@ -28,7 +30,7 @@ export class Blade extends Node {
   public readonly tipNode: Node;
   public readonly bladeLength: number;
 
-  public constructor({length = 190, color = '#ffffff', ...props}: BladeProps = {}) {
+  public constructor({length = 190, color = '#ffffff', width = 7, ...props}: BladeProps = {}) {
     super(props);
     this.bladeLength = length;
     this.extend = createSignal(1) as SimpleSignal<number, this>;
@@ -43,7 +45,7 @@ export class Blade extends Node {
           [0, 14 + length * this.extend()],
         ],
         stroke: color,
-        lineWidth: 7,
+        lineWidth: width,
         lineCap: 'round',
         opacity,
         shadowColor: color,

@@ -33,7 +33,7 @@ function floatPose(fig: StickFigure): void {
 
 export function* arrival(s: Stage): ThreadGenerator {
   // 0 - 10.5: the void. Stars only; the camera drifts.
-  yield* syncTo('n1.start', 1.5);
+  yield* syncTo('open', 1.5);
   s.spawn(all(s.blackout.opacity(0, 2.5), s.world.position([-60, 20], 18, linear)));
 
   yield* syncTo('title');
@@ -136,11 +136,11 @@ function* approach(s: Stage): ThreadGenerator {
     yield* all(ping.opacity(1, 0.2), icon.scale(0.4, 0.2).to(0.32, 0.4));
   })());
 
-  yield* syncTo('n4.start');
+  yield* syncTo('lblLength');
   yield* s.label.show('L = L₀ √(1 − v²/c²) = 0.60 L₀', 'length contraction: the ship is shorter along its motion');
-  yield* syncTo('n4.start', -5.0);
+  yield* syncTo('lblLength', -5.0);
   yield* s.label.show('λ = λ₀ √((1−β)/(1+β)) = λ₀ / 3', 'its 1300 nm infrared beacon arrives as 433 nm violet');
-  yield* syncTo('n5.start');
+  yield* syncTo('lblTime');
   yield* s.label.show('Δτ = Δt / γ,   γ = 1.67', 'moving clocks run slow: five years here, three aboard');
 
   // Flip and burn: point the engine forward and decelerate to rest.
@@ -148,7 +148,7 @@ function* approach(s: Stage): ThreadGenerator {
   yield* s.ship.rotation(180, 1.0, easeInOutCubic);
   s.spawn(all(s.ship.beta(0, at('arrive') - at('decel') - 0.5, easeOutCubic), s.ship.flame(1, 0.4)));
 
-  yield* syncTo('n6.start');
+  yield* syncTo('lblLight');
   yield* s.label.show('t_ship − t_light = d/v − d/c', 'at 0.8c the ship nearly overtakes its own light');
 
   yield* syncTo('arrive', 0.6);
@@ -182,7 +182,7 @@ function* standoff(s: Stage): ThreadGenerator {
   yield* syncTo('alienOut');
   yield* all(alien.body.opacity(1, 0.6), alien.body.position([300, 90], 2.2, easeInOutCubic));
 
-  yield* syncTo('n7.start');
+  yield* syncTo('lblPair');
   yield* s.label.show('|ψ⟩ = (|↑↓⟩ − |↓↑⟩) / √2', 'an entangled pair: one shared state, two blades');
 
   // Blades out. The traveller's blade flickers: it is in superposition.
@@ -200,7 +200,7 @@ function* standoff(s: Stage): ThreadGenerator {
     keeper.blade.showSpin(1, 0.5),
   );
 
-  yield* syncTo('n8.start');
+  yield* syncTo('lblVacuum');
   yield* s.label.show('vacuum: no medium, no sound', 'what you hear is vibration through blade, glove and bone');
 
   // Guard stances, then the fight.
