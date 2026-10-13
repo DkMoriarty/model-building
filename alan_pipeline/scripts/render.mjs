@@ -61,8 +61,10 @@ function resolveFfmpeg() {
 async function launchBrowser() {
   const base = {
     headless: true,
-    // Software GL keeps output identical between machines/GPU drivers.
-    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--mute-audio'],
+    // CPU rasterization (no GPU): identical output on every machine and driver,
+    // and ~3x faster for 2D canvas than SwiftShader's emulated GPU.
+    // Override with RENDER_BROWSER_ARGS="..." if needed.
+    args: (process.env.RENDER_BROWSER_ARGS ?? '--disable-gpu --mute-audio').split(' '),
   };
   const candidates = [
     process.env.CHROME_PATH && {executablePath: process.env.CHROME_PATH},
