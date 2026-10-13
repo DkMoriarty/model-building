@@ -1,5 +1,6 @@
 import {Line, Node, NodeProps, Txt} from '@motion-canvas/2d';
 import {createSignal, SimpleSignal, Vector2} from '@motion-canvas/core';
+import {withAlpha} from '../../figureSpec';
 import {Typography} from '../../styles';
 
 export interface BladeProps extends NodeProps {
@@ -48,8 +49,9 @@ export class Blade extends Node {
         lineWidth: width,
         lineCap: 'round',
         opacity,
-        shadowColor: color,
-        shadowBlur: 22,
+        // Soft bloom (~35% core) so the edge itself stays razor sharp.
+        shadowColor: withAlpha(color, 0.35),
+        shadowBlur: 18,
       });
 
     for (const k of BRANCHES) {

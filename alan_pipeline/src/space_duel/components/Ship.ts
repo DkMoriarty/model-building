@@ -1,6 +1,11 @@
 import {Circle, Line, Node, NodeProps, Txt} from '@motion-canvas/2d';
 import {createSignal, SimpleSignal} from '@motion-canvas/core';
+import {propStroke, strokeTiers} from '../../figureSpec';
 import {Typography} from '../../styles';
+
+const TIERS = strokeTiers();
+/** The ship is framed at this scale in the close shots. */
+const SHIP_SCALE = 0.62;
 import {gamma, observedWavelength, wavelengthColor} from '../physics';
 
 export interface ShipProps extends NodeProps {
@@ -58,7 +63,7 @@ export class Ship extends Node {
           ],
           fill: '#1b2a2a',
           stroke: '#3ddc97',
-          lineWidth: 4,
+          lineWidth: propStroke(TIERS.structure, SHIP_SCALE),
         }),
         new Line({
           points: [
@@ -66,10 +71,10 @@ export class Ship extends Node {
             [-half * 0.6, -10],
           ],
           stroke: 'rgba(61,220,151,0.35)',
-          lineWidth: 3,
+          lineWidth: propStroke(TIERS.detail, SHIP_SCALE),
         }),
         // Canopy
-        new Circle({x: half * 0.25, size: [90, 40], fill: 'rgba(61,220,151,0.25)', stroke: '#3ddc97', lineWidth: 2}),
+        new Circle({x: half * 0.25, size: [90, 40], fill: 'rgba(61,220,151,0.25)', stroke: '#3ddc97', lineWidth: propStroke(TIERS.detail, SHIP_SCALE)}),
         // Hull lights (520 nm) and the IR beacon (1300 nm) at the nose.
         ...[-0.55, -0.2, 0.15].map(
           f =>
@@ -79,7 +84,7 @@ export class Ship extends Node {
               size: 16,
               fill: () => wavelengthColor(nm(HULL_NM)),
               shadowColor: () => wavelengthColor(nm(HULL_NM)),
-              shadowBlur: 18,
+              shadowBlur: 12,
             }),
         ),
         new Circle({
@@ -87,7 +92,7 @@ export class Ship extends Node {
           size: 26,
           fill: () => wavelengthColor(nm(BEACON_NM)),
           shadowColor: () => wavelengthColor(nm(BEACON_NM)),
-          shadowBlur: 30,
+          shadowBlur: 20,
         }),
       ],
     });

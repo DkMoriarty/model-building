@@ -1,5 +1,12 @@
 import {Circle, Gradient, Line, Node, NodeProps, Rect} from '@motion-canvas/2d';
+import {propStroke, strokeTiers} from '../../figureSpec';
 import {Colors} from '../../styles';
+
+const TIERS = strokeTiers();
+/** Typical framing scale of the station. */
+const STATION_SCALE = 0.6;
+const structure = propStroke(TIERS.structure, STATION_SCALE);
+const detail = propStroke(TIERS.detail, STATION_SCALE);
 
 /** Earth's limb: a huge sphere mostly off-frame, with a thin atmosphere glow. */
 export function earth(props: NodeProps = {}): Node {
@@ -72,7 +79,7 @@ export function station(props: NodeProps = {}): Node {
       height: 74,
       fill: '#13254a',
       stroke: '#3a5a9a',
-      lineWidth: 3,
+      lineWidth: detail,
       children: [-75, -25, 25, 75].map(
         px =>
           new Line({
@@ -81,7 +88,7 @@ export function station(props: NodeProps = {}): Node {
               [px, 37],
             ],
             stroke: '#3a5a9a',
-            lineWidth: 2,
+            lineWidth: detail * 0.7,
           }),
       ),
     });
@@ -94,7 +101,7 @@ export function station(props: NodeProps = {}): Node {
           [400, 0],
         ],
         stroke: '#5c5c6a',
-        lineWidth: 8,
+        lineWidth: structure,
       }),
       panel(-290),
       panel(290),
@@ -104,7 +111,7 @@ export function station(props: NodeProps = {}): Node {
         radius: 18,
         fill: '#2a2a33',
         stroke: '#6b6b78',
-        lineWidth: 4,
+        lineWidth: structure,
         children: [
           new Rect({width: 60, height: 14, radius: 7, y: -16, fill: 'rgba(120,200,255,0.5)'}),
           new Circle({x: 50, y: 26, size: 10, fill: Colors.accent}),
@@ -116,7 +123,7 @@ export function station(props: NodeProps = {}): Node {
           [0, -90],
         ],
         stroke: '#6b6b78',
-        lineWidth: 5,
+        lineWidth: structure,
       }),
       new Circle({
         y: -118,
@@ -124,7 +131,7 @@ export function station(props: NodeProps = {}): Node {
         startAngle: 200,
         endAngle: 340,
         stroke: '#9a9aa8',
-        lineWidth: 6,
+        lineWidth: structure,
       }),
     ],
   });

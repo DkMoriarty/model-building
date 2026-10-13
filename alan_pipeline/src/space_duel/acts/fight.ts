@@ -160,9 +160,9 @@ function* whiteout(s: Stage, strength = 0.8): ThreadGenerator {
 }
 
 /**
- * Smear trails: each frame, fill the area the blade swept over the last 3
- * frames. Fades with tip speed, so slow moves leave nothing and fast swings
- * leave a clean arc (style bible, section 3).
+ * Smear trails: an arc traced through the blade tip's last 5 positions, like
+ * a hand-drawn swipe line. Brightness scales with tip speed, so slow moves
+ * leave nothing (style bible, section 3).
  */
 function* smearTrails(s: Stage, until: number): ThreadGenerator {
   const toLocal = (p: Vector2) => p.sub(s.world.absolutePosition()).scale(1 / s.world.scale().x);
@@ -170,22 +170,22 @@ function* smearTrails(s: Stage, until: number): ThreadGenerator {
     {blade: s.keeper.blade, color: KEEPER_BLADE},
     {blade: s.alien.blade, color: ALIEN_BLADE},
   ].map(({blade, color}) => {
-    const poly = new Line({closed: true, fill: color, points: [], opacity: 0});
-    s.world.add(poly);
-    poly.moveBelow(s.alien.body);
-    return {blade, poly, history: [] as [Vector2, Vector2][]};
+    const arc = new Line({points: [], stroke: color, lineWidth: 5, lineCap: 'round', lineJoin: 'round', opacity: 0});
+    s.world.add(arc);
+    arc.moveBelow(s.alien.body);
+    return {blade, arc, history: [] as Vector2[]};
   });
   yield* everyFrame(until, () => {
     for (const t of trails) {
-      t.history.push([toLocal(t.blade.absolutePosition()), toLocal(t.blade.tip())]);
-      if (t.history.length > 3) t.history.shift();
+      t.history.push(toLocal(t.blade.tip()));
+      if (t.history.length > 5) t.history.shift();
       if (t.history.length < 2) continue;
-      const speed = t.history[t.history.length - 1][1].sub(t.history[0][1]).magnitude / (t.history.length - 1);
-      t.poly.opacity(Math.max(0, Math.min(0.22, (speed - 14) / 120)));
-      t.poly.points([...t.history.map(h => h[1]), ...[...t.history].reverse().map(h => h[0])]);
+      const speed = t.history[t.history.length - 1].sub(t.history[0]).magnitude / (t.history.length - 1);
+      t.arc.opacity(Math.max(0, Math.min(0.55, (speed - 12) / 80)));
+      t.arc.points([...t.history]);
     }
   });
-  for (const t of trails) t.poly.remove();
+  for (const t of trails) t.arc.remove();
 }
 
 /** A thruster burn: exhaust from the pack while the separation eases to its target. */

@@ -68,11 +68,31 @@ export function strokeOf(spec: FigureSpec): number {
 }
 
 /**
- * Environment line weight: 50-65% of the figure stroke, so characters always
- * dominate the frame (style bible, rule "hierarchy").
+ * Line-weight tiers, figure : structure : detail = 3 : 2 : 1, so characters
+ * always dominate (docs/STYLE_BIBLE.md, section 5). Vertex dots are
+ * 1.35 x the structure weight in radius.
  */
-export function environmentStroke(spec: FigureSpec = BIPED): number {
-  return strokeOf(spec) * 0.55;
+export function strokeTiers(spec: FigureSpec = BIPED) {
+  const figure = strokeOf(spec);
+  const structure = (figure * 2) / 3;
+  return {figure, structure, detail: figure / 3, nodeRadius: structure * 1.35};
+}
+
+/** Figures are drawn at this node scale in our shots. */
+export const FIGURE_SCALE = 0.8;
+
+/**
+ * Local stroke for a prop drawn at `nodeScale`, so that on screen it keeps
+ * its tier ratio to a figure drawn at FIGURE_SCALE.
+ */
+export function propStroke(tierPx: number, nodeScale: number): number {
+  return (tierPx * FIGURE_SCALE) / nodeScale;
+}
+
+/** `#rrggbb` -> `rgba(r,g,b,a)`, for soft glows that keep edges sharp. */
+export function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
 
 /** Total standing height in units of H (head + neck + torso + leg). */

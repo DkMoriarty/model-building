@@ -1,6 +1,7 @@
 import {Line, Node, Rect, View2D} from '@motion-canvas/2d';
 import {createSignal, SimpleSignal, ThreadGenerator, usePlayback, useTime, Vector2} from '@motion-canvas/core';
 import {StickFigure} from '../components/StickFigure';
+import {FIGURE_SCALE} from '../figureSpec';
 import {Colors} from '../styles';
 import {Blade} from './components/Blade';
 import {createAlien, createKeeper, Fighter, MASS} from './components/Fighters';
@@ -70,9 +71,9 @@ export function buildStage(view: View2D): Stage {
   const ship = new Ship({scale: 0.5, opacity: 0});
   const fx = new Node({});
 
-  // Fighters at 0.8: the BIPED keeper stands 4.85 H x 0.8 = 217 px before camera zoom.
-  const keeper = createKeeper({scale: 0.8});
-  const alien = createAlien({scale: [-0.8, 0.8]});
+  // The BIPED keeper stands 4.85 H x FIGURE_SCALE = 217 px before camera zoom.
+  const keeper = createKeeper({scale: FIGURE_SCALE});
+  const alien = createAlien({scale: [-FIGURE_SCALE, FIGURE_SCALE]});
   keeper.body.opacity(0);
   alien.body.opacity(0);
 

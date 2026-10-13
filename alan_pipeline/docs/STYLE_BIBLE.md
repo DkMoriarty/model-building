@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§9), update the rules it
 changes, and bump the version.
 
-**Version 1.0 · 2026-10-13**
+**Version 1.1 · 2026-10-13**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -79,9 +79,10 @@ the human band: it's an alien, and its ratios are still fixed and measured.
 - Fast acceleration into actions, cushioned (ease-out) arrival on key poses.
 - Springs only with a settle tolerance and damping ratio around 0.6; cut
   tails at the next beat (`playUntil`).
-- **Smears:** fast swings leave a swept-area trail, the last 3 frames of the
-  blade filled at up to 22% opacity, scaled by tip speed. Slow moves leave
-  none. Heavier trails read as solid wedges and clutter the hit.
+- **Smears:** fast swings leave a crisp arc traced through the blade tip's last
+  5 positions, at up to 55% opacity, scaled by tip speed. Slow moves leave
+  none. Never fill the swept area: fast swings sweep 200° in a few frames,
+  and the fill turns into a big translucent panel.
 - Weight: the heavier body recoils less (momentum split by mass), and leaning
   sells effort.
 
@@ -101,16 +102,61 @@ the human band: it's an alien, and its ratios are still fixed and measured.
   each other. Contact points are explicit, at blade crossings or the hilt,
   never "near".
 
-## 5. Camera and layout
+## 5. Composition, camera and layout
 
-- 1920 × 1080, with a **96 px safe margin** for all text and HUD.
-- Push in for intensity (flurry, lock), pull out to establish or resolve.
-- Track the action's centre (the fight frame is the centre of mass, so the
-  camera never jitters).
-- Environment and diagram lines are 50–65% of the figure stroke, in neutral
-  white or grey, with thin labels in sans or mono.
-- Labels annotate; they don't present. Use small type and a thin gold rule,
-  never boxes or slides.
+**Frame and placement** (1920 × 1080)
+- **Safe margin:** 96 px for all text and HUD.
+- **Ground line in calm beats:** two-thirds down the frame, so feet sit at
+  y ≈ +180 from centre. Headroom is 33–40% of frame height.
+- **Lead room:** a figure moving or facing right sits at 0.38 × width
+  (x ≈ −230 from centre), and at 0.62 × width when facing left. Leave about 60%
+  of the frame open ahead of it.
+- **Calm beats:** keep 70–80% of the frame as negative space around the
+  character.
+- **Intense beats:** centre the action (the fight frame is the centre of mass)
+  or pin it hard to an edge.
+
+**Figure height by shot type** (on-screen, % of frame height)
+
+| shot | figure height | ours |
+| --- | --- | --- |
+| wide / establishing | 8–15% | station shot, departure |
+| medium | 25–35% | fight 24–30% (zoom 1.2–1.5) |
+| close-up | 50–70% | (not yet used) |
+
+**Props relative to the figure:** handles and vertex dots are about 0.15 ×
+figure height; small props 0.3–0.8 ×; set-piece objects 4–12 ×.
+
+**Line-weight tiers** (`strokeTiers()` in `src/figureSpec.ts`):
+- **Ratio:** figure : structure : detail = **3 : 2 : 1**. At our scale that's
+  about 6.3 : 4.2 : 2.1 px on screen.
+- **Vertex dots:** radius = 1.35 × the structure stroke.
+- **Props at other node scales:** use `propStroke(tier, nodeScale)` so the
+  on-screen ratio holds.
+
+**Geometry drawing:** perfect primitives only, no wobble. Right-angle
+brackets and arc notches are offset 1.5 × stroke from the corner. Construction
+lines draw in with an eased trim from 0 to 100%, or snap in a single frame
+when touched.
+
+**Labels:** small sans or mono type, with 12–16 px padding from what they
+annotate. Labels annotate, they don't present: a thin gold rule, never boxes or
+slides.
+
+**Camera:** heavy cubic ease in and out on pans and zooms (bezier
+0.25, 0.1, 0.25, 1), so nothing stops dead. Push in for intensity and pull
+out to establish or resolve. Track the action's centre.
+
+**Rhythm**
+- **Average shot length:** 4.5–6 s in exposition, 1.2–2.5 s in action.
+- **Hold after a transformation or reveal:** 1.5–2 s (90–120 frames at
+  60 fps) before the next action.
+- **Burst:** an anticipation of about 15 frames at 60 fps, the action of
+  about 25 frames, the contact in 4 frames, then follow-through.
+
+**Glow:** a soft bloom at about 15–35% core opacity, fading over 80–120 px.
+The vector edge itself stays razor sharp: never blur the line, only add
+bloom behind it.
 
 ## 6. Colour
 
@@ -119,6 +165,10 @@ the human band: it's an alien, and its ratios are still fixed and measured.
   traveller green `#3ddc97`. No two characters share a hue.
 - Gold `#ffd166` is reserved for payoffs: physics tags, measurement, collapse.
 - White is for impact only: sparks and flashes.
+- **Our palette is our own.** References teach the *structure* of a palette
+  (one saturated character colour, a near-black field, a neutral structure
+  colour, one payoff accent). We don't adopt another creator's signature
+  colours.
 
 ## 7. Story without words
 
@@ -140,7 +190,9 @@ the human band: it's an alien, and its ratios are still fixed and measured.
 
 | date | source | method | key findings adopted |
 | --- | --- | --- | --- |
-| 2026-10-13 | "Animation vs. Geometry", Alan Becker channel (YouTube `VEJWE6cpqw0`, 9:02) | vidIQ visual analysis (no download) | figure 4.5–5 H; torso 1.3–1.5 H; limb segments 1.0–1.2 H; stroke 12–15% H; open-ring head; round caps; 3–8 f anticipation; 2–4 f holds; flash frames; 2–4 f shake at 5–10 px; environment lines 30–50% thinner; gold for climaxes; no dialogue |
+| 2026-10-13 | "Animation vs. Geometry", Alan Becker channel (YouTube `VEJWE6cpqw0`, 9:02) | vidIQ visual analysis, pass 1: construction and motion (no download) | figure 4.5–5 H; torso 1.3–1.5 H; limb segments 1.0–1.2 H; stroke 12–15% H; open-ring head; round caps; 3–8 f anticipation; 2–4 f holds; flash frames; 2–4 f shake at 5–10 px; environment lines 30–50% thinner; gold for climaxes; no dialogue |
+| 2026-10-13 | same video | vidIQ visual analysis, pass 2: composition and aesthetics | ground at two-thirds height; 33–40% headroom; lead room 0.38 / 0.62 × width; figure 8–15% / 25–35% / 50–70% of frame height (wide / medium / close); line tiers 3 : 2 : 1; vertex dots 1.35 × structure stroke; labels padded 12–16 px; cubic camera easing; average shot length 4.5–6 s (exposition) and 1.2–2.5 s (action); 1.5–2 s holds after reveals; soft bloom with sharp edges |
+| next | an Alan Becker **fight** video | vidIQ analysis when credits refill (Oct 28), and/or user screenshots measured frame by frame | pending |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
 staging, effects), then add a row here. Update §2–§8 where it changes a rule,
@@ -148,5 +200,11 @@ and bump the version below.
 
 ## 10. Changelog
 
+- **1.1** (2026-10-13): composition pass. Placement and headroom, figure
+  height by shot type, the 3 : 2 : 1 line tiers (encoded as `strokeTiers`
+  and `propStroke`), vertex-dot size, label padding, camera easing, rhythm,
+  glow (soft bloom, sharp edge). Smears are now a tip-path arc, not a filled
+  swept area.
+  Added the palette originality note.
 - **1.0** (2026-10-13): first version. Head-unit spec, motion timing table,
   fight grammar, hierarchy and colour rules. Applied to `space_duel`.
