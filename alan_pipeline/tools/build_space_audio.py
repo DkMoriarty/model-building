@@ -1,0 +1,507 @@
+#!/usr/bin/env python3
+"""Build the soundtrack and cue sheet for the space_duel project.
+
+    python tools/build_space_audio.py [--voices DIR] [--piper PATH] [--retts]
+
+Reads   audio/space_duel/story.json   (narration, events, sfx, music sections)
+Writes  audio/space_duel/voice/*.wav  (TTS clips, cached: Piper is not
+                                       bit-deterministic, so the clips are the
+                                       committed source of truth)
+        audio/space_duel/cues.json    (resolved times the scene animates to)
+        audio/space_duel/master.wav   (48 kHz stereo mix)
+
+Picture and sound share one timeline. Every narration line's real start and
+end, every fight event and every sound effect comes from the same story file,
+so a hit can never land off its sound. Event times may reference narration
+lines ("n14.end"), so a visual beat can land exactly as a sentence finishes.
+The build fails if a line overruns the next one.
+
+Requires numpy. Piper (pip install piper-tts) plus voice models are only needed
+when a line's text, voice or speed changes (or with --retts).
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import subprocess
+import sys
+import wave
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+DIR = ROOT / "audio" / "space_duel"
+SR = 48000
+VOICE_SR = 24000
+RNG = np.random.default_rng(20261013)
+
+
+# --------------------------------------------------------------------------- io
+
+
+def read_wav(path: Path) -> tuple[np.ndarray, int]:
+    with wave.open(str(path), "rb") as w:
+        sr = w.getframerate()
+        ch = w.getnchannels()
+        data = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float64)
+    if ch > 1:
+        data = data.reshape(-1, ch).mean(axis=1)
+    return data / 32768.0, sr
+
+
+def write_wav(path: Path, stereo: np.ndarray, sr: int = SR) -> None:
+    pcm = (np.clip(stereo, -1, 1) * 32767).astype("<i2")
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(stereo.shape[1] if stereo.ndim == 2 else 1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(pcm.tobytes())
+
+
+def resample(x: np.ndarray, sr_from: float, sr_to: float) -> np.ndarray:
+    n = int(round(len(x) * sr_to / sr_from))
+    return np.interp(np.arange(n) * sr_from / sr_to, np.arange(len(x)), x)
+
+
+# ------------------------------------------------------------------------- dsp
+
+
+def spectral_filter(x: np.ndarray, low: float = 0.0, high: float = SR / 2) -> np.ndarray:
+    """Zero-phase band-pass with smooth (raised-cosine, half-octave) edges."""
+    spec = np.fft.rfft(x)
+    f = np.fft.rfftfreq(len(x), 1 / SR)
+    gain = np.ones_like(f)
+    if low > 0:
+        lo = np.clip(np.log2(np.maximum(f, 1e-3) / low) / 0.5 + 1, 0, 1)
+        gain *= 0.5 - 0.5 * np.cos(np.pi * lo)
+    if high < SR / 2:
+        hi = np.clip(np.log2(high / np.maximum(f, 1e-3)) / 0.5 + 1, 0, 1)
+        gain *= 0.5 - 0.5 * np.cos(np.pi * hi)
+    return np.fft.irfft(spec * gain, n=len(x))
+
+
+def env_adsr(n: int, a: float, d: float, s: float, r: float) -> np.ndarray:
+    t = np.arange(n) / SR
+    total = n / SR
+    e = np.where(t < a, t / max(a, 1e-6), 1.0)
+    e = np.where((t >= a) & (t < a + d), 1 - (1 - s) * (t - a) / max(d, 1e-6), e)
+    e = np.where(t >= a + d, s, e)
+    rel = np.clip((total - t) / max(r, 1e-6), 0, 1)
+    return e * rel
+
+
+def smooth(x: np.ndarray, seconds: float) -> np.ndarray:
+    k = max(1, int(seconds * SR))
+    c = np.cumsum(np.insert(np.abs(x), 0, 0))
+    out = (c[k:] - c[:-k]) / k
+    return np.concatenate([out, np.full(k - 1, out[-1])])
+
+
+def midi(n: float) -> float:
+    return 440.0 * 2 ** ((n - 69) / 12)
+
+
+def saw(freq: float, n: int, harmonics: int = 8, detune: float = 0.0) -> np.ndarray:
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    f = freq * (1 + detune)
+    for k in range(1, harmonics + 1):
+        if f * k > SR / 2.2:
+            break
+        out += np.sin(2 * np.pi * f * k * t + k) / k
+    return out
+
+
+def add(buf: np.ndarray, at: float, sig: np.ndarray, gain: float = 1.0) -> None:
+    i = int(round(at * SR))
+    if i >= len(buf) or i + len(sig) <= 0:
+        return
+    j0 = max(0, -i)
+    j1 = min(len(sig), len(buf) - i)
+    buf[i + j0 : i + j1] += sig[j0:j1] * gain
+
+
+# ------------------------------------------------------------------------- sfx
+
+
+def sfx_clash(length: float = 1.6) -> np.ndarray:
+    """Struck metal: inharmonic bar modes (1, 2.76, 5.40, 8.93) + a bright tick."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    base = 420 * (1 + RNG.uniform(-0.06, 0.06))
+    out = np.zeros(n)
+    for ratio, amp, decay in [(1, 1.0, 3.5), (2.76, 0.7, 5), (5.40, 0.45, 8), (8.93, 0.3, 12), (13.3, 0.18, 18)]:
+        out += amp * np.sin(2 * np.pi * base * ratio * t + RNG.uniform(0, 6)) * np.exp(-decay * t)
+    tick = spectral_filter(RNG.normal(0, 1, n), 2500) * np.exp(-t * 90) * 0.9
+    thump = np.sin(2 * np.pi * (70 + 90 * np.exp(-t * 25)) * t) * np.exp(-t * 10) * 0.9
+    return (out * 0.35 + tick + thump) * 0.8
+
+
+def sfx_whoosh(length: float = 0.9) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    noise = RNG.normal(0, 1, n)
+    swept = spectral_filter(noise, 300, 3500)
+    e = np.sin(np.pi * np.clip(t / length, 0, 1)) ** 2
+    return swept * e * 0.35
+
+
+def sfx_thrust(length: float) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    rumble = spectral_filter(RNG.normal(0, 1, n), 40, 400)
+    hiss = spectral_filter(RNG.normal(0, 1, n), 2000, 7000) * 0.25
+    flutter = 1 + 0.3 * np.sin(2 * np.pi * 23 * t)
+    return (rumble + hiss) * flutter * env_adsr(n, 0.08, 0.2, 0.8, 0.35) * 0.45
+
+
+def sfx_boom(length: float = 3.0) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    sub = np.sin(2 * np.pi * (38 + 60 * np.exp(-t * 6)) * t) * np.exp(-t * 1.6)
+    body = spectral_filter(RNG.normal(0, 1, n), 30, 900) * np.exp(-t * 3) * 0.6
+    return (sub + body) * 0.8
+
+
+def sfx_riser(length: float) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = 120 * 2 ** (3 * t / length)
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.sin(phase) + 0.5 * np.sin(2 * phase + 0.3)
+    air = spectral_filter(RNG.normal(0, 1, n), 1500, 9000) * 0.4
+    return (tone * 0.4 + air) * (t / length) ** 2 * 0.5
+
+
+def sfx_hum(length: float) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = 110 * (1 + 0.004 * np.sin(2 * np.pi * 5 * t))
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    tone = sum(np.sin(k * phase) / k for k in (1, 2, 3, 5))
+    return tone * env_adsr(n, 0.3, 0.4, 0.6, 0.5) * 0.35
+
+
+def sfx_spin(length: float) -> np.ndarray:
+    """Air-less spin: a rising tremolo whose rate tracks the angular speed."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    rate = 3 + 9 * np.clip(t / (length * 0.5), 0, 1)
+    trem = 0.5 + 0.5 * np.sin(2 * np.pi * np.cumsum(rate) / SR)
+    tone = spectral_filter(RNG.normal(0, 1, n), 200, 1200)
+    return tone * trem * env_adsr(n, 0.4, 0.5, 0.8, 0.8) * 0.4
+
+
+def sfx_shimmer(length: float) -> np.ndarray:
+    """Superposition: many detuned partials beating against each other."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    for k in range(9):
+        f = midi(76 + [0, 3, 7, 10, 12, 15, 19, 22, 24][k]) * (1 + RNG.uniform(-0.004, 0.004))
+        out += np.sin(2 * np.pi * f * t + RNG.uniform(0, 6)) * (0.5 + 0.5 * np.sin(2 * np.pi * RNG.uniform(0.2, 0.9) * t))
+    return out / 9 * env_adsr(n, 1.2, 0.5, 0.8, 1.5) * 0.5
+
+
+def sfx_collapse(length: float = 1.4) -> np.ndarray:
+    """Measurement: shimmer sucked into a single pure tone, then a click."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    pre = int(0.35 * SR)
+    swell = np.zeros(n)
+    tp = t[:pre]
+    swell[:pre] = spectral_filter(RNG.normal(0, 1, pre), 2000, 9000) * (tp / 0.35) ** 3 * 0.6
+    tone = np.zeros(n)
+    tone[pre:] = np.sin(2 * np.pi * midi(88) * (t[pre:] - t[pre])) * np.exp(-(t[pre:] - t[pre]) * 3)
+    click = np.zeros(n)
+    click[pre : pre + 200] = np.hanning(200)
+    return (swell + tone * 0.5 + click) * 0.7
+
+
+def sfx_barrier(length: float) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    tone = sum(np.sin(2 * np.pi * midi(n_) * t) for n_ in (57, 64, 69))
+    pulse = 0.7 + 0.3 * np.sin(2 * np.pi * 2 * t)
+    return tone / 3 * pulse * env_adsr(n, 0.25, 0.3, 0.7, 0.6) * 0.3
+
+
+def sfx_tunnel(length: float = 1.4) -> np.ndarray:
+    """Tunnelling: a descending glide that thins out (exponential decay)."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = 1600 * 2 ** (-3 * t / length)
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR)
+    return tone * np.exp(-t * 2.2) * 0.45 + sfx_clash(length)[:n] * 0.35
+
+
+def sfx_grind(length: float) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    noise = spectral_filter(RNG.normal(0, 1, n), 600, 4000)
+    am = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 31 * t))
+    return noise * am * env_adsr(n, 0.1, 0.3, 0.7, 0.6) * 0.35
+
+
+def sfx_measure(length: float = 1.2) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    up = np.sin(2 * np.pi * np.cumsum(midi(81) * 2 ** (t / length)) / SR)
+    return up * np.exp(-t * 2.5) * 0.4
+
+
+SFX = {
+    "clash": lambda e: sfx_clash(),
+    "whoosh": lambda e: sfx_whoosh(),
+    "thrust": lambda e: sfx_thrust(e.get("length", 2.0)),
+    "boom": lambda e: sfx_boom(),
+    "riser": lambda e: sfx_riser(e.get("length", 3.0)),
+    "hum": lambda e: sfx_hum(e.get("length", 1.5)),
+    "spin": lambda e: sfx_spin(e.get("length", 4.0)),
+    "shimmer": lambda e: sfx_shimmer(e.get("length", 8.0)),
+    "collapse": lambda e: sfx_collapse(),
+    "barrier": lambda e: sfx_barrier(e.get("length", 6.0)),
+    "tunnel": lambda e: sfx_tunnel(),
+    "grind": lambda e: sfx_grind(e.get("length", 3.0)),
+    "measure": lambda e: sfx_measure(),
+}
+
+
+# ----------------------------------------------------------------------- music
+
+# A minor. Each section: chord roots per 2-second bar and which layers play.
+PROGRESSIONS = {
+    "void": [[45, 52, 57, 60]],
+    "approach": [[45, 52, 57, 60], [41, 48, 57, 60], [43, 50, 55, 59], [40, 47, 55, 59]],
+    "standoff": [[38, 50, 53, 57], [45, 52, 57, 60], [38, 50, 53, 57], [40, 52, 56, 59]],
+    "fight": [[45, 52, 57, 60], [41, 53, 57, 60], [36, 52, 55, 60], [43, 50, 55, 59]],
+    "climax": [[45, 52, 57, 60], [41, 53, 57, 60], [36, 52, 55, 60], [40, 52, 56, 59]],
+    "hush": [[45, 57, 64, 72]],
+    "resolve": [[41, 53, 57, 60], [36, 52, 55, 60], [43, 55, 59, 62], [45, 57, 61, 64]],
+}
+LAYERS = {
+    "void": {"pad": 0.55, "air": 0.25},
+    "approach": {"pad": 0.6, "arp": 0.22, "pulse": 0.25},
+    "standoff": {"pad": 0.6, "pulse": 0.3, "arp": 0.15},
+    "fight": {"pad": 0.45, "bass": 0.5, "kick": 0.55, "snare": 0.3, "hat": 0.12, "arp": 0.2},
+    "climax": {"pad": 0.55, "bass": 0.6, "kick": 0.7, "snare": 0.4, "hat": 0.18, "arp": 0.3},
+    "hush": {"pad": 0.45, "air": 0.35},
+    "resolve": {"pad": 0.6, "arp": 0.12},
+}
+
+
+def build_music(story: dict, n: int) -> np.ndarray:
+    bpm = story["bpm"]
+    beat = 60 / bpm
+    bar = beat * 4
+    left = np.zeros(n)
+    right = np.zeros(n)
+    for sec in story["music"]:
+        name, t0, t1 = sec["section"], sec["from"], sec["to"]
+        prog = PROGRESSIONS[name]
+        layers = LAYERS[name]
+        bars = int(math.ceil((t1 - t0) / bar))
+        for b in range(bars):
+            bt = t0 + b * bar
+            chord = prog[b % len(prog)]
+            dur = min(bar, t1 - bt)
+            if dur <= 0.05:
+                continue
+            m = int((dur + 0.6) * SR)
+            if "pad" in layers:
+                for note in chord:
+                    for side, det in ((left, -0.003), (right, 0.003)):
+                        tone = saw(midi(note), m, 6, det)
+                        add(side, bt, tone * env_adsr(m, 0.5, 0.3, 0.9, 0.6), layers["pad"] * 0.06)
+            if "air" in layers:
+                hiss = spectral_filter(RNG.normal(0, 1, m), 3000, 10000)
+                add(left, bt, hiss * env_adsr(m, 0.8, 0.2, 1, 0.8), layers["air"] * 0.05)
+                add(right, bt, np.roll(hiss, 997) * env_adsr(m, 0.8, 0.2, 1, 0.8), layers["air"] * 0.05)
+            steps = int(round(dur / (beat / 2)))
+            for s in range(steps):
+                st = bt + s * beat / 2
+                on_beat = s % 2 == 0
+                if "bass" in layers:
+                    k = int(0.4 * SR)
+                    f = midi(chord[0] - 12 if chord[0] > 40 else chord[0])
+                    tt = np.arange(k) / SR
+                    tone = (np.sin(2 * np.pi * f * tt) + 0.4 * np.sin(4 * np.pi * f * tt)) * np.exp(-tt * 6)
+                    add(left, st, tone, layers["bass"] * 0.35)
+                    add(right, st, tone, layers["bass"] * 0.35)
+                if "pulse" in layers and on_beat:
+                    k = int(0.6 * SR)
+                    tt = np.arange(k) / SR
+                    tone = np.sin(2 * np.pi * midi(chord[0]) * tt) * np.exp(-tt * 5)
+                    add(left, st, tone, layers["pulse"] * 0.3)
+                    add(right, st, tone, layers["pulse"] * 0.3)
+                if "kick" in layers and on_beat:
+                    k = int(0.35 * SR)
+                    tt = np.arange(k) / SR
+                    tone = np.sin(2 * np.pi * (45 + 110 * np.exp(-tt * 30)) * tt) * np.exp(-tt * 9)
+                    add(left, st, tone, layers["kick"] * 0.6)
+                    add(right, st, tone, layers["kick"] * 0.6)
+                if "snare" in layers and s % 4 == 2:
+                    k = int(0.25 * SR)
+                    tt = np.arange(k) / SR
+                    noise = spectral_filter(RNG.normal(0, 1, k), 900, 6000) * np.exp(-tt * 18)
+                    add(left, st, noise, layers["snare"] * 0.45)
+                    add(right, st, noise, layers["snare"] * 0.45)
+                if "hat" in layers:
+                    k = int(0.06 * SR)
+                    tt = np.arange(k) / SR
+                    noise = spectral_filter(RNG.normal(0, 1, k), 7000) * np.exp(-tt * 70)
+                    add(left if s % 2 else right, st, noise, layers["hat"] * 0.5)
+                if "arp" in layers:
+                    k = int(0.5 * SR)
+                    tt = np.arange(k) / SR
+                    note = chord[[1, 2, 3, 2][s % 4]] + 12
+                    tone = np.sin(2 * np.pi * midi(note) * tt) * np.exp(-tt * 7)
+                    add(left if s % 2 else right, st, tone, layers["arp"] * 0.25)
+    # Gentle fades at section boundaries come from the per-bar envelopes; add
+    # a global fade-in and fade-out.
+    fade = np.ones(n)
+    fi, fo = int(2 * SR), int(4 * SR)
+    fade[:fi] = np.linspace(0, 1, fi)
+    fade[-fo:] = np.linspace(1, 0, fo)
+    return np.stack([left * fade, right * fade], axis=1)
+
+
+# ----------------------------------------------------------------------- voice
+
+
+def tts(line: dict, voice: dict, args: argparse.Namespace) -> np.ndarray:
+    """Return the processed clip for a line, synthesizing only when needed."""
+    out_dir = DIR / "voice"
+    out_dir.mkdir(exist_ok=True)
+    key = hashlib.sha1(json.dumps([line["text"], voice], sort_keys=True).encode()).hexdigest()[:12]
+    path = out_dir / f"{line['id']}.wav"
+    stamp = out_dir / f"{line['id']}.key"
+    if args.retts or not path.exists() or not stamp.exists() or stamp.read_text().strip() != key:
+        model = Path(args.voices) / f"{voice['model']}.onnx"
+        if not model.exists():
+            sys.exit(f"voice model missing: {model} (needed to synthesize '{line['id']}')")
+        raw = out_dir / f"{line['id']}.raw.wav"
+        subprocess.run(
+            [args.piper, "-m", str(model), "-f", str(raw), "--length-scale", str(voice.get("lengthScale", 1.0))],
+            input=line["text"].encode(),
+            check=True,
+            capture_output=True,
+        )
+        x, sr = read_wav(raw)
+        raw.unlink()
+        x = resample(x, sr, SR)
+        if voice.get("alien"):
+            x = alienize(x)
+        x = trim(x)
+        x = x / (np.max(np.abs(x)) + 1e-9) * 0.9
+        # Speech needs no more than 24 kHz; halves what the repo stores.
+        write_wav(path, resample(x, SR, VOICE_SR)[:, None], VOICE_SR)
+        stamp.write_text(key)
+    x, sr = read_wav(path)
+    return resample(x, sr, SR)
+
+
+def alienize(x: np.ndarray) -> np.ndarray:
+    """Lower and stretch the voice, add a sub ring-mod and a short flange."""
+    y = resample(x, SR, SR / 0.84)  # play 16% slower: lower pitch, longer
+    t = np.arange(len(y)) / SR
+    ring = y * (0.75 + 0.25 * np.sin(2 * np.pi * 38 * t))
+    d = int(0.011 * SR)
+    flange = ring + 0.45 * np.concatenate([np.zeros(d), ring[:-d]])
+    return spectral_filter(flange, 90, 6000)
+
+
+def trim(x: np.ndarray, threshold: float = 0.01) -> np.ndarray:
+    loud = np.where(np.abs(x) > threshold * np.max(np.abs(x)))[0]
+    if len(loud) == 0:
+        return x
+    a = max(0, loud[0] - int(0.02 * SR))
+    b = min(len(x), loud[-1] + int(0.08 * SR))
+    return x[a:b]
+
+
+# ------------------------------------------------------------------------ main
+
+
+def resolve(ref: str | float, events: dict, lines: dict) -> float:
+    if isinstance(ref, (int, float)):
+        return float(ref)
+    if "." in ref:
+        lid, edge = ref.split(".")
+        return lines[lid][edge]
+    return events[ref]
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--voices", default=str(ROOT / "tools" / "voices"))
+    ap.add_argument("--piper", default="piper")
+    ap.add_argument("--retts", action="store_true", help="re-synthesize every line")
+    args = ap.parse_args()
+
+    story = json.loads((DIR / "story.json").read_text())
+    n = int(story["duration"] * SR)
+
+    # 1. Narration: synthesize/measure, then check nothing overlaps.
+    voice_bus = np.zeros(n)
+    lines: dict[str, dict] = {}
+    ordered = sorted(story["lines"], key=lambda l: l["at"])
+    problems = []
+    for i, line in enumerate(ordered):
+        clip = tts(line, story["voices"][line["voice"]], args)
+        start = line["at"]
+        end = start + len(clip) / SR
+        lines[line["id"]] = {
+            "start": round(start, 4),
+            "end": round(end, 4),
+            "voice": line["voice"],
+            "text": line["text"],
+        }
+        nxt = ordered[i + 1]["at"] if i + 1 < len(ordered) else story["duration"]
+        if end > nxt - 0.25:
+            problems.append(f"  {line['id']} ends at {end:.2f}s, next line starts at {nxt:.2f}s ({end - nxt + 0.25:+.2f}s)")
+        add(voice_bus, start, clip, 0.95)
+    if problems:
+        sys.exit("narration overruns its slot:\n" + "\n".join(problems))
+
+    events = {k: float(v) for k, v in story["events"].items()}
+
+    # 2. Sound effects.
+    sfx_l = np.zeros(n)
+    sfx_r = np.zeros(n)
+    for e in story["sfx"]:
+        at = resolve(e["at"], events, lines) + e.get("offset", 0.0)
+        sig = SFX[e["type"]](e)
+        pan = e.get("pan", 0.0)
+        add(sfx_l, at, sig, e.get("gain", 1.0) * (1 - pan) * 0.7)
+        add(sfx_r, at, sig, e.get("gain", 1.0) * (1 + pan) * 0.7)
+
+    # 3. Music, ducked under the voice.
+    music = build_music(story, n)
+    env = smooth(voice_bus, 0.25)
+    duck = 1 - 0.6 * np.clip(env / 0.04, 0, 1)
+    music *= duck[:, None]
+
+    mix = music * 0.9 + np.stack([sfx_l, sfx_r], axis=1) * 0.8 + voice_bus[:, None]
+    mix = np.tanh(mix * 1.1) / np.tanh(1.1)  # soft limiter
+    mix *= 0.89 / np.max(np.abs(mix))  # peak at -1 dBFS
+    write_wav(DIR / "master.wav", mix)
+
+    cues = {
+        "bpm": story["bpm"],
+        "duration": story["duration"],
+        "lines": lines,
+        "events": events,
+    }
+    (DIR / "cues.json").write_text(json.dumps(cues, indent=2) + "\n")
+    print(f"wrote master.wav ({story['duration']}s) and cues.json ({len(lines)} lines, {len(events)} events)")
+    for lid, l in lines.items():
+        print(f"  {lid:4} {l['start']:7.2f} -> {l['end']:7.2f}  ({l['end'] - l['start']:.2f}s)")
+
+
+if __name__ == "__main__":
+    main()

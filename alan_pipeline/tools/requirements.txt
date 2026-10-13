@@ -1,0 +1,4 @@
+# Audio build for the space_duel project (tools/build_space_audio.py).
+numpy>=1.24
+# Only needed to (re)synthesize narration when story.json text changes:
+piper-tts>=1.2

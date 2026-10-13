@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Parallel headless renderer.
 //
-//   npm run render -- [--concurrency=4] [--lossless] [--keep-frames] [--strict]
+//   npm run render -- [--project=space_duel] [--concurrency=4] [--lossless]
+//                     [--keep-frames] [--strict] [--frames=A-B] [--at=t1,t2,...]
 //                     [--audio=audio/master_track.wav] [--name=opening_fight]
 //
 // 1. Boots the Vite dev server (Motion Canvas plugin) in-process.
@@ -31,11 +32,22 @@ const args = Object.fromEntries(
   }),
 );
 const concurrency = Math.max(1, Number(args.concurrency ?? 4));
-const projectName = 'alan_pipeline';
+// Per-project defaults: master audio and output video name.
+const PROJECTS = {
+  alan_pipeline: {audio: 'audio/master_track.wav', video: 'opening_fight'},
+  space_duel: {audio: 'audio/space_duel/master.wav', video: 'space_duel'},
+};
+const projectName = String(args.project ?? 'alan_pipeline');
+if (!PROJECTS[projectName]) {
+  console.error(`unknown --project=${projectName} (have: ${Object.keys(PROJECTS).join(', ')})`);
+  process.exit(1);
+}
 const outputDir = path.join(root, 'output_renders');
 const framesDir = path.join(outputDir, projectName);
-const audioPath = path.resolve(root, String(args.audio ?? 'audio/master_track.wav'));
-const videoName = String(args.name ?? 'opening_fight');
+const audioPath = path.resolve(root, String(args.audio ?? PROJECTS[projectName].audio));
+const videoName = String(args.name ?? PROJECTS[projectName].video);
+// Partial renders (for checking a few frames) never stitch a video.
+const partial = Boolean(args.frames || args.at);
 
 function resolveFfmpeg() {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
@@ -123,7 +135,7 @@ try {
 
   const probeBrowser = await launchBrowser();
   browsers.push(probeBrowser);
-  const {frames} = await runPage(probeBrowser, `${base}/scripts/render.html?probe`, 'probe');
+  const {frames} = await runPage(probeBrowser, `${base}/scripts/render.html?project=${projectName}&probe`, 'probe');
   const fps = Number(args.fps ?? 60);
   const lastFrame = frames;
   console.log(`project: ${frames + 1} frames @ ${fps} fps`);
@@ -131,29 +143,48 @@ try {
     throw new Error(`--strict: ${timingWarnings.length} beat(s) land off their audio marker`);
   }
 
-  const total = lastFrame + 1;
-  const size = Math.ceil(total / concurrency);
+  let first = 0;
+  let last = lastFrame;
+  if (args.frames) {
+    [first, last] = String(args.frames).split('-').map(Number);
+    last = Math.min(lastFrame, last ?? first);
+  }
+  const total = last - first + 1;
   const chunks = [];
-  for (let from = 0; from <= lastFrame; from += size) {
-    chunks.push([from, Math.min(lastFrame, from + size - 1)]);
+  if (args.at) {
+    // Individual stills at the given times (seconds).
+    for (const t of String(args.at).split(',')) {
+      const f = Math.min(lastFrame, Math.round(Number(t) * fps));
+      chunks.push([f, f]);
+    }
+  } else {
+    const size = Math.ceil(total / concurrency);
+    for (let from = first; from <= last; from += size) {
+      chunks.push([from, Math.min(last, from + size - 1)]);
+    }
   }
 
-  for (let i = 1; i < chunks.length; i++) browsers.push(await launchBrowser());
+  const workers = Math.min(concurrency, chunks.length);
+  for (let i = 1; i < workers; i++) browsers.push(await launchBrowser());
+  const queue = chunks.map((chunk, i) => ({chunk, i}));
   await Promise.all(
-    chunks.map(([from, to], i) => {
-      const label = `worker ${i + 1}/${chunks.length} frames ${from}-${to}`;
-      console.log(label);
-      return runPage(browsers[i], `${base}/scripts/render.html?from=${from}&to=${to}`, label);
+    browsers.slice(0, workers).map(async browser => {
+      for (let job = queue.shift(); job; job = queue.shift()) {
+        const [from, to] = job.chunk;
+        const label = `worker ${job.i + 1}/${chunks.length} frames ${from}-${to}`;
+        console.log(label);
+        await runPage(browser, `${base}/scripts/render.html?project=${projectName}&from=${from}&to=${to}`, label);
+      }
     }),
   );
 
   const written = readdirSync(framesDir).filter(f => f.endsWith('.png')).length;
-  if (written !== total) {
+  if (!partial && written !== total) {
     throw new Error(`expected ${total} frames, found ${written} in ${framesDir}`);
   }
   console.log(`rendered ${written} frames in ${((performance.now() - started) / 1000).toFixed(1)}s`);
 
-  if (!args['no-video']) {
+  if (!args['no-video'] && !partial) {
     const seconds = (total / fps).toFixed(6);
     const input = ['-y', '-loglevel', 'error', '-thread_queue_size', '512', '-framerate', String(fps), '-i', path.join(framesDir, '%06d.png')];
     const audio = existsSync(audioPath) ? ['-i', audioPath, '-af', 'apad', '-t', seconds] : ['-t', seconds];

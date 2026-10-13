@@ -3,3 +3,6 @@ dist/
 output_renders/*
 !output_renders/.gitkeep
 *.log
+# Rebuilt from story.json + cached voice clips: npm run audio:space
+audio/space_duel/master.wav
+tools/voices/

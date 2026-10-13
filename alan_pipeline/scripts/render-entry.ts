@@ -1,15 +1,20 @@
 /**
  * Headless render worker, loaded by scripts/render.mjs in Chromium.
  *
- *   ?probe            -> report the project's length in frames at render FPS
- *   ?from=A&to=B      -> render frames A..B (inclusive) as a PNG sequence
+ *   ?project=NAME&probe         -> report the project's length in frames
+ *   ?project=NAME&from=A&to=B   -> render frames A..B (inclusive) as PNGs
  *
  * Frames are streamed to the Vite dev server, which writes them to
  * output_renders/<project>/<frame>.png. Frame numbers are absolute, so
  * several workers can render disjoint ranges of the same project in parallel.
  */
-import {Player, Renderer, RendererResult} from '@motion-canvas/core';
-import project from '../src/project?project';
+import {Player, Project, Renderer, RendererResult} from '@motion-canvas/core';
+
+// Every renderable project, by name (?project=<name>).
+const projects: Record<string, () => Promise<{default: Project}>> = {
+  alan_pipeline: () => import('../src/project?project'),
+  space_duel: () => import('../src/space_duel?project'),
+};
 
 declare global {
   interface Window {
@@ -18,6 +23,7 @@ declare global {
 }
 
 const params = new URLSearchParams(location.search);
+const project = (await projects[params.get('project') ?? 'alan_pipeline']()).default;
 const settings = project.meta.getFullRenderingSettings();
 const report = (value: NonNullable<Window['__render']>) => {
   window.__render = value;
