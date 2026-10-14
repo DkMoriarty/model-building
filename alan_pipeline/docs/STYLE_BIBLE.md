@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§10), update the rules it
 changes, and bump the version.
 
-**Version 1.5 · 2026-10-14**
+**Version 1.6 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -224,6 +224,23 @@ bloom behind it.
   a child already has (gravity, magnets, avalanches, dominoes).
 - **Bookend:** the last meaningful image answers the first want.
 
+**Clarity rules** (full study: `docs/references/clarity_study.md`). A
+wordless film must never leave the audience asking what the character
+wants:
+
+| rule | requirement |
+| --- | --- |
+| **C1 Want = object** | every want is an object on screen, in the same frame as the character (a book, a socket, a switch), never an idea in their head |
+| **C2 Gaze → reach → move** | at each new want the character looks at the goal for ≥ 12 f before reaching for it |
+| **C3 The loop** | every scene runs want → try → result → **reaction** → new want; the new want grows out of the result |
+| **C4 Reaction holds** | ≥ 12–24 f after every result; 1–2 s after a turning point |
+| **C5 Rule of three** | the attempts that matter come in threes (fail, fail closer, succeed or overshoot) |
+| **C6 Same-shot causality** | while a rule is taught, trigger and consequence share one shot; no cut between them |
+| **C7 One action at a time** | while the key action plays, everything else holds still |
+| **C8 Tool before use** | an object is seen (in a hand, on a shelf) before it changes the world |
+| **C9 Pay-offs** | every set-up has a pay-off, and the final image answers the first want |
+| **C10 Pull back to explain** | when something confusing starts, widen the shot to show the whole cause |
+
 - Beats: barrier → curiosity (head tilt, pause) → manipulation → breakthrough.
 - Body language: exhaustion is a dropped head and a slumped torso; triumph is
   an upright torso with arms out.
@@ -342,6 +359,7 @@ from screenshots.
 | 2026-10-13 | same video | vidIQ visual analysis, pass 2: composition and aesthetics | ground at two-thirds height; 33–40% headroom; lead room 0.38 / 0.62 × width; figure 8–15% / 25–35% / 50–70% of frame height (wide / medium / close); line tiers 3 : 2 : 1; vertex dots 1.35 × structure stroke; labels padded 12–16 px; cubic camera easing; average shot length 4.5–6 s (exposition) and 1.2–2.5 s (action); 1.5–2 s holds after reveals; soft bloom with sharp edges |
 | 2026-10-14 | "Animation vs. Coding", Alan Becker channel (YouTube `EFmxPMdBqmU`, 9:27) | vidIQ long-form visual analysis (no download); notes in `docs/references/animation_vs_coding.md` | gesture anticipation 2–4 f; 6–12 f reaction freeze; contact squash 1.4 : 0.6 on props; three shake tiers (8 px × 4 f / 15 px × 8 f / 25 px decaying over 40 f after 3 f of white); ~0.5 s silence before the climax; SFX 1:1 with spawned elements; cut on action every 2–4 s; floor at 0.80–0.85 when present; negative space 60–85% |
 | 2026-10-14 | same video, story pass | vidIQ visual analysis asked to watch as a viewer; notes in `docs/references/animation_vs_coding_story.md` | hook = the first attempt refused physically; the child loop (poke → observe → misuse → combine → consequence → recover); cause → effect → new question chain; tool turns on its maker; midpoint arena shift; over-reach climax; the ending answers the opening; saw-tooth tension |
+| 2026-10-14 | "Animation vs. Math" (`B1J6Ou4q8vE`), "Animation vs. Physics" (`ErMSHiQRnc8`), "Animator vs. Animation" (`npTC6b5-yvM`), "Animation vs. Minecraft" (`GW_fdXHOWp4`) | vidIQ visual analyses for story clarity, as a first-time viewer; notes in `docs/references/clarity_study.md` | clarity rules C1–C10: want = object in frame, gaze → reach → move, the want/try/result/reaction loop, reaction holds, rule of three, same-shot causality, one action at a time, tool before use, pay-offs, pull back to explain |
 | next | a fight-focused video; screenshot measurements to settle head size | vidIQ and/or user screenshots measured frame by frame | pending |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
@@ -350,6 +368,8 @@ and bump the version below.
 
 ## 11. Changelog
 
+- **1.6** (2026-10-14): §7 clarity rules C1–C10 from a four-film clarity
+  study. FIRST LIGHT diagnosed against them; v2 script written.
 - **1.5** (2026-10-14): §7 story framework: a 9-beat structure with runtime
   percentages, the child rule (labels name rules, never introduce them),
   cause → effect → new question, saw-tooth tension, the bookend.
