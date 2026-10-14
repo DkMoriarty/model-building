@@ -6,5 +6,6 @@ output_renders/*
 # Rebuilt from story.json + cached voice clips: npm run audio:space
 audio/space_duel/master.wav
 audio/first_light/master.wav
+audio/first_game/master.wav
 tools/voices/
 __pycache__/

@@ -6,13 +6,14 @@ import {Stage} from './stage';
  * Subject framing audit for FIRST LIGHT (style bible section 9.1): every
  * 0.1 s, Spark's head, chest, hands and feet must sit inside the 96 px safe
  * margin. Violations are reported once per interval, so `render --strict`
- * fails on them.
+ * fails on them. Deliberate exits from the frame are declared in `exempt`,
+ * each with a reason.
  */
 const HALF_W = 960;
 const HALF_H = 540;
 const SAFE = 96;
 
-export function* frameAuditor(s: Stage, until: number): ThreadGenerator {
+export function* frameAuditor(s: Stage, until: number, exempt: [number, number, string][] = [], cropFeetAtZoom = Infinity): ThreadGenerator {
   const b = s.spark.body.bones;
   const points: [string, Node][] = [
     ['head', b.head],
@@ -26,8 +27,11 @@ export function* frameAuditor(s: Stage, until: number): ThreadGenerator {
   const report: string[] = [];
   while (useTime() < until - 1e-6) {
     const t = useTime();
-    const visible = s.spark.body.opacity() > 0.1 && s.blackout.opacity() < 0.95;
+    const excused = exempt.some(([a, b]) => t >= a && t <= b);
+    const visible = !excused && s.spark.body.opacity() > 0.1 && s.blackout.opacity() < 0.95;
     for (const [part, node] of points) {
+      // A medium close-up crops at the knees by design.
+      if (part.endsWith('foot') && s.zoom() >= cropFeetAtZoom) continue;
       const v = node.absolutePosition().transformAsPoint(s.view.worldToLocal());
       const out = visible && (Math.abs(v.x) > HALF_W - SAFE || Math.abs(v.y) > HALF_H - SAFE);
       if (out && !open.has(part)) open.set(part, t);

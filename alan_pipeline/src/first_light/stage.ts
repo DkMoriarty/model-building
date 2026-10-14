@@ -39,7 +39,7 @@ export interface Stage {
   runner(until: number): ThreadGenerator;
 }
 
-export function buildStage(view: View2D): Stage {
+export function buildStage(view: View2D, titleText = 'FIRST LIGHT'): Stage {
   view.fill('#060609');
   const time = createSignal(0);
   const cam = Vector2.createSignal(Vector2.zero);
@@ -97,7 +97,7 @@ export function buildStage(view: View2D): Stage {
     y: -250,
     opacity: 0,
     children: [
-      new Txt({text: 'FIRST LIGHT', fill: '#f2f2f2', fontFamily: Typography.family, fontSize: 96, fontWeight: 800, letterSpacing: 18}),
+      new Txt({text: titleText, fill: '#f2f2f2', fontFamily: Typography.family, fontSize: 96, fontWeight: 800, letterSpacing: 18}),
       new Line({
         points: [
           [-300, 70],

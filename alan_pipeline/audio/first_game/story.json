@@ -1,0 +1,1105 @@
+{
+ "title": "First Game",
+ "bpm": 100,
+ "sampleRate": 48000,
+ "duration": 130.0,
+ "voices": {},
+ "lines": [],
+ "events": {
+  "open": 0.0,
+  "press1": 2.4,
+  "press2": 3.6,
+  "press3": 4.8,
+  "slump": 5.7,
+  "lookKeys": 7.2,
+  "idea": 8.4,
+  "title": 9.6,
+  "titleOut": 12.6,
+  "type1": 13.2,
+  "ground": 14.4,
+  "type2": 15.0,
+  "hero": 16.2,
+  "play1": 17.4,
+  "fallBug": 18.6,
+  "facepalm": 19.5,
+  "type3": 20.4,
+  "fix1": 21.6,
+  "jumpBug": 22.8,
+  "lookUp": 23.7,
+  "type4": 25.2,
+  "fix2": 26.4,
+  "type5": 27.6,
+  "flag": 28.8,
+  "play2": 30.0,
+  "hop1": 31.2,
+  "clear1": 32.4,
+  "cheer": 33.0,
+  "type6": 34.8,
+  "lvl2": 36.0,
+  "clock1": 37.2,
+  "type7": 38.4,
+  "lvl3": 39.6,
+  "grin": 40.8,
+  "clock2": 42.0,
+  "play3": 43.2,
+  "die1": 44.4,
+  "gameOverMini": 45.0,
+  "laugh": 45.6,
+  "yawn": 47.4,
+  "droop": 49.2,
+  "pull": 50.4,
+  "suck": 51.6,
+  "inside": 52.8,
+  "lookHands": 54.0,
+  "lookBack": 55.2,
+  "point": 57.0,
+  "go1": 58.2,
+  "jumpL1": 59.4,
+  "flagL1": 60.6,
+  "wipe1": 61.8,
+  "l2start": 62.4,
+  "ball": 63.0,
+  "jumpBall": 64.8,
+  "spring1": 66.0,
+  "landLedge": 67.5,
+  "flagL2": 68.4,
+  "wipe2": 69.6,
+  "l3start": 70.2,
+  "seeDoor": 71.4,
+  "gulp": 72.6,
+  "try1": 73.8,
+  "jump1": 75.0,
+  "hurt1": 76.2,
+  "respawn1": 77.4,
+  "react1": 78.0,
+  "try2": 79.2,
+  "jump2": 80.4,
+  "land2": 81.0,
+  "shake2": 81.6,
+  "drop2": 82.2,
+  "seeSpring": 82.5,
+  "hurt2": 83.4,
+  "respawn2": 84.6,
+  "think": 85.2,
+  "try3": 86.4,
+  "jump3": 88.2,
+  "hurt3": 89.4,
+  "gameOver": 90.0,
+  "slumpGO": 91.2,
+  "count3": 93.6,
+  "count2": 94.8,
+  "memory": 95.1,
+  "count1": 96.0,
+  "punch": 96.6,
+  "heart1": 97.2,
+  "try4": 98.4,
+  "jump4": 99.6,
+  "land4": 100.2,
+  "shake4": 100.8,
+  "drop4": 101.4,
+  "leap4": 102.0,
+  "boing4": 102.6,
+  "soar": 103.2,
+  "landExit": 104.4,
+  "door": 105.6,
+  "crack": 106.8,
+  "crack2": 107.4,
+  "shatter": 108.0,
+  "wake": 110.4,
+  "clock3": 111.6,
+  "lookScreen": 112.8,
+  "grinKnow": 114.0,
+  "grab": 115.2,
+  "m_run": 116.4,
+  "m_jump": 117.6,
+  "m_land": 118.2,
+  "m_drop": 119.4,
+  "m_leap": 120.0,
+  "m_boing": 120.6,
+  "m_land2": 122.4,
+  "m_win": 123.6,
+  "leapChair": 124.2,
+  "cheer2": 125.4,
+  "end": 128.4
+ },
+ "sfx": [
+  {
+   "type": "click",
+   "at": "press1",
+   "gain": 0.6
+  },
+  {
+   "type": "beep",
+   "at": "press1",
+   "offset": 0.05,
+   "gain": 0.6
+  },
+  {
+   "type": "click",
+   "at": "press2",
+   "gain": 0.6
+  },
+  {
+   "type": "beep",
+   "at": "press2",
+   "offset": 0.05,
+   "gain": 0.6
+  },
+  {
+   "type": "click",
+   "at": "press3",
+   "gain": 0.6
+  },
+  {
+   "type": "beep",
+   "at": "press3",
+   "offset": 0.05,
+   "gain": 0.6
+  },
+  {
+   "type": "click",
+   "at": "idea",
+   "gain": 0.6
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type1",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type2",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type3",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type4",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type5",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type6",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.1,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.2,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.4,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.6,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.7,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.8,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "type7",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "pop",
+   "at": "ground",
+   "gain": 0.4
+  },
+  {
+   "type": "blip",
+   "at": "ground",
+   "gain": 0.4
+  },
+  {
+   "type": "pop",
+   "at": "hero",
+   "gain": 0.4
+  },
+  {
+   "type": "blip",
+   "at": "hero",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "play1",
+   "gain": 0.5
+  },
+  {
+   "type": "fall8",
+   "at": "fallBug"
+  },
+  {
+   "type": "ding",
+   "at": "fix1",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "jumpBug",
+   "gain": 0.5
+  },
+  {
+   "type": "boing",
+   "at": "jumpBug",
+   "gain": 0.5
+  },
+  {
+   "type": "ding",
+   "at": "fix2",
+   "gain": 0.5
+  },
+  {
+   "type": "thud",
+   "at": "fix2",
+   "gain": 0.3
+  },
+  {
+   "type": "pop",
+   "at": "flag",
+   "gain": 0.4
+  },
+  {
+   "type": "blip",
+   "at": "flag",
+   "gain": 0.4
+  },
+  {
+   "type": "click",
+   "at": "play2",
+   "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "hop1"
+  },
+  {
+   "type": "fanfare",
+   "at": "clear1"
+  },
+  {
+   "type": "ripple",
+   "at": "lvl2"
+  },
+  {
+   "type": "tick",
+   "at": "clock1"
+  },
+  {
+   "type": "ripple",
+   "at": "lvl3"
+  },
+  {
+   "type": "tick",
+   "at": "clock2"
+  },
+  {
+   "type": "click",
+   "at": "play3",
+   "gain": 0.5
+  },
+  {
+   "type": "hurt",
+   "at": "die1"
+  },
+  {
+   "type": "gameover",
+   "at": "gameOverMini",
+   "gain": 0.7
+  },
+  {
+   "type": "riser",
+   "at": "pull",
+   "length": 1.2,
+   "gain": 0.6
+  },
+  {
+   "type": "whoosh",
+   "at": "suck"
+  },
+  {
+   "type": "thud",
+   "at": "inside"
+  },
+  {
+   "type": "jump8",
+   "at": "jumpL1"
+  },
+  {
+   "type": "fanfare",
+   "at": "flagL1"
+  },
+  {
+   "type": "whoosh",
+   "at": "wipe1",
+   "gain": 0.5
+  },
+  {
+   "type": "roll",
+   "at": "ball",
+   "length": 3.0,
+   "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "jumpBall"
+  },
+  {
+   "type": "boing",
+   "at": "spring1"
+  },
+  {
+   "type": "thud",
+   "at": "landLedge",
+   "gain": 0.5
+  },
+  {
+   "type": "fanfare",
+   "at": "flagL2"
+  },
+  {
+   "type": "whoosh",
+   "at": "wipe2",
+   "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "jump1"
+  },
+  {
+   "type": "hurt",
+   "at": "hurt1"
+  },
+  {
+   "type": "blip",
+   "at": "respawn1",
+   "gain": 0.4
+  },
+  {
+   "type": "jump8",
+   "at": "jump2"
+  },
+  {
+   "type": "thud",
+   "at": "land2",
+   "gain": 0.4
+  },
+  {
+   "type": "rattle",
+   "at": "shake2"
+  },
+  {
+   "type": "fall8",
+   "at": "drop2"
+  },
+  {
+   "type": "ding",
+   "at": "seeSpring",
+   "gain": 0.35
+  },
+  {
+   "type": "hurt",
+   "at": "hurt2"
+  },
+  {
+   "type": "blip",
+   "at": "respawn2",
+   "gain": 0.4
+  },
+  {
+   "type": "jump8",
+   "at": "jump3"
+  },
+  {
+   "type": "hurt",
+   "at": "hurt3"
+  },
+  {
+   "type": "gameover",
+   "at": "gameOver"
+  },
+  {
+   "type": "tick",
+   "at": "count3",
+   "gain": 0.9
+  },
+  {
+   "type": "tick",
+   "at": "count2",
+   "gain": 0.9
+  },
+  {
+   "type": "tick",
+   "at": "count1",
+   "gain": 0.9
+  },
+  {
+   "type": "ding",
+   "at": "memory",
+   "gain": 0.5
+  },
+  {
+   "type": "oneup",
+   "at": "punch"
+  },
+  {
+   "type": "blip",
+   "at": "heart1",
+   "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "jump4"
+  },
+  {
+   "type": "thud",
+   "at": "land4",
+   "gain": 0.4
+  },
+  {
+   "type": "rattle",
+   "at": "shake4"
+  },
+  {
+   "type": "fall8",
+   "at": "drop4"
+  },
+  {
+   "type": "jump8",
+   "at": "leap4"
+  },
+  {
+   "type": "boing",
+   "at": "boing4",
+   "gain": 1.2
+  },
+  {
+   "type": "thud",
+   "at": "landExit",
+   "gain": 0.6
+  },
+  {
+   "type": "fanfare",
+   "at": "door",
+   "gain": 1.1
+  },
+  {
+   "type": "crack",
+   "at": "crack"
+  },
+  {
+   "type": "crack",
+   "at": "crack2"
+  },
+  {
+   "type": "shatter",
+   "at": "shatter"
+  },
+  {
+   "type": "boom",
+   "at": "shatter",
+   "gain": 0.6
+  },
+  {
+   "type": "thud",
+   "at": "wake",
+   "gain": 0.6
+  },
+  {
+   "type": "tick",
+   "at": "clock3"
+  },
+  {
+   "type": "click",
+   "at": "grab",
+   "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "m_jump",
+   "gain": 0.6
+  },
+  {
+   "type": "thud",
+   "at": "m_land",
+   "gain": 0.3
+  },
+  {
+   "type": "fall8",
+   "at": "m_drop",
+   "gain": 0.6
+  },
+  {
+   "type": "jump8",
+   "at": "m_leap",
+   "gain": 0.6
+  },
+  {
+   "type": "boing",
+   "at": "m_boing",
+   "gain": 0.8
+  },
+  {
+   "type": "thud",
+   "at": "m_land2",
+   "gain": 0.3
+  },
+  {
+   "type": "fanfare",
+   "at": "m_win"
+  },
+  {
+   "type": "thud",
+   "at": "leapChair",
+   "gain": 0.5
+  }
+ ],
+ "music": [
+  {
+   "section": "night",
+   "from": 0,
+   "to": 13.2
+  },
+  {
+   "section": "code",
+   "from": 13.2,
+   "to": 50.4
+  },
+  {
+   "section": "chip",
+   "from": 52.8,
+   "to": 70.2
+  },
+  {
+   "section": "chipTense",
+   "from": 70.2,
+   "to": 90.0
+  },
+  {
+   "section": "chipFinal",
+   "from": 97.2,
+   "to": 106.8
+  },
+  {
+   "section": "morning",
+   "from": 110.4,
+   "to": 130.0
+  }
+ ],
+ "silences": [
+  {
+   "from": 90.6,
+   "to": 93.6
+  },
+  {
+   "from": 108.2,
+   "to": 110.4
+  }
+ ],
+ "audit": {
+  "impacts": [
+   "press",
+   "idea",
+   "ground",
+   "hero",
+   "fallBug",
+   "fix",
+   "jumpBug",
+   "flag",
+   "hop1",
+   "clear1",
+   "lvl",
+   "clock",
+   "die1",
+   "gameOver",
+   "suck",
+   "inside",
+   "jumpL1",
+   "flagL",
+   "jumpBall",
+   "spring1",
+   "landLedge",
+   "jump",
+   "hurt",
+   "respawn",
+   "land2",
+   "shake",
+   "drop",
+   "seeSpring",
+   "count",
+   "memory",
+   "punch",
+   "heart1",
+   "land4",
+   "leap4",
+   "boing4",
+   "landExit",
+   "door",
+   "crack",
+   "shatter",
+   "wake",
+   "grab",
+   "m_",
+   "leapChair"
+  ],
+  "holds": [
+   "title",
+   "slump",
+   "lookKeys",
+   "cheer",
+   "grin",
+   "laugh",
+   "yawn",
+   "droop",
+   "lookHands",
+   "lookBack",
+   "point",
+   "seeDoor",
+   "gulp",
+   "react1",
+   "think",
+   "slumpGO",
+   "soar",
+   "grinKnow",
+   "cheer2",
+   "end",
+   "lookUp",
+   "facepalm"
+  ],
+  "declared": [
+   [
+    0,
+    2.0,
+    "fade in on the dark room"
+   ],
+   [
+    108.0,
+    110.4,
+    "the dream breaks: white"
+   ]
+  ]
+ }
+}

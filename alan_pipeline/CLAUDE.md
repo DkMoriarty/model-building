@@ -23,7 +23,8 @@ Non-negotiables (details in the handover, §6):
   before full renders.
 
 Episodes: `space_duel` (The Entangled Blade) and `first_light` (FIRST LIGHT,
-episode 1 of the Spark series; treatment in `docs/episodes/first_light.md`).
+episode 1 of the Spark series; treatment in `docs/episodes/first_light.md`)
+and `first_game` (FIRST GAME; `docs/episodes/first_game.md`).
 Audio for an episode: `python tools/build_space_audio.py --episode <name>`;
 audit: `python tools/frame_audit.py --episode <name>`.
 

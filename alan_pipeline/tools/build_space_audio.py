@@ -415,6 +415,109 @@ def sfx_copy(length: float = 0.7) -> np.ndarray:
     return out
 
 
+def square(freq: float, n: int, duty: float = 0.5) -> np.ndarray:
+    t = np.arange(n) / SR
+    return np.where((t * freq) % 1 < duty, 1.0, -1.0)
+
+
+def sweep(f0: float, f1: float, length: float, duty: float = 0.5) -> np.ndarray:
+    """An 8-bit pitch sweep (square wave), exponential in frequency."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = f0 * (f1 / f0) ** (t / length)
+    phase = np.cumsum(f) / SR
+    return np.where(phase % 1 < duty, 1.0, -1.0)
+
+
+def sfx_key(length: float = 0.06) -> np.ndarray:
+    """A keyboard key: a short plastic tick with a little body."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = RNG.uniform(1800, 2600)
+    return (spectral_filter(RNG.normal(0, 1, n), 1500, 7000) * np.exp(-t * 220) + np.sin(2 * np.pi * f * t) * np.exp(-t * 160) * 0.3) * 0.35
+
+
+def sfx_beep(length: float = 0.18) -> np.ndarray:
+    n = int(length * SR)
+    return square(880, n, 0.25) * env_adsr(n, 0.005, 0.05, 0.7, 0.04) * 0.12
+
+
+def sfx_jump8(length: float = 0.22) -> np.ndarray:
+    n = int(length * SR)
+    return sweep(300, 900, length, 0.5) * env_adsr(n, 0.005, 0.05, 0.6, 0.08) * 0.13
+
+
+def sfx_fall8(length: float = 0.6) -> np.ndarray:
+    n = int(length * SR)
+    return sweep(800, 120, length, 0.5) * env_adsr(n, 0.005, 0.1, 0.7, 0.15) * 0.12
+
+
+def sfx_boing(length: float = 0.7) -> np.ndarray:
+    """A spring: a wobbling pitch that rises and rings out."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = 220 * (1 + 1.5 * (1 - np.exp(-t * 8))) * (1 + 0.15 * np.sin(2 * np.pi * 18 * t) * np.exp(-t * 4))
+    phase = np.cumsum(f) / SR
+    return np.where(phase % 1 < 0.5, 1.0, -1.0) * np.exp(-t * 3) * 0.14
+
+
+def sfx_hurt(length: float = 0.45) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    tri = sweep(600, 90, length, 0.5) * (0.6 + 0.4 * np.sign(np.sin(2 * np.pi * 30 * t)))
+    return tri * env_adsr(n, 0.005, 0.1, 0.8, 0.1) * 0.14
+
+
+def notes(seq: list[tuple[int, float]], duty: float = 0.5, gain: float = 0.12) -> np.ndarray:
+    total = sum(d for _, d in seq)
+    out = np.zeros(int(total * SR) + 1)
+    at = 0.0
+    for m, d in seq:
+        n = int(d * SR)
+        if m > 0:
+            add(out, at, square(midi(m), n, duty) * env_adsr(n, 0.005, 0.04, 0.7, min(0.05, d / 3)) * gain)
+        at += d
+    return out
+
+
+def sfx_fanfare(length: float = 1.3) -> np.ndarray:
+    """Level clear: a rising major arpeggio that lands on a held chord tone."""
+    return notes([(72, 0.1), (76, 0.1), (79, 0.1), (84, 0.25), (79, 0.1), (84, 0.6)], 0.5, 0.12)
+
+
+def sfx_gameover(length: float = 1.6) -> np.ndarray:
+    return notes([(67, 0.25), (66, 0.25), (65, 0.25), (64, 0.8)], 0.5, 0.11)
+
+
+def sfx_oneup(length: float = 0.6) -> np.ndarray:
+    return notes([(76, 0.08), (79, 0.08), (88, 0.08), (84, 0.08), (86, 0.08), (91, 0.2)], 0.25, 0.1)
+
+
+def sfx_roll(length: float = 3.0) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    rum = spectral_filter(RNG.normal(0, 1, n), 60, 500) * (0.7 + 0.3 * np.sin(2 * np.pi * 7 * t))
+    return rum * env_adsr(n, 0.2, 0.2, 0.8, 0.4) * 0.3
+
+
+def sfx_rattle(length: float = 0.6) -> np.ndarray:
+    out = np.zeros(int(length * SR))
+    for i in range(8):
+        add(out, i * 0.07, sfx_tick() * 0.8)
+    return out
+
+
+def sfx_crack(length: float = 0.5) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    snap = spectral_filter(RNG.normal(0, 1, n), 2500, 12000) * np.exp(-t * 40)
+    return snap * 0.6
+
+
+def sfx_shatter(length: float = 2.0) -> np.ndarray:
+    return sfx_glass(length) * 2.5
+
+
 SFX = {
     "clash": lambda e: sfx_clash(),
     "whoosh": lambda e: sfx_whoosh(),
@@ -447,6 +550,19 @@ SFX = {
     "ratchet": lambda e: sfx_ratchet(),
     "violet": lambda e: sfx_violet(),
     "copy": lambda e: sfx_copy(),
+    "key": lambda e: sfx_key(),
+    "beep": lambda e: sfx_beep(),
+    "jump8": lambda e: sfx_jump8(),
+    "fall8": lambda e: sfx_fall8(),
+    "boing": lambda e: sfx_boing(),
+    "hurt": lambda e: sfx_hurt(),
+    "fanfare": lambda e: sfx_fanfare(),
+    "gameover": lambda e: sfx_gameover(),
+    "oneup": lambda e: sfx_oneup(),
+    "roll": lambda e: sfx_roll(e.get("length", 3.0)),
+    "rattle": lambda e: sfx_rattle(),
+    "crack": lambda e: sfx_crack(),
+    "shatter": lambda e: sfx_shatter(),
 }
 
 
@@ -468,6 +584,13 @@ PROGRESSIONS = {
     "learn": [[48, 55, 60, 64], [43, 55, 59, 62], [45, 57, 60, 64], [41, 57, 60, 65]],
     "wonder": [[45, 57, 60, 64], [41, 57, 60, 65], [48, 55, 60, 64], [44, 56, 59, 64]],
     "grow": [[45, 52, 57, 60], [44, 52, 56, 59], [41, 53, 57, 60], [40, 52, 56, 59]],
+    # first_game: a quiet night, a busy keyboard, then a chiptune world.
+    "night": [[45, 57, 60, 64], [41, 57, 60, 65]],
+    "code": [[48, 55, 60, 64], [45, 57, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62]],
+    "chip": [[48, 60, 64, 67], [41, 60, 65, 69], [43, 59, 62, 67], [48, 60, 64, 67]],
+    "chipTense": [[45, 57, 60, 64], [41, 57, 60, 65], [44, 56, 59, 64], [45, 57, 60, 64]],
+    "chipFinal": [[48, 60, 64, 67], [43, 59, 62, 67], [45, 57, 60, 64], [41, 60, 65, 69]],
+    "morning": [[48, 55, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62], [48, 55, 60, 64]],
 }
 LAYERS = {
     "void": {"pad": 0.55, "air": 0.25},
@@ -483,6 +606,12 @@ LAYERS = {
     "learn": {"pad": 0.35, "bass": 0.3, "kick": 0.35, "hat": 0.12, "arp": 0.25},
     "wonder": {"pad": 0.6, "arp": 0.3, "air": 0.2},
     "grow": {"pad": 0.55, "bass": 0.55, "kick": 0.6, "snare": 0.3, "hat": 0.15, "arp": 0.3},
+    "night": {"pad": 0.4, "air": 0.2},
+    "code": {"pad": 0.3, "pulse": 0.25, "arp": 0.25, "hat": 0.08},
+    "chip": {"sqlead": 0.5, "sqbass": 0.5, "kick": 0.3, "hat": 0.1},
+    "chipTense": {"sqlead": 0.4, "sqbass": 0.55, "kick": 0.45, "snare": 0.25, "hat": 0.14},
+    "chipFinal": {"sqlead": 0.6, "sqbass": 0.6, "kick": 0.55, "snare": 0.35, "hat": 0.16},
+    "morning": {"pad": 0.45, "arp": 0.3, "pulse": 0.2},
 }
 
 
@@ -547,6 +676,18 @@ def build_music(story: dict, n: int) -> np.ndarray:
                     tt = np.arange(k) / SR
                     noise = spectral_filter(RNG.normal(0, 1, k), 7000) * np.exp(-tt * 70)
                     add(left if s % 2 else right, st, noise, layers["hat"] * 0.5)
+                if "sqlead" in layers:
+                    k = int(beat / 2 * SR)
+                    note = chord[[1, 2, 3, 2, 3, 2, 1, 3][s % 8]] + 12
+                    tone = square(midi(note), k, 0.25) * env_adsr(k, 0.003, 0.05, 0.6, 0.03)
+                    add(left, st, tone, layers["sqlead"] * 0.05)
+                    add(right, st, tone, layers["sqlead"] * 0.05)
+                if "sqbass" in layers:
+                    k = int(beat / 2 * SR * 0.9)
+                    f = midi(chord[0] - (12 if chord[0] > 40 else 0) + (12 if s % 2 else 0))
+                    tone = square(f, k, 0.5) * env_adsr(k, 0.003, 0.05, 0.7, 0.03)
+                    add(left, st, tone, layers["sqbass"] * 0.06)
+                    add(right, st, tone, layers["sqbass"] * 0.06)
                 if "arp" in layers:
                     k = int(0.5 * SR)
                     tt = np.arange(k) / SR

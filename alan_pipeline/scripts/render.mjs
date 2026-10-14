@@ -37,6 +37,7 @@ const PROJECTS = {
   alan_pipeline: {audio: 'audio/master_track.wav', video: 'opening_fight'},
   space_duel: {audio: 'audio/space_duel/master.wav', video: 'space_duel'},
   first_light: {audio: 'audio/first_light/master.wav', video: 'first_light'},
+  first_game: {audio: 'audio/first_game/master.wav', video: 'first_game'},
 };
 const projectName = String(args.project ?? 'alan_pipeline');
 if (!PROJECTS[projectName]) {

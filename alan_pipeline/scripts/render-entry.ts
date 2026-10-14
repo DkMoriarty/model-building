@@ -15,6 +15,7 @@ const projects: Record<string, () => Promise<{default: Project}>> = {
   alan_pipeline: () => import('../src/project?project'),
   space_duel: () => import('../src/space_duel?project'),
   first_light: () => import('../src/first_light?project'),
+  first_game: () => import('../src/first_game?project'),
 };
 
 declare global {
