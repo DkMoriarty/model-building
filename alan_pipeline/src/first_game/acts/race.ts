@@ -226,7 +226,8 @@ export function* raceAct(s: Stage, hub: Hub): ThreadGenerator {
   yield* spark.pose({...STAND, head: -12, torso: -6}, 0.3);
   // Through: into the light, and home.
   yield* syncTo('through', 0);
-  s.spawn(all(s.cam(DOOR_FAR.add([0, -120]), 0.6, easeInCubic), s.zoom(4.2, 0.6, easeInCubic), s.whiteout.opacity(1, 0.6, easeInCubic)));
+  // 0.5 s, so it has finished before the next act takes the camera.
+  s.spawn(all(s.cam(DOOR_FAR.add([0, -120]), 0.5, easeInCubic), s.zoom(4.2, 0.5, easeInCubic), s.whiteout.opacity(1, 0.5, easeInCubic)));
   yield* spark.walkTo(DOOR_FAR.x, {steps: 2, duration: 0.55, settle: false});
 }
 
