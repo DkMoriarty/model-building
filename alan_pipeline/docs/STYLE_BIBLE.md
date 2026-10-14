@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§10), update the rules it
 changes, and bump the version.
 
-**Version 1.4 · 2026-10-14**
+**Version 1.5 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -198,6 +198,32 @@ bloom behind it.
 
 ## 7. Story without words
 
+**The story framework** (full reasoning: `docs/references/animation_vs_coding_story.md`)
+
+| beat | runtime | job |
+| --- | --- | --- |
+| 1. Empty stage + simple want | 0–3% | one character, one object, one obvious wish |
+| 2. First refusal | 3–8% | the first try fails physically. This is the hook, and it plants the loop the ending closes |
+| 3. Sandbox | 8–25% | poke → observe → misuse → small win. Rules are taught by consequence |
+| 4. Combination backfire | 25–40% | two things that work alone go wrong together; the tool acts on its own |
+| 5. Midpoint arena shift | 40–50% | same rules, new genre or world: the second hook |
+| 6. Tool turns on maker, then is turned back | 50–75% | survival, then mastery: the concept that hurt becomes the weapon |
+| 7. Over-reach climax | 75–85% | caused by the character's own choice. Silence (S6), then overload |
+| 8. Aftermath + synthesis | 85–97% | rebuild from the debris; tempo at least halved |
+| 9. Callback + open loop | 97–100% | the first want is granted; a new presence appears |
+
+- **The child rule:** the protagonist never knows more than the audience.
+  Every new idea is discovered by trying something, never announced. A
+  label may *name* a rule after the audience has seen it work. It never
+  introduces one.
+- **Cause → effect → new question:** each incident's consequence is the
+  next incident's problem. Nothing is introduced for its own sake.
+- **Saw tooth:** after every peak, a 2–5 s breather with a small comic or
+  human moment, then a higher peak.
+- **Concrete translation:** every abstract idea becomes a physical intuition
+  a child already has (gravity, magnets, avalanches, dominoes).
+- **Bookend:** the last meaningful image answers the first want.
+
 - Beats: barrier → curiosity (head tilt, pause) → manipulation → breakthrough.
 - Body language: exhaustion is a dropped head and a slumped torso; triumph is
   an upright torso with arms out.
@@ -315,6 +341,7 @@ from screenshots.
 | 2026-10-13 | "Animation vs. Geometry", Alan Becker channel (YouTube `VEJWE6cpqw0`, 9:02) | vidIQ visual analysis, pass 1: construction and motion (no download) | figure 4.5–5 H; torso 1.3–1.5 H; limb segments 1.0–1.2 H; stroke 12–15% H; open-ring head; round caps; 3–8 f anticipation; 2–4 f holds; flash frames; 2–4 f shake at 5–10 px; environment lines 30–50% thinner; gold for climaxes; no dialogue |
 | 2026-10-13 | same video | vidIQ visual analysis, pass 2: composition and aesthetics | ground at two-thirds height; 33–40% headroom; lead room 0.38 / 0.62 × width; figure 8–15% / 25–35% / 50–70% of frame height (wide / medium / close); line tiers 3 : 2 : 1; vertex dots 1.35 × structure stroke; labels padded 12–16 px; cubic camera easing; average shot length 4.5–6 s (exposition) and 1.2–2.5 s (action); 1.5–2 s holds after reveals; soft bloom with sharp edges |
 | 2026-10-14 | "Animation vs. Coding", Alan Becker channel (YouTube `EFmxPMdBqmU`, 9:27) | vidIQ long-form visual analysis (no download); notes in `docs/references/animation_vs_coding.md` | gesture anticipation 2–4 f; 6–12 f reaction freeze; contact squash 1.4 : 0.6 on props; three shake tiers (8 px × 4 f / 15 px × 8 f / 25 px decaying over 40 f after 3 f of white); ~0.5 s silence before the climax; SFX 1:1 with spawned elements; cut on action every 2–4 s; floor at 0.80–0.85 when present; negative space 60–85% |
+| 2026-10-14 | same video, story pass | vidIQ visual analysis asked to watch as a viewer; notes in `docs/references/animation_vs_coding_story.md` | hook = the first attempt refused physically; the child loop (poke → observe → misuse → combine → consequence → recover); cause → effect → new question chain; tool turns on its maker; midpoint arena shift; over-reach climax; the ending answers the opening; saw-tooth tension |
 | next | a fight-focused video; screenshot measurements to settle head size | vidIQ and/or user screenshots measured frame by frame | pending |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
@@ -323,6 +350,9 @@ and bump the version below.
 
 ## 11. Changelog
 
+- **1.5** (2026-10-14): §7 story framework: a 9-beat structure with runtime
+  percentages, the child rule (labels name rules, never introduce them),
+  cause → effect → new question, saw-tooth tension, the bookend.
 - **1.4** (2026-10-14): "Animation vs. Coding" teardown. Reaction freeze,
   contact squash ratio, jump timing, three shake tiers, S6 (silence before
   the climax), S7 (spawn sounds), cut-on-action rhythm, floor height when
