@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§10), update the rules it
 changes, and bump the version.
 
-**Version 1.6 · 2026-10-14**
+**Version 1.7 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -179,6 +179,17 @@ out to establish or resolve. Track the action's centre.
   60 fps) before the next action.
 - **Burst:** an anticipation of about 15 frames at 60 fps, the action of
   about 25 frames, the contact in 4 frames, then follow-through.
+
+**On-screen code** (study: `docs/references/code_on_screen.md`)
+
+| rule | requirement |
+| --- | --- |
+| **K1 Readable** | the active line is ≥ 7% of frame height (≥ 75 px at 1080p), monospace, at most 3 lines in view |
+| **K2 Typed** | 12 chars/s, one key click per character, a blinking cursor, a heavier Enter |
+| **K3 Same shot** | push in so the code and its result share the frame; the result fires 6 frames after Enter |
+| **K4 Hold** | ≥ 1.0 s on the finished code and its result before pulling back to the reaction |
+| **K5 Real** | the code is valid and does exactly what we show; the picture obeys its numbers (gravity, jump speed, spring strength); bugs are real bugs |
+| **K6 Edits** | a fix moves the cursor to the spot, flashes it, and changes only what changes |
 
 **Glow:** a soft bloom at about 15–35% core opacity, fading over 80–120 px.
 The vector edge itself stays razor sharp: never blur the line, only add
@@ -360,6 +371,7 @@ from screenshots.
 | 2026-10-14 | "Animation vs. Coding", Alan Becker channel (YouTube `EFmxPMdBqmU`, 9:27) | vidIQ long-form visual analysis (no download); notes in `docs/references/animation_vs_coding.md` | gesture anticipation 2–4 f; 6–12 f reaction freeze; contact squash 1.4 : 0.6 on props; three shake tiers (8 px × 4 f / 15 px × 8 f / 25 px decaying over 40 f after 3 f of white); ~0.5 s silence before the climax; SFX 1:1 with spawned elements; cut on action every 2–4 s; floor at 0.80–0.85 when present; negative space 60–85% |
 | 2026-10-14 | same video, story pass | vidIQ visual analysis asked to watch as a viewer; notes in `docs/references/animation_vs_coding_story.md` | hook = the first attempt refused physically; the child loop (poke → observe → misuse → combine → consequence → recover); cause → effect → new question chain; tool turns on its maker; midpoint arena shift; over-reach climax; the ending answers the opening; saw-tooth tension |
 | 2026-10-14 | "Animation vs. Math" (`B1J6Ou4q8vE`), "Animation vs. Physics" (`ErMSHiQRnc8`), "Animator vs. Animation" (`npTC6b5-yvM`), "Animation vs. Minecraft" (`GW_fdXHOWp4`) | vidIQ visual analyses for story clarity, as a first-time viewer; notes in `docs/references/clarity_study.md` | clarity rules C1–C10: want = object in frame, gaze → reach → move, the want/try/result/reaction loop, reaction holds, rule of three, same-shot causality, one action at a time, tool before use, pay-offs, pull back to explain |
+| 2026-10-14 | "Animation vs. Coding" (`EFmxPMdBqmU`), code-on-screen pass | vidIQ visual analysis; notes in `docs/references/code_on_screen.md` | typing 10–14 chars/s with a cursor and 1:1 clicks, active line ≥ 8% of frame height, push in then hold ≥ 1 s, result within 6 frames of Enter, same-shot cause and effect |
 | next | a fight-focused video; screenshot measurements to settle head size | vidIQ and/or user screenshots measured frame by frame | pending |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
@@ -368,6 +380,9 @@ and bump the version below.
 
 ## 11. Changelog
 
+- **1.7** (2026-10-14): §5 on-screen code rules K1–K6 from a code-presentation
+  study; K5 makes every action obey real (coded) physics. `docs/LEARNING_LOG.md`
+  collects every lesson.
 - **1.6** (2026-10-14): §7 clarity rules C1–C10 from a four-film clarity
   study. FIRST LIGHT diagnosed against them; v2 script written.
 - **1.5** (2026-10-14): §7 story framework: a 9-beat structure with runtime
