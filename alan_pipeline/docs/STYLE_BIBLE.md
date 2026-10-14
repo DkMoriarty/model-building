@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§10), update the rules it
 changes, and bump the version.
 
-**Version 1.3 · 2026-10-14**
+**Version 1.4 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -66,14 +66,17 @@ the human band: it's an alien, and its ratios are still fixed and measured.
 
 | action | frames | seconds | notes |
 | --- | --- | --- | --- |
-| anticipation (crouch, wind-up) | 3–8 (fast) · 18 (big swing) | 0.05–0.3 | always before jumps, swings, pulls |
+| anticipation (crouch, wind-up) | 2–4 (gesture) · 3–8 (fast) · 18 (big swing) | 0.03–0.3 | always before jumps, swings, pulls |
 | strike to contact | 6–11 | 0.10–0.18 | ease-in (accelerate into the hit) |
 | **contact hold** | **2–4** | 0.03–0.07 | freeze on the hit before recoil reads |
 | recoil coast | 30–36 | 0.5–0.6 | linear: impulse, then constant velocity |
 | peak-pose hold before/after a burst | 2–4 | | punctuation |
+| reaction freeze (struck, startled) | 6–12 | 0.1–0.2 | snap in over 2 f, dead still, no overshoot |
 | "discovery" / reaction hold | 12–24 | 0.2–0.4 | idle drift, head tilt |
 | heavy push step | 12–16 per step | | torso leaning 30–45° |
 | landing squash | 1–2 | | head may flatten slightly; knees compress |
+| contact squash (prop or body hits a surface) | 1–2 | | props up to 1.4 : 0.6 (width : height); figures at most 1.2 : 0.8 |
+| jump | 3 crouch · 6 flight · 2 landing | | short hops; scale flight with height |
 
 **Feel**
 - Fast acceleration into actions, cushioned (ease-out) arrival on key poses.
@@ -94,8 +97,15 @@ the human band: it's an alien, and its ratios are still fixed and measured.
   1. Contact on the cue frame, verified geometrically (`checkContact`).
   2. A 2–4 frame hold.
   3. Sparks: a white flash and straight streaks.
-  4. Shake: 4 single-frame jolts of about 8 px, scaled by hit strength.
+  4. Shake, in one of three tiers by hit strength:
+
+     | tier | amplitude | duration | use |
+     | --- | --- | --- | --- |
+     | minor | 6–10 px | 4–6 single-frame jolts | ordinary clashes |
+     | medium | 12–15 px | 6–8 f, radial | heavy hits, body slams |
+     | major | 20–25 px | decays over 20–40 f, after 2–3 f of solid white | **one per act**: the climax |
 - **White-out flash** (2 frames) only on the biggest hits: about 1 per 20 s.
+  The 3-frame solid white belongs to the major tier only.
 - **Escalation:** each exchange introduces one new idea, from simple clashes
   up to a set-piece finale.
 - **Staging:** profile or semi-profile on a clean line, with opponents facing
@@ -106,12 +116,13 @@ the human band: it's an alien, and its ratios are still fixed and measured.
 
 **Frame and placement** (1920 × 1080)
 - **Safe margin:** 96 px for all text and HUD.
-- **Ground line in calm beats:** two-thirds down the frame, so feet sit at
-  y ≈ +180 from centre. Headroom is 33–40% of frame height.
+- **Ground line in calm beats:** two-thirds down the frame in open space, so
+  feet sit at y ≈ +180 from centre. Headroom is 33–40% of frame height. When a
+  floor or desk anchors the scene, drop it to 0.80–0.85 of the height.
 - **Lead room:** a figure moving or facing right sits at 0.38 × width
   (x ≈ −230 from centre), and at 0.62 × width when facing left. Leave about 60%
   of the frame open ahead of it.
-- **Calm beats:** keep 70–80% of the frame as negative space around the
+- **Calm beats:** keep 60–85% of the frame as negative space around the
   character.
 - **Intense beats:** centre the action (the fight frame is the centre of mass)
   or pin it hard to an edge.
@@ -162,7 +173,8 @@ slides.
 out to establish or resolve. Track the action's centre.
 
 **Rhythm**
-- **Average shot length:** 4.5–6 s in exposition, 1.2–2.5 s in action.
+- **Average shot length:** 4.5–8 s in exposition, 1.2–4 s in action. Cut
+  on action: change the framing mid-move, never on a still.
 - **Hold after a transformation or reveal:** 1.5–2 s (90–120 frames at
   60 fps) before the next action.
 - **Burst:** an anticipation of about 15 frames at 60 fps, the action of
@@ -263,6 +275,8 @@ chained duration.
 | **S3** size match | sound size tracks visual size: bigger sparks and harder shakes get louder hits; flashes get a sub-bass layer |
 | **S4** designed silence | music drops under holds and reveals. Impact sounds lead the picture by 0 frames; whooshes may lead by 2–6 frames (anticipation). |
 | **S5** vacuum honesty | only contact makes sound. Passing satellites, the comet and debris are silent. |
+| **S6** silence before the climax | the major-tier hit is preceded by about 0.5 s (24–36 f) of near-silence: music and SFX duck at least 18 dB, then the hit lands at full scale |
+| **S7** spawn sound | anything that appears on a cue (glyph, ring, panel, label) gets a sound on its first frame, or is declared silent in story.json. Ambient props fall under S5. |
 
 ### 9.4 Time
 
@@ -284,13 +298,15 @@ python tools/frame_audit.py                           # F2, T1-T3 + per-second l
 The audit exits non-zero on any hard failure, so it can gate a pipeline run
 (n8n, CI).
 
-### 9.6 Pending: a reference study
+### 9.6 Reference studies
 
-The numbers above are our house standard. A detailed teardown of "Animation
-vs. Coding" (Alan Becker channel) is scheduled. It will measure how objects
-enter, expand and leave there, the shot-by-shot frame balance, and the sound
-sync. It runs when vidIQ credits refill (Oct 28), or from user screenshots. It
-is a technique study only: its findings refine these thresholds.
+The numbers above are our house standard. Teardowns live in
+`docs/references/`, one file per video, and record technique only. The
+"Animation vs. Coding" teardown (v1.4) confirmed the 4 f minor shake, the
+crisp vector smears and the medium-shot figure size. It added the reaction
+freeze, the shake tiers, S6 and S7. Its head-size estimate (~25% of height)
+conflicts with the Geometry pass, so it's left open until we measure it
+from screenshots.
 
 ## 10. Source log
 
@@ -298,7 +314,8 @@ is a technique study only: its findings refine these thresholds.
 | --- | --- | --- | --- |
 | 2026-10-13 | "Animation vs. Geometry", Alan Becker channel (YouTube `VEJWE6cpqw0`, 9:02) | vidIQ visual analysis, pass 1: construction and motion (no download) | figure 4.5–5 H; torso 1.3–1.5 H; limb segments 1.0–1.2 H; stroke 12–15% H; open-ring head; round caps; 3–8 f anticipation; 2–4 f holds; flash frames; 2–4 f shake at 5–10 px; environment lines 30–50% thinner; gold for climaxes; no dialogue |
 | 2026-10-13 | same video | vidIQ visual analysis, pass 2: composition and aesthetics | ground at two-thirds height; 33–40% headroom; lead room 0.38 / 0.62 × width; figure 8–15% / 25–35% / 50–70% of frame height (wide / medium / close); line tiers 3 : 2 : 1; vertex dots 1.35 × structure stroke; labels padded 12–16 px; cubic camera easing; average shot length 4.5–6 s (exposition) and 1.2–2.5 s (action); 1.5–2 s holds after reveals; soft bloom with sharp edges |
-| next | "Animation vs. Coding" (Alan Becker channel) and a fight video | vidIQ when credits refill (Oct 28), and/or user screenshots measured frame by frame | pending; see §9.6 |
+| 2026-10-14 | "Animation vs. Coding", Alan Becker channel (YouTube `EFmxPMdBqmU`, 9:27) | vidIQ long-form visual analysis (no download); notes in `docs/references/animation_vs_coding.md` | gesture anticipation 2–4 f; 6–12 f reaction freeze; contact squash 1.4 : 0.6 on props; three shake tiers (8 px × 4 f / 15 px × 8 f / 25 px decaying over 40 f after 3 f of white); ~0.5 s silence before the climax; SFX 1:1 with spawned elements; cut on action every 2–4 s; floor at 0.80–0.85 when present; negative space 60–85% |
+| next | a fight-focused video; screenshot measurements to settle head size | vidIQ and/or user screenshots measured frame by frame | pending |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
 staging, effects), then add a row here. Update §2–§8 where it changes a rule,
@@ -306,6 +323,10 @@ and bump the version below.
 
 ## 11. Changelog
 
+- **1.4** (2026-10-14): "Animation vs. Coding" teardown. Reaction freeze,
+  contact squash ratio, jump timing, three shake tiers, S6 (silence before
+  the climax), S7 (spawn sounds), cut-on-action rhythm, floor height when
+  present, wider negative-space band. Head size left open.
 - **1.3** (2026-10-14): §9 Frame accounting. Subject framing and balance
   (F1s/F3s) measured from the scene graph every 0.1 s; negative space,
   sound sync, beat grid and dead air checked by `tools/frame_audit.py`.
