@@ -176,6 +176,7 @@ def main() -> None:
         sfx("enter", cue + "Enter", gain=0.8)
         return ev(cue + "Run", enter + ENTER)
     t = selftype("s1", E["zoomCode2"] + 0.6, "cpu.learn()")
+    sfx("blip", "s1Run", gain=0.5)
     ev("handsOff", E["s1"] + 0.3)
     t = selftype("s2", t + 1.0, "cpu.angry = true")
     sfx("boom", "s2Run", gain=0.4)
@@ -255,6 +256,7 @@ def main() -> None:
     R["dodge"] = dg
     for i, b_ in enumerate(dg["blocks"]):
         ev(f"dodge_drop{i}", b_["drop"])
+        sfx("tick", f"dodge_drop{i}", gain=0.6)
         ev(f"dodge_land{i}", b_["land"])
         sfx("thud", f"dodge_land{i}", gain=0.8)
     for i, m_ in enumerate(dg["moves"]):
@@ -347,7 +349,7 @@ def main() -> None:
         "audit": {
             "impacts": impacts,
             "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "zoomOut", "point1", "handsOff", "look", "walk", "wonder", "rise", "say1", "say2", "say3", "say4", "stepBack", "setFeet", "r1", "r1react", "r2", "r3", "point", "relief", "sunrise", "turn", "see", "seeTwice", "stretch", "end"],
-            "declared": [[0, 2.0, "fade in on the dark room"], [E["suck"], E["land"], "pulled through the screen"]],
+            "declared": [[0, 2.0, "fade in on the dark room"], [E["suck"], E["land"], "pulled through the screen"]] + [[E[f"portal{i}"], E[f"r{i}"] + 0.4, "a portal fills the frame"] for i in (1, 2, 3)],
         },
     }
     (ROOT / "audio/first_game/story.json").write_text(json.dumps(story, indent=1) + "\n")

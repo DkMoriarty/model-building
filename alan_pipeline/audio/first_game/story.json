@@ -1475,6 +1475,11 @@
    "gain": 0.8
   },
   {
+   "type": "blip",
+   "at": "s1Run",
+   "gain": 0.5
+  },
+  {
    "type": "tick",
    "at": "s2",
    "offset": 0.0,
@@ -2378,9 +2383,19 @@
    "gain": 0.6
   },
   {
+   "type": "tick",
+   "at": "dodge_drop0",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land0",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop1",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -2388,9 +2403,19 @@
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop2",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land2",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop3",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -2398,9 +2423,19 @@
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop4",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land4",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop5",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -2408,9 +2443,19 @@
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop6",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land6",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop7",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -2418,9 +2463,19 @@
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop8",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land8",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop9",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -2428,14 +2483,29 @@
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop10",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land10",
    "gain": 0.8
   },
   {
+   "type": "tick",
+   "at": "dodge_drop11",
+   "gain": 0.6
+  },
+  {
    "type": "thud",
    "at": "dodge_land11",
    "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "dodge_drop12",
+   "gain": 0.6
   },
   {
    "type": "thud",
@@ -4244,6 +4314,21 @@
     64.5921,
     66.4834,
     "pulled through the screen"
+   ],
+   [
+    90.8334,
+    92.4334,
+    "a portal fills the frame"
+   ],
+   [
+    108.3911,
+    109.9911,
+    "a portal fills the frame"
+   ],
+   [
+    124.0911,
+    125.6911,
+    "a portal fills the frame"
    ]
   ]
  }

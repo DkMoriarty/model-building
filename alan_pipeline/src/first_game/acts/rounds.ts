@@ -163,11 +163,11 @@ export function* roundsAct(s: Stage, hub: Hub): ThreadGenerator {
   yield* spark.pose({...GRIP, torso: 24, head: 30}, 0.3, easeOutCubic);
   // The memory: the line of code that made the ball skip a paddle.
   const memory = new Node({y: -230, opacity: 0});
-  const mem = new CodeView({width: 620, height: 70, time: () => s.time()});
+  const mem = new CodeView({width: 500, height: 60, time: () => s.time()});
   mem.newLine(code['c6']);
   mem.reveal();
   mem.scale(1.6);
-  memory.add(new Rect({width: 1060, height: 150, radius: 14, fill: withAlpha('#0b0f18', 0.9), stroke: '#ffd166', lineWidth: 4}));
+  memory.add(new Rect({width: 860, height: 120, radius: 14, fill: withAlpha('#0b0f18', 0.9), stroke: '#ffd166', lineWidth: 4}));
   memory.add(mem);
   hud.root.add(memory);
   yield* waitFor(0.5);
@@ -302,10 +302,10 @@ function* rally(s: Stage, court: Court, name: string, until: number, grip: Pose,
 
 /** The memory panel's little demo: frame-dots that jump clean over a thin bar. */
 function* skipDemo(memory: Node): ThreadGenerator {
-  const bar = new Rect({x: 300, y: 0, width: 8, height: 70, fill: PONG_COLORS.you});
+  const bar = new Rect({x: 260, y: 0, width: 8, height: 60, fill: PONG_COLORS.you});
   memory.add(bar);
   for (let i = 0; i < 6; i++) {
-    memory.add(new Circle({x: 140 + i * 50, y: 0, size: 14, fill: withAlpha(PONG_COLORS.ball, 0.3 + 0.12 * i)}));
+    memory.add(new Circle({x: 130 + i * 45, y: 0, size: 14, fill: withAlpha(PONG_COLORS.ball, 0.3 + 0.12 * i)}));
     yield* waitFor(0.08);
   }
 }
