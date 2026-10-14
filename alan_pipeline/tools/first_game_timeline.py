@@ -162,7 +162,7 @@ def main() -> None:
     end = rally("first", r)
     ev("point1", end)
     ev("cheer", end + 0.3)
-    sfx("laugh", "cheer", gain=0.9)
+    sfx("laugh", "cheer", gain=0.9, seed=1)
 
     # ---- the computer loses, and wakes up: it types by itself
     ev("tremble", E["cheer"] + 1.6)
@@ -231,7 +231,7 @@ def main() -> None:
     end = rally("r1b", r)
     ev("win1", end + 0.1)
     sfx("fanfare", "win1")
-    sfx("laugh", "win1", offset=0.5, gain=0.9)
+    sfx("laugh", "win1", offset=0.5, gain=0.9, seed=2)
     ev("light1", E["win1"] + 1.0)
     sfx("ding", "light1")
     ev("portal2", E["light1"] + 1.2)
@@ -247,7 +247,7 @@ def main() -> None:
         if k == "finish":
             ev("win2", e_["t"])
             sfx("fanfare", "win2")
-            sfx("laugh", "win2", offset=0.5, gain=0.9)
+            sfx("laugh", "win2", offset=0.5, gain=0.9, seed=3)
             continue
         key = f"run_{k}{n[k]}"
         n[k] += 1
@@ -278,7 +278,7 @@ def main() -> None:
             sfx("thud", f"dodge_dive{i}", offset=round(m_["until"] - m_["t"], 4), gain=0.5)
     ev("win3", r3 + 1.0 + 9.0)
     sfx("fanfare", "win3")
-    sfx("laugh", "win3", offset=0.5, gain=0.9)
+    sfx("laugh", "win3", offset=0.5, gain=0.9, seed=4)
     ev("light3", E["win3"] + 1.0)
     sfx("ding", "light3")
 
@@ -313,7 +313,7 @@ def main() -> None:
     sfx("thud", "race_landJump", gain=0.8)
     sfx("oof", "race_landJump", offset=0.03, gain=0.7)
     sfx("oneup", "race_key")
-    sfx("laugh", "race_key", offset=0.2, gain=0.9)
+    sfx("laugh", "race_key", offset=0.2, gain=0.9, seed=5)
     # Engines: Spark's from the moment he gets in until he stops at the door, the red cars while they chase.
     dt = 0.02
     t_in, t_out = E["getIn"] + 0.5, E["race_doorArrive"] + 0.8
@@ -381,6 +381,8 @@ def main() -> None:
         "music": M,
         # The score sits about 7 dB higher than the earlier films: it carries the story with no voice.
         "musicGain": 2.2,
+        # Round off the top: no harsh square harmonics or hiss above 4 kHz.
+        "musicLowpass": 4000,
         # The angry computer: the music drops away under the alarm and the heartbeat.
         "musicDuck": [[E["s1Run"], E["s2Run"], -5], [E["s2Run"], E["suck"] + 0.9, -12]],
         # A melody over every section, in the band small speakers play.
@@ -390,10 +392,10 @@ def main() -> None:
             "standoff": {"wave": "bell", "gain": 0.5},
             "hush": {"wave": "bell", "gain": 0.35},
             "grow": {"wave": "bell", "gain": 0.5},
-            "chip": {"wave": "square", "gain": 0.45},
-            "chipTense": {"wave": "square", "gain": 0.45},
+            "chip": {"wave": "soft", "gain": 0.5, "low": 67},
+            "chipTense": {"wave": "soft", "gain": 0.5, "low": 64},
             "wonder": {"wave": "bell", "gain": 0.5},
-            "chipFinal": {"wave": "square", "gain": 0.5},
+            "chipFinal": {"wave": "soft", "gain": 0.55, "low": 67},
             "resolve": {"wave": "bell", "gain": 0.5},
             "morning": {"wave": "bell", "gain": 0.55},
         },

@@ -1401,7 +1401,8 @@
   {
    "type": "laugh",
    "at": "cheer",
-   "gain": 0.9
+   "gain": 0.9,
+   "seed": 1
   },
   {
    "type": "glitch",
@@ -2334,7 +2335,8 @@
    "type": "laugh",
    "at": "win1",
    "offset": 0.5,
-   "gain": 0.9
+   "gain": 0.9,
+   "seed": 2
   },
   {
    "type": "ding",
@@ -2429,7 +2431,8 @@
    "type": "laugh",
    "at": "win2",
    "offset": 0.5,
-   "gain": 0.9
+   "gain": 0.9,
+   "seed": 3
   },
   {
    "type": "ding",
@@ -2595,7 +2598,8 @@
    "type": "laugh",
    "at": "win3",
    "offset": 0.5,
-   "gain": 0.9
+   "gain": 0.9,
+   "seed": 4
   },
   {
    "type": "ding",
@@ -2718,7 +2722,8 @@
    "type": "laugh",
    "at": "race_key",
    "offset": 0.2,
-   "gain": 0.9
+   "gain": 0.9,
+   "seed": 5
   },
   {
    "type": "click",
@@ -2825,6 +2830,7 @@
   }
  ],
  "musicGain": 2.2,
+ "musicLowpass": 4000,
  "musicDuck": [
   [
    58.9421,
@@ -2859,20 +2865,23 @@
    "gain": 0.5
   },
   "chip": {
-   "wave": "square",
-   "gain": 0.45
+   "wave": "soft",
+   "gain": 0.5,
+   "low": 67
   },
   "chipTense": {
-   "wave": "square",
-   "gain": 0.45
+   "wave": "soft",
+   "gain": 0.5,
+   "low": 64
   },
   "wonder": {
    "wave": "bell",
    "gain": 0.5
   },
   "chipFinal": {
-   "wave": "square",
-   "gain": 0.5
+   "wave": "soft",
+   "gain": 0.55,
+   "low": 67
   },
   "resolve": {
    "wave": "bell",

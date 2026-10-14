@@ -420,6 +420,17 @@ def square(freq: float, n: int, duty: float = 0.5) -> np.ndarray:
     return np.where((t * freq) % 1 < duty, 1.0, -1.0)
 
 
+def soft_square(freq: float, n: int) -> np.ndarray:
+    """A rounded chiptune tone: the square's odd harmonics, but only the first few, rolled off."""
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    for k in (1, 3, 5, 7):
+        if freq * k > 3000:
+            break
+        out += np.sin(2 * np.pi * freq * k * t) / (k * k) * (1 if k == 1 else 1.6)
+    return out * 0.8
+
+
 def sweep(f0: float, f1: float, length: float, duty: float = 0.5) -> np.ndarray:
     """An 8-bit pitch sweep (square wave), exponential in frequency."""
     n = int(length * SR)
@@ -574,19 +585,86 @@ VOWEL_A = [(800, 110, 1.0), (1250, 130, 0.7), (2600, 180, 0.25)]
 VOWEL_UH = [(620, 100, 1.0), (1200, 130, 0.5), (2500, 180, 0.2)]
 
 
-def sfx_laugh(length: float = 1.0) -> np.ndarray:
-    """A happy "ha-ha-ha-ha": four syllables, each with an h onset, pitch stepping down."""
-    out = np.zeros(int(length * SR))
-    for i, p0 in enumerate([340, 320, 300, 285]):
-        m = int(0.15 * SR)
-        tt = np.arange(m) / SR
-        f0 = p0 * (1 + 0.08 * np.exp(-tt * 20))
-        v = vocal(f0, VOWEL_A, 0.05) * env_adsr(m, 0.02, 0.04, 0.8, 0.06)
-        h = spectral_filter(RNG.normal(0, 1, int(0.04 * SR)), 600, 4000) * np.linspace(0, 1, int(0.04 * SR)) * 0.25
-        at = int(i * 0.19 * SR)
-        out[at : at + len(h)] += h[: len(out) - at]
-        a2 = at + len(h)
-        out[a2 : a2 + m] += v[: max(0, len(out) - a2)]
+def glottal(f0: np.ndarray, rng: np.random.Generator, jitter: float = 0.02, shimmer: float = 0.1) -> np.ndarray:
+    """A glottal source: one Rosenberg pulse per period, with natural jitter and shimmer.
+
+    The pulse's derivative (what the lips radiate) is placed at each period,
+    so the spectrum falls off like a real voice instead of a bank of sines.
+    """
+    n = len(f0)
+    out = np.zeros(n + 2000)
+    t = 0.0
+    while t < n:
+        f = float(f0[min(int(t), n - 1)]) * (1 + rng.normal(0, jitter))
+        period = SR / f
+        tp, tn = 0.4 * period, 0.16 * period
+        k = np.arange(int(tp + tn) + 1)
+        g = np.where(k < tp, 0.5 * (1 - np.cos(np.pi * k / tp)), np.cos(np.pi * (k - tp) / (2 * tn)))
+        g = np.diff(np.concatenate([[0.0], np.clip(g, 0, 1)]))
+        i = int(t)
+        out[i : i + len(g)] += g * (1 + rng.normal(0, shimmer))
+        t += period
+    return out[:n]
+
+
+def formant_shape(x: np.ndarray, formants: list[tuple[float, float]]) -> np.ndarray:
+    """Pass a signal through a cascade of vocal-tract resonances (centre, bandwidth in Hz)."""
+    spec = np.fft.rfft(x)
+    f = np.fft.rfftfreq(len(x), 1 / SR)
+    h = np.ones_like(f)
+    for fc, bw in formants:
+        h *= fc * fc / np.sqrt((fc * fc - f * f) ** 2 + (bw * f) ** 2)
+    return np.fft.irfft(spec * h, n=len(x))
+
+
+def room(x: np.ndarray, wet: float = 0.18) -> np.ndarray:
+    """A small room: a few early reflections and a short diffuse tail."""
+    out = x.copy()
+    for ms, g in ((11, 0.5), (19, 0.4), (29, 0.33), (41, 0.25), (57, 0.18), (79, 0.12)):
+        d = int(ms * SR / 1000)
+        out[d:] += x[:-d] * g * wet * 2
+    return out
+
+
+def sfx_laugh(seed: int = 0) -> np.ndarray:
+    """A natural laugh: "ha-ha-ha-ha-hah" from a glottal source through the vowel /a/.
+
+    Five syllables at uneven spacing (a little faster, then slowing), each
+    with a breathy h onset, a pitch that falls inside the syllable and across
+    the laugh, jitter and shimmer, breath mixed into the voice, louder at the
+    start and fading; then a short in-breath. Each seed gives a different laugh.
+    """
+    rng = np.random.default_rng(1000 + seed)
+    total = int(1.45 * SR)
+    out = np.zeros(total)
+    t = 0.0
+    base = 290 * (1 + rng.uniform(-0.05, 0.05))
+    count = 5
+    for i in range(count):
+        h_len = int(rng.uniform(0.035, 0.06) * SR)
+        v_len = int((rng.uniform(0.07, 0.1) if i < count - 1 else 0.17) * SR)
+        m = h_len + v_len
+        tt = np.arange(v_len) / SR
+        p0 = base * (1 - 0.05 * i) * (1 + rng.uniform(-0.03, 0.03))
+        f0 = p0 * (1.08 - 0.16 * tt / (v_len / SR))
+        voice = np.concatenate([np.zeros(h_len), glottal(f0, rng)])
+        breath = rng.normal(0, 1, m)
+        env_h = np.concatenate([np.linspace(0, 1, h_len) ** 0.7, np.linspace(1, 0.35, v_len)])
+        env_v = np.concatenate([np.zeros(h_len), env_adsr(v_len, 0.012, 0.03, 0.75, 0.035)])
+        vowel = [(rng.uniform(760, 840), 90), (rng.uniform(1180, 1300), 110), (2600, 170), (3500, 250)]
+        syl = formant_shape(voice * env_v * 18 + breath * env_h * (0.9 if i < count - 1 else 1.2), vowel)
+        loud = (1.0 - 0.13 * i) * rng.uniform(0.9, 1.05)
+        i0 = int(t * SR)
+        seg = syl[: max(0, total - i0)]
+        out[i0 : i0 + len(seg)] += seg * loud
+        t += (h_len + v_len) / SR + rng.uniform(0.03, 0.06) + 0.015 * max(0, i - 2)
+    # The in-breath after the laugh.
+    k = int(0.28 * SR)
+    i0 = int((t + 0.05) * SR)
+    inb = spectral_filter(rng.normal(0, 1, k), 1200, 5000) * np.sin(np.pi * np.arange(k) / k) ** 2
+    seg = inb[: max(0, total - i0)]
+    out[i0 : i0 + len(seg)] += seg * 0.12 * np.max(np.abs(out))
+    out = spectral_filter(room(out), 120, 7000)
     return out / (np.max(np.abs(out)) + 1e-9) * 0.35
 
 
@@ -759,7 +837,7 @@ SFX = {
     "rattle": lambda e: sfx_rattle(),
     "crack": lambda e: sfx_crack(),
     "shatter": lambda e: sfx_shatter(),
-    "laugh": lambda e: sfx_laugh(),
+    "laugh": lambda e: sfx_laugh(e.get("seed", 0)),
     "oof": lambda e: sfx_oof(),
     "sigh": lambda e: sfx_sigh(e.get("length", 1.8)),
     "alarm": lambda e: sfx_alarm(e.get("length", 3.0)),
@@ -839,14 +917,19 @@ def add_melody(left: np.ndarray, right: np.ndarray, t0: float, t1: float, prog: 
             if idx < 0 or st >= t1 - 0.05:
                 continue
             note = chord[idx]
-            while note < 72:
+            low = mel.get("low", 72)
+            while note < low:
                 note += 12
+            while note > low + 12:
+                note -= 12
             hold = beat / 2 * (2 if i + 1 < len(pattern) and pattern[i + 1] < 0 else 1)
             k = int(min(hold, t1 - st) * SR)
             tt = np.arange(k) / SR
             f = midi(note)
             if mel.get("wave") == "square":
                 tone = square(f, k, 0.25) * env_adsr(k, 0.003, 0.05, 0.7, 0.04)
+            elif mel.get("wave") == "soft":
+                tone = soft_square(f, k) * env_adsr(k, 0.008, 0.06, 0.7, 0.05)
             else:
                 tone = (np.sin(2 * np.pi * f * tt) + 0.35 * np.sin(4 * np.pi * f * tt) + 0.12 * np.sin(6 * np.pi * f * tt)) * np.exp(-tt * 3.5)
                 tone *= env_adsr(k, 0.004, 0.05, 1.0, 0.05)
@@ -919,7 +1002,7 @@ def build_music(story: dict, n: int) -> np.ndarray:
                 if "sqlead" in layers:
                     k = int(beat / 2 * SR)
                     note = chord[[1, 2, 3, 2, 3, 2, 1, 3][s % 8]] + 12
-                    tone = square(midi(note), k, 0.25) * env_adsr(k, 0.003, 0.05, 0.6, 0.03)
+                    tone = soft_square(midi(note), k) * env_adsr(k, 0.006, 0.06, 0.55, 0.04)
                     add(left, st, tone, layers["sqlead"] * 0.05)
                     add(right, st, tone, layers["sqlead"] * 0.05)
                 if "sqbass" in layers:
@@ -1070,6 +1153,9 @@ def main() -> None:
 
     # 3. Music, ducked under the voice.
     music = build_music(story, n) * story.get("musicGain", 1.0)
+    # An episode may round off the score's top end so it never turns harsh.
+    if story.get("musicLowpass"):
+        music = np.stack([spectral_filter(music[:, c], 0, story["musicLowpass"]) for c in range(2)], axis=1)
     # Music dips (an episode's "musicDuck": [from, to, dB]) let a sound take over a moment.
     for a_, b_, db_ in story.get("musicDuck", []):
         i0, i1 = int(resolve(a_, {k: float(v) for k, v in story["events"].items()}, {}) * SR), int(resolve(b_, {k: float(v) for k, v in story["events"].items()}, {}) * SR)
