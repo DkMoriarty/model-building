@@ -142,13 +142,18 @@ def main() -> None:
 
     # ---- picture ------------------------------------------------------------
     imgs = frames(video, args.rate)
+    # Declared transitions: the fade in from black and the fade to the end card
+    # are meant to be (nearly) empty, so F2 does not apply inside them.
+    end_cue = events.get("end", cues["duration"])
+    transitions = [(0.0, 1.5, "fade in"), (end_cue - 1.0, cues["duration"], "fade to end card")]
     samples = []
     for i, img in enumerate(imgs):
         t = i / args.rate
         m = measure(img)
         m["t"] = t
         m["flags"] = []
-        if not m["empty"]:
+        in_transition = any(a <= t <= b for a, b, _ in transitions)
+        if not m["empty"] and not in_transition:
             if np.hypot(m["cx"], m["cy"]) > 0.20:
                 m["flags"].append("F1")
             if not 0.50 <= m["space"] <= 0.97:

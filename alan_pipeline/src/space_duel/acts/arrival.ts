@@ -1,11 +1,11 @@
 import {Circle, Line, Node, Txt} from '@motion-canvas/2d';
-import {all, easeInCubic, easeInOutCubic, easeInOutSine, easeOutCubic, linear, ThreadGenerator, useLogger, useTime, Vector2, waitFor} from '@motion-canvas/core';
+import {all, chain, easeInCubic, easeInOutCubic, easeInOutSine, easeOutCubic, linear, ThreadGenerator, useLogger, useTime, Vector2, waitFor} from '@motion-canvas/core';
 import {JOINTS, Pose, StickFigure} from '../../components/StickFigure';
 import {hexNut} from '../components/Ambient';
 import {FIGURE_SCALE} from '../../figureSpec';
 import {Colors, Typography} from '../../styles';
 import {reveal} from '../components/Hud';
-import {wavefronts} from '../components/Effects';
+import {exhaust, wavefronts} from '../components/Effects';
 import {station as stationIcon} from '../components/Scenery';
 import {at, syncTo} from '../cues';
 import {gamma} from '../physics';
@@ -292,6 +292,23 @@ function* standoff(s: Stage): ThreadGenerator {
   yield* s.label.show('vacuum: no medium, no sound', 'what you hear is vibration through blade, glove and bone');
 
   // Guard stances, then the fight.
+  // Sizing each other up: a slow orbit around their common centre, heads
+  // tilting, then three small tells (blade flicker, re-grip, thruster trim).
+  yield* syncTo('sizeUp');
+  s.spawn(all(
+    keeper.body.position([-300, 70], at('trim') - at('sizeUp') + 1, easeInOutSine),
+    alien.body.position([270, 110], at('trim') - at('sizeUp') + 1, easeInOutSine),
+    keeper.body.rotation(-4, 3.5, easeInOutSine).to(2, 3.5, easeInOutSine),
+    alien.body.rotation(4, 3.5, easeInOutSine).to(-2, 3.5, easeInOutSine),
+    keeper.body.pose({head: -10}, 1.2, easeInOutSine),
+    alien.body.pose({head: 12}, 1.2, easeInOutSine),
+  ));
+  yield* syncTo('flicker');
+  yield* alien.blade.spread(5, 0.35, easeOutCubic).to(0, 0.45, easeInOutSine);
+  yield* syncTo('grip', 0.15);
+  yield* all(keeper.blade.rotation(-55, 0.15, easeOutCubic).to(-70, 0.3, easeInOutSine), chain(keeper.body.pose({rightElbow: -45}, 0.15), keeper.body.pose({rightElbow: -30}, 0.3)));
+  yield* syncTo('trim');
+  s.spawn(exhaust(s.fx, () => keeper.body.bones.torso.absolutePosition(), new Vector2(-1, 0.2), 0.3));
   yield* syncTo('fight', 2.5);
   yield* all(
     s.label.hide(),

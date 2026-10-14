@@ -1,6 +1,7 @@
 import {Circle, Line, Node, Rect, Txt} from '@motion-canvas/2d';
 import {
   all,
+  chain,
   createSignal,
   easeInCubic,
   easeInOutCubic,
@@ -444,6 +445,20 @@ function* superposition(s: Stage): ThreadGenerator {
   yield* exchange(s, 'collapse1', {keeper: 'mid', alien: 'mid', recoil: 200, sparkScale: 1.4, collapse: true});
   yield* s.label.show('measurement → one outcome', 'contact forces the blade into a single place');
   ghost.remove();
+
+  // Regroup: both brake with their thrusters and square up again.
+  yield* syncTo('regroup');
+  yield* burn(s, new Vector2(460, -10), 1.4);
+  // Feint: the traveller fakes a lunge; the keeper flinches. No contact.
+  yield* syncTo('feint', 0.2);
+  yield* all(
+    s.sep(new Vector2(380, -10), 0.2, easeOutCubic).to(new Vector2(460, -10), 0.5, easeInOutSine),
+    chain(s.alien.body.pose({...GUARD, ...STYLES.mid.windup}, 0.2, easeOutCubic), s.alien.body.pose(GUARD, 0.5)),
+    chain(s.keeper.body.pose({torso: -14, head: -15, leftShoulder: -100}, 0.2, easeOutCubic), s.keeper.body.pose(GUARD, 0.6)),
+  );
+  // Charge: the traveller draws back for the thrust that meets the barrier.
+  yield* syncTo('charge');
+  yield* s.alien.body.pose({...GUARD, rightShoulder: 40, rightElbow: -100, torso: -10}, 0.8, easeInOutSine);
 }
 
 function* tunnelling(s: Stage): ThreadGenerator {

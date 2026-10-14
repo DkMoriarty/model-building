@@ -56,6 +56,10 @@
     "drawAlien": 58.5,
     "drawKeeper": 60.0,
     "lblVacuum": 66.5,
+    "sizeUp": 67.0,
+    "flicker": 69.5,
+    "grip": 71.5,
+    "trim": 73.0,
     "fight": 77.0,
     "clash1": 80.0,
     "clash2": 82.0,
@@ -74,6 +78,9 @@
     "lblSuper": 114.0,
     "ghostMiss": 120.0,
     "collapse1": 125.0,
+    "regroup": 127.0,
+    "feint": 129.5,
+    "charge": 131.5,
     "barrier": 133.0,
     "sat3": 139.0,
     "tunnel": 141.5,
@@ -309,6 +316,37 @@
       "type": "whoosh",
       "at": "depart",
       "offset": 3.0
+    },
+    {
+      "type": "shimmer",
+      "at": "flicker",
+      "length": 1.2,
+      "gain": 0.6
+    },
+    {
+      "type": "tink",
+      "at": "grip",
+      "gain": 0.7
+    },
+    {
+      "type": "thrust",
+      "at": "trim",
+      "length": 0.6,
+      "gain": 0.5
+    },
+    {
+      "type": "thrust",
+      "at": "regroup",
+      "length": 1.4
+    },
+    {
+      "type": "whoosh",
+      "at": "feint"
+    },
+    {
+      "type": "hum",
+      "at": "charge",
+      "length": 1.5
     }
   ],
   "music": [
