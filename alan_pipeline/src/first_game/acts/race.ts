@@ -72,8 +72,8 @@ export function* raceAct(s: Stage, hub: Hub): ThreadGenerator {
   const standY = standHeight(s, spark, STAND);
 
   // ---- The keyhole appears.
-  yield* syncTo('keyhole', 0.3);
-  yield* spark.pose({...STAND, torso: 8, head: -10, rightShoulder: -40, rightElbow: -30}, 0.3, easeOutCubic);
+  yield* syncTo('keyhole', 0.15);
+  yield* spark.pose({...STAND, torso: 8, head: -10, rightShoulder: -40, rightElbow: -30}, 0.15, easeOutCubic);
   door.keyhole(1);
   s.spawn(sparkBurst(s.fx, new Vector2(DOOR_X + 34, 300 - 110), WORLD.gold, 0.5, 8));
 
@@ -227,7 +227,7 @@ export function* raceAct(s: Stage, hub: Hub): ThreadGenerator {
   // Through: into the light, and home.
   yield* syncTo('through', 0);
   s.spawn(all(s.cam(DOOR_FAR.add([0, -120]), 0.6, easeInCubic), s.zoom(4.2, 0.6, easeInCubic), s.whiteout.opacity(1, 0.6, easeInCubic)));
-  yield* spark.walkTo(DOOR_FAR.x, {steps: 2, duration: 0.55});
+  yield* spark.walkTo(DOOR_FAR.x, {steps: 2, duration: 0.55, settle: false});
 }
 
 /** A bump: the head whips back, then settles. */

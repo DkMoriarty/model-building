@@ -264,7 +264,7 @@ export function* roundsAct(s: Stage, hub: Hub): ThreadGenerator {
   yield* lightUp(s, hud, hub.door, 2, 'light3');
   // A white flash, and back to the hub: the door has all three lights.
   yield* waitFor(0.05);
-  yield* s.whiteout.opacity(1, 0.2, easeInCubic);
+  yield* s.whiteout.opacity(1, 0.15, easeInCubic);
   hud.root.remove();
   arena.opacity(0);
   dropLayer.remove();
@@ -276,7 +276,7 @@ export function* roundsAct(s: Stage, hub: Hub): ThreadGenerator {
   s.room(0.35);
   s.lightColor(WORLD.bit);
   for (const b of hub.ripple) b.color(WORLD.bit);
-  yield* s.whiteout.opacity(0, 0.3, easeOutCubic);
+  yield* s.whiteout.opacity(0, 0.25, easeOutCubic);
 }
 
 function pick(p: Pose, keys: (keyof Pose)[]): Pose {
