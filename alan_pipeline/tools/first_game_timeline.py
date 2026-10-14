@@ -21,10 +21,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pong  # noqa: E402
+import first_game_plans as plans  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CPS = 12.0
 ENTER = 0.1
+
+SHADOW = ["YOU BEAT ME.", "NOW PLAY FOR REAL.", "WIN 3 GAMES - GO HOME.", "LOSE - YOU ARE DELETED."]
 
 CODE = {
     "c1": 'print("hello world")',
@@ -159,120 +162,169 @@ def main() -> None:
     ev("point1", end)
     ev("cheer", end + 0.3)
 
-    # ---- into the night: an unbeatable opponent
-    ev("zoomCode2", E["cheer"] + 2.0)
-    t = typing("c10", E["zoomCode2"] + 0.6)
-    ev("grin", t + 0.6)
-    ev("clock1", E["grin"] + 1.4)
-    sfx("tick", "clock1")
-    play2 = ev("play2", E["clock1"] + 1.6)
-    r = pong.find(play2 + 0.3, +1, 0, [("serve", -14), ("hit", 30), ("hit", -20), ("hit", 25), ("hit", -38), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("lose", r)
-    ev("gameOverMini", end + 0.3)
-    sfx("gameover", "gameOverMini", gain=0.7)
-    ev("laugh", end + 0.9)
-    ev("yawn", E["laugh"] + 1.8)
-    ev("droop", E["yawn"] + 1.8)
-    ev("pull", E["droop"] + 1.2)
-    sfx("riser", "pull", length=1.2, gain=0.6)
+    # ---- the computer loses, and wakes up: it types by itself
+    ev("tremble", E["cheer"] + 1.6)
+    sfx("glitch", "tremble", gain=0.5)
+    ev("zoomCode2", E["tremble"] + 0.8)
+    def selftype(cue: str, start: float, text: str) -> float:
+        CODE[cue] = text
+        ev(cue, start)
+        for i in range(len(text)):
+            sfx("tick", cue, offset=round(i / CPS, 4), gain=0.45)
+        enter = ev(cue + "Enter", start + len(text) / CPS)
+        sfx("enter", cue + "Enter", gain=0.8)
+        return ev(cue + "Run", enter + ENTER)
+    t = selftype("s1", E["zoomCode2"] + 0.6, "cpu.learn()")
+    ev("handsOff", E["s1"] + 0.3)
+    t = selftype("s2", t + 1.0, "cpu.angry = true")
+    sfx("boom", "s2Run", gain=0.4)
+    t = selftype("s3", t + 1.0, "pull(spark)")
+    ev("pull", t)
+    sfx("riser", "pull", length=1.2, gain=0.7)
     ev("suck", E["pull"] + 1.2)
     sfx("whoosh", "suck")
-    ev("inside", E["suck"] + 1.4)
-    sfx("thud", "inside")
 
-    # ---- inside the game: Spark is the left paddle
-    ev("lookHands", E["inside"] + 1.0)
-    ev("lookBack", E["lookHands"] + 1.2)
-    ev("seeDoor", E["lookBack"] + 1.8)
-    # Level 1: a slow opponent. One point wins it.
-    l1 = ev("l1", E["seeDoor"] + 1.6)
-    r = pong.find(l1 + 0.6, -1, 0, [("serve", -10), ("hit", 15), ("hit", 34), ("miss", 0)], speeds=(pong.REACH, 70))
-    end = rally("l1", r)
-    ev("clear1", end + 0.2)
-    sfx("fanfare", "clear1")
-    ev("wipe1", E["clear1"] + 1.4)
-    sfx("whoosh", "wipe1", gain=0.5)
-    # Level 2: faster. One point.
-    l2 = ev("l2", E["wipe1"] + 0.6)
-    r = pong.find(l2 + 0.8, +1, 40, [("serve", 16), ("hit", -26), ("hit", 20), ("hit", -36), ("miss", 0)], speeds=(pong.REACH, 130))
-    end = rally("l2", r)
-    ev("clear2", end + 0.2)
-    sfx("fanfare", "clear2")
-    ev("wipe2", E["clear2"] + 1.4)
-    sfx("whoosh", "wipe2", gain=0.5)
-    # Level 3: the unbeatable paddle (cpu.speed = 99). First to three.
-    l3 = ev("l3", E["wipe2"] + 0.6)
-    ev("gulp", l3 + 1.0)
-    p1 = ev("p1", E["gulp"] + 1.4)
-    r = pong.find(p1 + 0.3, +1, 0, [("serve", 18), ("hit", -20), ("hit", 25), ("hit", -15), ("hit", 40), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("p1", r)
-    ev("react1", end + 0.6)
-    p2 = ev("p2", E["react1"] + 1.4)
-    r = pong.find(p2 + 0.3, +1, -60, [("serve", -16), ("hit", 22), ("hit", -25), ("hit", 18), ("hit", -42), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("p2", r)
-    ev("react2", end + 0.6)
-    p3 = ev("p3", E["react2"] + 1.6)
-    # Spark reaches every ball this time... and the fast one goes straight through.
-    r = pong.find(p3 + 0.3, +1, 0, [("serve", 20), ("hit", -25), ("hit", 30), ("hit", -20), ("hit", 15), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("p3", r)
-    ev("gameOver", end + 0.4)
-    sfx("gameover", "gameOver")
-    ev("stare", E["gameOver"] + 0.8)
-    ev("slumpGO", E["stare"] + 1.6)
-    ev("count3", E["slumpGO"] + 2.4)
-    ev("count2", E["count3"] + 1.2)
-    ev("memory", E["count2"] + 0.3)
-    ev("count1", E["count2"] + 1.2)
-    for k in ["count3", "count2", "count1"]:
-        sfx("tick", k, gain=0.9)
-    sfx("glitch", "memory", gain=0.6)
-    ev("press", E["count1"] + 0.6)
-    sfx("oneup", "press")
-    # The plan: Spark serves, so the fifth, fastest hit is Spark's.
-    p4 = ev("p4", E["press"] + 1.6)
-    r = pong.find(p4 + 0.6, -1, 0, [("serve", -20), ("hit", 25), ("hit", -30), ("hit", 20), ("hit", -10), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("p4", r)
-    ev("door", end + 0.1)
-    sfx("fanfare", "door", gain=1.1)
+    # ---- the binary world
+    land = ev("land", E["suck"] + 0.9 + 0.1 + math.sqrt(2 * (195 - -520) / plans.G))
+    sfx("thud", "land")
+    ev("look", land + 1.0)
+    ev("walk", E["look"] + 1.6)
+    ev("touch", E["walk"] + 2.6)
+    sfx("tick", "touch", gain=0.8)
+    sfx("blip", "touch", gain=0.4)
+    ev("wonder", E["touch"] + 1.4)
+    ev("glitch", E["wonder"] + 2.4)
+    sfx("glitch", "glitch", gain=0.8)
+    ev("rise", E["glitch"] + 0.3)
+    sfx("riser", "rise", length=1.2, gain=0.6)
+    ev("eye", E["rise"] + 1.4)
+    sfx("violet", "eye", gain=0.7)
+    t = E["eye"] + 0.8
+    for i, line in enumerate(SHADOW):
+        cue = f"say{i + 1}"
+        ev(cue, t)
+        for k in range(len(line)):
+            sfx("tick", cue, offset=round(k / CPS, 4), gain=0.5)
+        t += len(line) / CPS + 1.4
+    ev("stepBack", E["say4"] + 0.4)
+    ev("door0", t)
+    sfx("pop", "door0", gain=0.5)
+    ev("setFeet", E["door0"] + 1.2)
+    ev("portal1", E["setFeet"] + 1.2)
+    sfx("whoosh", "portal1", gain=0.6)
 
-    # ---- the dream breaks
-    ev("crack", E["door"] + 1.4)
-    ev("crack2", E["crack"] + 0.6)
-    ev("shatter", E["crack2"] + 0.6)
-    for k in ["crack", "crack2"]:
-        sfx("crack", k)
-    sfx("shatter", "shatter")
-    sfx("boom", "shatter", gain=0.6)
+    # ---- round 1: ping pong against the Shadow (first point lost, second won by the glitch)
+    r1 = ev("r1", E["portal1"] + 1.2)
+    r = pong.find(r1 + 1.2, +1, 0, [("serve", 18), ("hit", -20), ("hit", 25), ("hit", -15), ("hit", 40), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("r1a", r)
+    ev("r1react", end + 0.4)
+    r1b = ev("r1b", E["r1react"] + 1.6)
+    r = pong.find(r1b + 0.6, -1, 0, [("serve", -20), ("hit", 25), ("hit", -30), ("hit", 20), ("hit", -10), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("r1b", r)
+    ev("win1", end + 0.1)
+    sfx("fanfare", "win1")
+    ev("light1", E["win1"] + 1.0)
+    sfx("ding", "light1")
+    ev("portal2", E["light1"] + 1.2)
+    sfx("whoosh", "portal2", gain=0.6)
 
-    # ---- awake: the same plan, on the real screen
-    ev("wake", E["shatter"] + 2.4)
-    sfx("thud", "wake", gain=0.6)
-    ev("clock3", E["wake"] + 1.2)
-    sfx("tick", "clock3")
-    ev("lookScreen", E["clock3"] + 1.2)
-    ev("grinKnow", E["lookScreen"] + 1.2)
-    ev("grab", E["grinKnow"] + 1.2)
-    sfx("click", "grab", gain=0.5)
-    m = ev("final", E["grab"] + 1.2)
-    r = pong.find(m + 0.6, -1, 0, [("serve", -20), ("hit", 25), ("hit", -30), ("hit", 20), ("hit", -10), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
-    end = rally("final", r, 0.8)
-    ev("win", end + 0.1)
-    sfx("fanfare", "win")
-    ev("leapChair", E["win"] + 0.6)
-    sfx("thud", "leapChair", gain=0.5)
-    ev("cheer2", E["leapChair"] + 1.2)
-    ev("end", E["cheer2"] + 3.0)
+    # ---- round 2: the runner (speed rising; one late jump clips a block)
+    r2 = ev("r2", E["portal2"] + 1.2)
+    run = plans.runner(r2 + 1.0, -700, [(1.0, 320, "clear"), (0.7, 320, "clear"), (0.6, 400, "clear"), (0.5, 480, "clip"), (0.6, 480, "clear"), (0.5, 520, "clear")])
+    R["runner"] = run
+    n = {"jump": 0, "land": 0, "clip": 0, "up": 0}
+    for e_ in run["events"]:
+        k = e_["kind"]
+        if k == "finish":
+            ev("win2", e_["t"])
+            sfx("fanfare", "win2")
+            continue
+        key = f"run_{k}{n[k]}"
+        n[k] += 1
+        ev(key, e_["t"])
+        sfx({"jump": "jump8", "land": "thud", "clip": "hurt", "up": "blip"}[k], key, gain={"land": 0.3}.get(k, 0.7))
+    ev("light2", E["win2"] + 1.0)
+    sfx("ding", "light2")
+    ev("portal3", E["light2"] + 1.2)
+    sfx("whoosh", "portal3", gain=0.6)
+
+    # ---- round 3: dodge (the Shadow aims every block at Spark)
+    r3 = ev("r3", E["portal3"] + 1.2)
+    dg = plans.dodge(r3 + 1.0, [(0.4, 0), (1.3, 0), (2.1, 30), (2.8, -20), (3.4, 0), (3.9, 40), (4.5, 0), (5.0, -30), (5.6, 0), (6.1, 20), (6.6, 0), (7.1, -20), (7.5, 0)], aim=True)
+    R["dodge"] = dg
+    for i, b_ in enumerate(dg["blocks"]):
+        ev(f"dodge_drop{i}", b_["drop"])
+        ev(f"dodge_land{i}", b_["land"])
+        sfx("thud", f"dodge_land{i}", gain=0.8)
+    for i, m_ in enumerate(dg["moves"]):
+        if m_["kind"] == "dive":
+            ev(f"dodge_dive{i}", m_["t"])
+            sfx("whoosh", f"dodge_dive{i}", gain=0.6)
+    ev("win3", r3 + 1.0 + 9.0)
+    sfx("fanfare", "win3")
+    ev("light3", E["win3"] + 1.0)
+    sfx("ding", "light3")
+
+    # ---- the key, the car, the race
+    ev("keyhole", E["light3"] + 1.2)
+    sfx("tick", "keyhole")
+    ev("keyShow", E["keyhole"] + 1.2)
+    sfx("violet", "keyShow", gain=0.6)
+    ev("point", E["keyShow"] + 1.0)
+    ev("car", E["point"] + 1.0)
+    sfx("pop", "car", gain=0.5)
+    ev("getIn", E["car"] + 1.2)
+    sfx("thud", "getIn", gain=0.4)
+    rc = plans.race(E["getIn"] + 1.0)
+    R["race"] = rc
+    for k, tt in rc["events"].items():
+        ev(f"race_{k}", tt)
+    sfx("riser", "race_go", length=1.5, gain=0.5)
+    sfx("thud", "race_bump1", gain=0.9)
+    sfx("thud", "race_bump2", gain=0.9)
+    sfx("grind", "race_brake", length=0.7, gain=0.6)
+    sfx("fall8", "race_overEdge")
+    sfx("boom", "race_fallGone", gain=0.5)
+    sfx("riser", "race_run", length=1.2, gain=0.6)
+    sfx("whoosh", "race_ramp")
+    sfx("thud", "race_landJump", gain=0.8)
+    sfx("oneup", "race_key")
+    ev("unlock", E["race_doorArrive"] + 1.0)
+    sfx("click", "unlock")
+    sfx("ding", "unlock", offset=0.2)
+    ev("doorOpen", E["unlock"] + 0.8)
+    sfx("riser", "doorOpen", length=0.8, gain=0.4)
+    ev("through", E["doorOpen"] + 1.2)
+    sfx("whoosh", "through")
+
+    # ---- home: relief, sunrise, and himself
+    ev("home", E["through"] + 0.6)
+    sfx("thud", "home", gain=0.6)
+    ev("relief", E["home"] + 1.0)
+    ev("sunrise", E["relief"] + 2.0)
+    ev("turn", E["sunrise"] + 2.4)
+    ev("see", E["turn"] + 0.8)
+    ev("doubleTake", E["see"] + 0.6)
+    ev("dissolve", E["doubleTake"] + 1.2)
+    sfx("glitch", "dissolve", gain=0.4)
+    ev("wakeUp", E["dissolve"] + 0.6)
+    sfx("thud", "wakeUp", gain=0.5)
+    ev("stretch", E["wakeUp"] + 1.0)
+    ev("end", E["stretch"] + 2.6)
     duration = round(E["end"] + 1.6, 1)
 
     M = [
         {"section": "night", "from": 0, "to": E["zoomCode"]},
-        {"section": "code", "from": E["zoomCode"], "to": E["pull"]},
-        {"section": "chip", "from": E["inside"], "to": E["l3"]},
-        {"section": "chipTense", "from": E["l3"], "to": E["gameOver"]},
-        {"section": "chipFinal", "from": E["press"], "to": E["crack"]},
-        {"section": "morning", "from": E["wake"], "to": duration},
+        {"section": "code", "from": E["zoomCode"], "to": E["tremble"]},
+        {"section": "hush", "from": E["land"], "to": E["glitch"]},
+        {"section": "grow", "from": E["eye"], "to": E["portal1"]},
+        {"section": "chip", "from": E["r1"], "to": E["portal2"]},
+        {"section": "chipTense", "from": E["r2"], "to": E["portal3"]},
+        {"section": "chipTense", "from": E["r3"], "to": E["light3"]},
+        {"section": "chipFinal", "from": E["race_go"], "to": E["unlock"]},
+        {"section": "morning", "from": E["sunrise"], "to": duration},
     ]
-    impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "lose_", "l1_", "l2_", "p1_", "p2_", "p3_", "p4_", "final_", "clear", "gameOver", "suck", "inside", "count", "memory", "press", "door", "crack", "shatter", "wake", "grab", "win", "leapChair", "clock"]
+    impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "r1a_", "r1b_", "tremble", "s1", "s2", "s3", "suck", "land", "touch", "glitch", "eye", "door0", "portal", "win", "light", "run_", "dodge_", "keyhole", "keyShow", "car", "getIn", "race_bump", "race_brake", "race_overEdge", "race_ramp", "race_landJump", "race_key", "unlock", "through", "home", "dissolve", "wakeUp", "clock"]
     story = {
         "title": "First Game",
         "bpm": 100,
@@ -283,14 +335,15 @@ def main() -> None:
         "events": E,
         "sfx": S,
         "music": M,
-        "silences": [{"from": E["gameOver"] + 0.6, "to": E["count3"]}, {"from": E["shatter"] + 0.2, "to": E["wake"]}],
+        "silences": [{"from": E["glitch"] - 0.6, "to": E["glitch"]}, {"from": E["race_brake"] + 0.6, "to": E["race_overEdge"]}],
         "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,
+        "shadow": SHADOW,
         "rallies": R,
         "audit": {
             "impacts": impacts,
-            "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "grin", "laugh", "yawn", "droop", "lookHands", "lookBack", "seeDoor", "gulp", "react1", "react2", "stare", "slumpGO", "grinKnow", "cheer2", "end", "zoomOut", "point1", "l1", "l2", "l3"],
-            "declared": [[0, 2.0, "fade in on the dark room"], [E["crack"], E["wake"], "the dream breaks: cracks, shards, white"]],
+            "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "zoomOut", "point1", "handsOff", "look", "walk", "wonder", "rise", "say1", "say2", "say3", "say4", "stepBack", "setFeet", "r1", "r1react", "r2", "r3", "point", "relief", "sunrise", "turn", "see", "stretch", "end"],
+            "declared": [[0, 2.0, "fade in on the dark room"], [E["suck"], E["land"], "pulled through the screen"]],
         },
     }
     (ROOT / "audio/first_game/story.json").write_text(json.dumps(story, indent=1) + "\n")

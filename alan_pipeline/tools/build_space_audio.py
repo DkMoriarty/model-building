@@ -885,7 +885,7 @@ def main() -> None:
         "events": events,
     }
     # Episode data the scene needs verbatim (the code typed on screen, physics).
-    for key in ("code", "physics", "rallies"):
+    for key in ("code", "physics", "rallies", "shadow"):
         if key in story:
             cues[key] = story[key]
     (DIR / "cues.json").write_text(json.dumps(cues, indent=2) + "\n")
