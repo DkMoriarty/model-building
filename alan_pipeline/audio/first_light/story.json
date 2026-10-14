@@ -1,0 +1,915 @@
+{
+ "title": "First Light",
+ "bpm": 100,
+ "sampleRate": 48000,
+ "duration": 181.0,
+ "voices": {},
+ "lines": [],
+ "events": {
+  "open": 0.0,
+  "turn": 1.8,
+  "tap1": 3.0,
+  "holdUp": 4.2,
+  "sigh": 5.4,
+  "wire": 6.6,
+  "notice": 7.2,
+  "stand": 7.8,
+  "reach": 9.6,
+  "zap": 10.2,
+  "goggles": 10.8,
+  "thud": 11.4,
+  "peek": 12.3,
+  "title": 14.1,
+  "titleOut": 16.5,
+  "gogglesUp": 17.4,
+  "leads": 18.6,
+  "try1": 21.0,
+  "tilt": 22.2,
+  "try2": 24.0,
+  "light": 24.6,
+  "bounce1": 26.4,
+  "hang": 27.6,
+  "pinch1": 28.8,
+  "release1": 29.4,
+  "pinch2": 30.0,
+  "release2": 30.6,
+  "pinch3": 31.2,
+  "release3": 31.8,
+  "crate": 34.2,
+  "rummage1": 35.4,
+  "rummage2": 36.0,
+  "found": 36.6,
+  "install": 38.4,
+  "flip1": 39.6,
+  "scoop": 41.4,
+  "jug1": 42.6,
+  "jug2": 43.2,
+  "jug3": 43.8,
+  "jugZap": 44.4,
+  "merge": 46.8,
+  "rest": 47.4,
+  "board": 49.8,
+  "and1": 51.6,
+  "and2": 52.8,
+  "andBoth": 54.6,
+  "andFall": 56.4,
+  "or1": 58.2,
+  "orA": 59.4,
+  "orB": 60.6,
+  "not1": 62.4,
+  "notPress": 63.6,
+  "notTilt": 64.2,
+  "notPress2": 65.4,
+  "coil": 67.2,
+  "blinkStart": 68.4,
+  "overheat": 71.4,
+  "pop": 74.4,
+  "sit2": 75.6,
+  "sigh2": 76.8,
+  "gogglesDown": 78.6,
+  "newBulb": 80.4,
+  "pullOut": 81.0,
+  "eyes": 84.0,
+  "wires": 85.8,
+  "dials": 87.6,
+  "bigBulb": 89.4,
+  "judge": 91.2,
+  "cards": 92.4,
+  "admire": 93.6,
+  "gogglesUp2": 94.8,
+  "card1": 96.6,
+  "see1": 97.2,
+  "buzz1": 99.0,
+  "dial1": 100.8,
+  "dialZap": 101.4,
+  "tool": 102.6,
+  "turn1": 103.8,
+  "turn2": 104.4,
+  "turn3": 105.0,
+  "card2": 106.2,
+  "see2": 106.8,
+  "ding1": 108.6,
+  "proud": 109.2,
+  "card3": 110.4,
+  "see3": 111.0,
+  "buzz2": 112.8,
+  "facepalm": 113.4,
+  "turn4": 115.2,
+  "turn5": 115.8,
+  "card4": 117.6,
+  "see4": 118.2,
+  "ding2": 120.0,
+  "card5": 120.6,
+  "ding3": 121.8,
+  "dance": 122.4,
+  "celebrate": 124.2,
+  "trip": 125.4,
+  "fall": 126.0,
+  "drape": 126.6,
+  "watch": 127.8,
+  "auto1": 128.4,
+  "auto2": 129.9,
+  "auto3": 131.4,
+  "auto4": 132.9,
+  "auto5": 134.4,
+  "auto6": 135.9,
+  "violet": 138.0,
+  "grin": 139.2,
+  "relax": 140.4,
+  "plug": 146.4,
+  "copy1": 147.6,
+  "copy2": 148.8,
+  "copy3": 150.0,
+  "copy4": 151.2,
+  "look": 153.6,
+  "turnLook": 154.2,
+  "learnSpark": 155.4,
+  "toDial": 156.6,
+  "crank": 158.4,
+  "max": 159.6,
+  "surge": 160.2,
+  "blow": 160.8,
+  "dark": 162.6,
+  "tinkle1": 163.2,
+  "tinkle2": 164.4,
+  "sitLast": 168.0,
+  "turnLast": 169.8,
+  "tapLast": 171.0,
+  "holdLast": 172.2,
+  "sighLast": 173.4,
+  "glowLast": 175.2,
+  "eye": 177.0,
+  "eyeTurn": 178.2,
+  "end": 179.4
+ },
+ "sfx": [
+  {
+   "type": "tink",
+   "at": "tap1",
+   "gain": 0.6
+  },
+  {
+   "type": "whoosh",
+   "at": "wire",
+   "offset": -0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "tick",
+   "at": "wire"
+  },
+  {
+   "type": "zap",
+   "at": "zap",
+   "gain": 1.1
+  },
+  {
+   "type": "tink",
+   "at": "goggles",
+   "gain": 0.7
+  },
+  {
+   "type": "thud",
+   "at": "thud"
+  },
+  {
+   "type": "click",
+   "at": "gogglesUp",
+   "gain": 0.6
+  },
+  {
+   "type": "bzz",
+   "at": "try1",
+   "length": 0.9,
+   "gain": 0.5
+  },
+  {
+   "type": "blip",
+   "at": "light"
+  },
+  {
+   "type": "hum",
+   "at": "light",
+   "length": 4.0,
+   "gain": 0.6
+  },
+  {
+   "type": "thud",
+   "at": "bounce1",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "pinch1",
+   "gain": 0.7
+  },
+  {
+   "type": "click",
+   "at": "release1",
+   "gain": 0.7
+  },
+  {
+   "type": "click",
+   "at": "pinch2",
+   "gain": 0.7
+  },
+  {
+   "type": "click",
+   "at": "release2",
+   "gain": 0.7
+  },
+  {
+   "type": "click",
+   "at": "pinch3",
+   "gain": 0.7
+  },
+  {
+   "type": "click",
+   "at": "release3",
+   "gain": 0.7
+  },
+  {
+   "type": "tink",
+   "at": "rummage1"
+  },
+  {
+   "type": "tink",
+   "at": "rummage2"
+  },
+  {
+   "type": "tink",
+   "at": "found",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "install"
+  },
+  {
+   "type": "click",
+   "at": "flip1"
+  },
+  {
+   "type": "blip",
+   "at": "flip1",
+   "gain": 0.6
+  },
+  {
+   "type": "tick",
+   "at": "jug1",
+   "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "jug2",
+   "gain": 0.8
+  },
+  {
+   "type": "tick",
+   "at": "jug3",
+   "gain": 0.8
+  },
+  {
+   "type": "zap",
+   "at": "jugZap",
+   "gain": 0.6
+  },
+  {
+   "type": "blip",
+   "at": "merge",
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "board",
+   "offset": -0.3,
+   "gain": 0.6
+  },
+  {
+   "type": "click",
+   "at": "and1"
+  },
+  {
+   "type": "click",
+   "at": "and2"
+  },
+  {
+   "type": "click",
+   "at": "andBoth"
+  },
+  {
+   "type": "blip",
+   "at": "andBoth",
+   "gain": 0.6
+  },
+  {
+   "type": "thud",
+   "at": "andFall"
+  },
+  {
+   "type": "click",
+   "at": "orA"
+  },
+  {
+   "type": "blip",
+   "at": "orA",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "orB"
+  },
+  {
+   "type": "blip",
+   "at": "orB",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "not1"
+  },
+  {
+   "type": "click",
+   "at": "notPress"
+  },
+  {
+   "type": "click",
+   "at": "notPress2"
+  },
+  {
+   "type": "tick",
+   "at": "coil"
+  },
+  {
+   "type": "buzzer",
+   "at": "blinkStart",
+   "length": 6.0,
+   "gain": 0.5
+  },
+  {
+   "type": "sizzle",
+   "at": "overheat",
+   "length": 3.0
+  },
+  {
+   "type": "pop",
+   "at": "pop",
+   "gain": 1.0
+  },
+  {
+   "type": "glass",
+   "at": "pop",
+   "offset": 0.4
+  },
+  {
+   "type": "thud",
+   "at": "sit2",
+   "gain": 0.6
+  },
+  {
+   "type": "click",
+   "at": "gogglesDown"
+  },
+  {
+   "type": "blip",
+   "at": "newBulb"
+  },
+  {
+   "type": "hum",
+   "at": "newBulb",
+   "length": 3.0,
+   "gain": 0.4
+  },
+  {
+   "type": "whoosh",
+   "at": "pullOut",
+   "gain": 0.5
+  },
+  {
+   "type": "ripple",
+   "at": "eyes"
+  },
+  {
+   "type": "whoosh",
+   "at": "wires"
+  },
+  {
+   "type": "ripple",
+   "at": "dials",
+   "gain": 0.6
+  },
+  {
+   "type": "tink",
+   "at": "bigBulb"
+  },
+  {
+   "type": "click",
+   "at": "judge"
+  },
+  {
+   "type": "tick",
+   "at": "cards"
+  },
+  {
+   "type": "click",
+   "at": "gogglesUp2",
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "card1",
+   "offset": -0.2,
+   "gain": 0.35
+  },
+  {
+   "type": "ripple",
+   "at": "see1",
+   "gain": 0.5
+  },
+  {
+   "type": "pour",
+   "at": "see1",
+   "length": 1.6,
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "card2",
+   "offset": -0.2,
+   "gain": 0.35
+  },
+  {
+   "type": "ripple",
+   "at": "see2",
+   "gain": 0.5
+  },
+  {
+   "type": "pour",
+   "at": "see2",
+   "length": 1.6,
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "card3",
+   "offset": -0.2,
+   "gain": 0.35
+  },
+  {
+   "type": "ripple",
+   "at": "see3",
+   "gain": 0.5
+  },
+  {
+   "type": "pour",
+   "at": "see3",
+   "length": 1.6,
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "card4",
+   "offset": -0.2,
+   "gain": 0.35
+  },
+  {
+   "type": "ripple",
+   "at": "see4",
+   "gain": 0.5
+  },
+  {
+   "type": "pour",
+   "at": "see4",
+   "length": 1.6,
+   "gain": 0.5
+  },
+  {
+   "type": "whoosh",
+   "at": "card5",
+   "offset": -0.2,
+   "gain": 0.35
+  },
+  {
+   "type": "ripple",
+   "at": "card5",
+   "offset": 0.3,
+   "gain": 0.5
+  },
+  {
+   "type": "buzz",
+   "at": "buzz1"
+  },
+  {
+   "type": "buzz",
+   "at": "buzz2"
+  },
+  {
+   "type": "ding",
+   "at": "ding1"
+  },
+  {
+   "type": "ding",
+   "at": "ding2"
+  },
+  {
+   "type": "ding",
+   "at": "ding3"
+  },
+  {
+   "type": "tick",
+   "at": "dial1"
+  },
+  {
+   "type": "zap",
+   "at": "dialZap",
+   "gain": 0.7
+  },
+  {
+   "type": "tink",
+   "at": "tool"
+  },
+  {
+   "type": "ratchet",
+   "at": "turn1"
+  },
+  {
+   "type": "ratchet",
+   "at": "turn2"
+  },
+  {
+   "type": "ratchet",
+   "at": "turn3"
+  },
+  {
+   "type": "ratchet",
+   "at": "turn4"
+  },
+  {
+   "type": "ratchet",
+   "at": "turn5"
+  },
+  {
+   "type": "thud",
+   "at": "fall"
+  },
+  {
+   "type": "zap",
+   "at": "drape",
+   "gain": 0.5
+  },
+  {
+   "type": "ripple",
+   "at": "drape",
+   "offset": 0.2
+  },
+  {
+   "type": "ripple",
+   "at": "auto1",
+   "gain": 0.4
+  },
+  {
+   "type": "buzz",
+   "at": "auto1",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "ratchet",
+   "at": "auto1",
+   "offset": 1.2,
+   "gain": 0.6
+  },
+  {
+   "type": "ripple",
+   "at": "auto2",
+   "gain": 0.4
+  },
+  {
+   "type": "buzz",
+   "at": "auto2",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "ratchet",
+   "at": "auto2",
+   "offset": 1.2,
+   "gain": 0.6
+  },
+  {
+   "type": "ripple",
+   "at": "auto3",
+   "gain": 0.4
+  },
+  {
+   "type": "ding",
+   "at": "auto3",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "ripple",
+   "at": "auto4",
+   "gain": 0.4
+  },
+  {
+   "type": "ding",
+   "at": "auto4",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "ripple",
+   "at": "auto5",
+   "gain": 0.4
+  },
+  {
+   "type": "ding",
+   "at": "auto5",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "ripple",
+   "at": "auto6",
+   "gain": 0.4
+  },
+  {
+   "type": "ding",
+   "at": "auto6",
+   "offset": 0.9,
+   "gain": 0.7
+  },
+  {
+   "type": "violet",
+   "at": "violet"
+  },
+  {
+   "type": "click",
+   "at": "plug"
+  },
+  {
+   "type": "hum",
+   "at": "plug",
+   "length": 13.0,
+   "gain": 0.5
+  },
+  {
+   "type": "copy",
+   "at": "copy1"
+  },
+  {
+   "type": "copy",
+   "at": "copy2"
+  },
+  {
+   "type": "copy",
+   "at": "copy3"
+  },
+  {
+   "type": "copy",
+   "at": "copy4"
+  },
+  {
+   "type": "click",
+   "at": "look",
+   "gain": 1.0
+  },
+  {
+   "type": "violet",
+   "at": "learnSpark",
+   "gain": 0.8
+  },
+  {
+   "type": "ratchet",
+   "at": "crank"
+  },
+  {
+   "type": "ratchet",
+   "at": "crank",
+   "offset": 0.4
+  },
+  {
+   "type": "ratchet",
+   "at": "crank",
+   "offset": 0.7
+  },
+  {
+   "type": "ratchet",
+   "at": "crank",
+   "offset": 0.95
+  },
+  {
+   "type": "ratchet",
+   "at": "max"
+  },
+  {
+   "type": "boom",
+   "at": "surge"
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.0,
+   "gain": 0.6
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.15,
+   "gain": 0.6
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.3,
+   "gain": 0.6
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.44999999999999996,
+   "gain": 0.6
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.6,
+   "gain": 0.6
+  },
+  {
+   "type": "pop",
+   "at": "blow",
+   "offset": 0.75,
+   "gain": 0.6
+  },
+  {
+   "type": "glass",
+   "at": "blow",
+   "offset": 0.5
+  },
+  {
+   "type": "tink",
+   "at": "tinkle1",
+   "gain": 0.4
+  },
+  {
+   "type": "tink",
+   "at": "tinkle2",
+   "gain": 0.3
+  },
+  {
+   "type": "tink",
+   "at": "tapLast",
+   "gain": 0.6
+  },
+  {
+   "type": "blip",
+   "at": "glowLast",
+   "gain": 0.6
+  },
+  {
+   "type": "violet",
+   "at": "glowLast",
+   "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "eyeTurn",
+   "gain": 0.8
+  }
+ ],
+ "music": [
+  {
+   "section": "void",
+   "from": 0,
+   "to": 24.6
+  },
+  {
+   "section": "tinker",
+   "from": 24.6,
+   "to": 49.8
+  },
+  {
+   "section": "tinker2",
+   "from": 49.8,
+   "to": 74.4
+  },
+  {
+   "section": "hush",
+   "from": 74.4,
+   "to": 80.4
+  },
+  {
+   "section": "build",
+   "from": 80.4,
+   "to": 96.0
+  },
+  {
+   "section": "learn",
+   "from": 96.0,
+   "to": 124.2
+  },
+  {
+   "section": "wonder",
+   "from": 124.2,
+   "to": 146.4
+  },
+  {
+   "section": "grow",
+   "from": 146.4,
+   "to": 159.6
+  },
+  {
+   "section": "hush",
+   "from": 162.6,
+   "to": 181.0
+  }
+ ],
+ "silences": [
+  {
+   "from": 159.6,
+   "to": 160.2
+  }
+ ],
+ "audit": {
+  "impacts": [
+   "tap1",
+   "zap",
+   "goggles",
+   "thud",
+   "light",
+   "bounce1",
+   "pinch",
+   "release",
+   "rummage",
+   "found",
+   "install",
+   "flip1",
+   "jug",
+   "merge",
+   "and1",
+   "and2",
+   "andBoth",
+   "andFall",
+   "orA",
+   "orB",
+   "not1",
+   "notPress",
+   "pop",
+   "sit2",
+   "gogglesDown",
+   "newBulb",
+   "eyes",
+   "dials",
+   "bigBulb",
+   "judge",
+   "cards",
+   "buzz",
+   "ding",
+   "dialZap",
+   "tool",
+   "turn1",
+   "turn2",
+   "turn3",
+   "turn4",
+   "turn5",
+   "fall",
+   "drape",
+   "plug",
+   "copy",
+   "look",
+   "crank",
+   "max",
+   "surge",
+   "blow",
+   "tapLast",
+   "glowLast",
+   "eyeTurn",
+   "gogglesUp",
+   "coil",
+   "wire",
+   "violet",
+   "learnSpark",
+   "tinkle"
+  ],
+  "holds": [
+   "title",
+   "rest",
+   "sigh2",
+   "relax",
+   "dark",
+   "sitLast",
+   "holdLast",
+   "grin",
+   "watch",
+   "learnSpark",
+   "toDial",
+   "eye",
+   "end",
+   "dance",
+   "pullOut",
+   "admire"
+  ]
+ }
+}

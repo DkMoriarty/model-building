@@ -13,7 +13,9 @@
     "render": "node scripts/render.mjs",
     "audio:placeholder": "node scripts/make-placeholder-audio.mjs",
     "render:space": "node scripts/render.mjs --project=space_duel --strict",
-    "audio:space": "python tools/build_space_audio.py"
+    "audio:space": "python tools/build_space_audio.py",
+    "render:light": "node scripts/render.mjs --project=first_light --strict",
+    "audio:light": "python tools/build_space_audio.py --episode first_light"
   },
   "engines": {
     "node": ">=18.18"

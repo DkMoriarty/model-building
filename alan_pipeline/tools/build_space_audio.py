@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Build the soundtrack and cue sheet for the space_duel project.
+"""Build the soundtrack and cue sheet for an episode (default: space_duel).
 
-    python tools/build_space_audio.py [--voices DIR] [--piper PATH] [--retts]
+    python tools/build_space_audio.py [--episode NAME] [--voices DIR] [--piper PATH] [--retts]
 
-Reads   audio/space_duel/story.json   (narration, events, sfx, music sections)
-Writes  audio/space_duel/voice/*.wav  (TTS clips, cached: Piper is not
+Reads   audio/<episode>/story.json    (narration, events, sfx, music sections,
+                                       optional designed silences)
+Writes  audio/<episode>/voice/*.wav   (TTS clips, cached: Piper is not
                                        bit-deterministic, so the clips are the
                                        committed source of truth)
-        audio/space_duel/cues.json    (resolved times the scene animates to)
-        audio/space_duel/master.wav   (48 kHz stereo mix)
+        audio/<episode>/cues.json     (resolved times the scene animates to)
+        audio/<episode>/master.wav    (48 kHz stereo mix)
 
 Picture and sound share one timeline. Every narration line's real start and
 end, every fight event and every sound effect comes from the same story file,
@@ -34,7 +35,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-DIR = ROOT / "audio" / "space_duel"
+DIR = ROOT / "audio" / "space_duel"  # set from --episode in main()
 SR = 48000
 VOICE_SR = 24000
 RNG = np.random.default_rng(20261013)
@@ -263,6 +264,157 @@ def sfx_measure(length: float = 1.2) -> np.ndarray:
     return up * np.exp(-t * 2.5) * 0.4
 
 
+def sfx_zap(length: float = 0.7) -> np.ndarray:
+    """Electric shock: crackling broadband bursts over a 120 Hz buzz."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    crackle = spectral_filter(RNG.normal(0, 1, n), 1500, 12000)
+    gate = (RNG.uniform(0, 1, n // 240 + 1) > 0.45).repeat(240)[:n]
+    buzz = np.sign(np.sin(2 * np.pi * 120 * t)) * 0.4
+    return (crackle * gate + buzz) * np.exp(-t * 4) * 0.55
+
+
+def sfx_click(length: float = 0.12) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    return (spectral_filter(RNG.normal(0, 1, n), 1200, 9000) * np.exp(-t * 160) + np.sin(2 * np.pi * 2400 * t) * np.exp(-t * 90) * 0.3) * 0.6
+
+
+def sfx_tick(length: float = 0.1) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    return np.sin(2 * np.pi * 3200 * t) * np.exp(-t * 120) * 0.35
+
+
+def sfx_thud(length: float = 0.5) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    body = np.sin(2 * np.pi * (60 + 80 * np.exp(-t * 30)) * t) * np.exp(-t * 14)
+    slap = spectral_filter(RNG.normal(0, 1, n), 200, 2500) * np.exp(-t * 60) * 0.5
+    return (body + slap) * 0.7
+
+
+def sfx_blip(length: float = 0.5) -> np.ndarray:
+    """A bulb coming on: a soft rising glass tone."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = midi(84) * (1 + 0.05 * (1 - np.exp(-t * 30)))
+    return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 6) * 0.3
+
+
+def sfx_bzz(length: float = 1.0) -> np.ndarray:
+    """Current pressing against an open gap: a thin, uneasy 60 Hz fizz."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    tone = spectral_filter(np.sign(np.sin(2 * np.pi * 60 * t)), 300, 3000)
+    return tone * env_adsr(n, 0.05, 0.2, 0.6, 0.3) * 0.25
+
+
+def sfx_buzzer(length: float = 6.0) -> np.ndarray:
+    """The self-blinking relay: clicks that speed up from 8th notes to a rattle."""
+    n = int(length * SR)
+    out = np.zeros(n)
+    t = 0.0
+    period = 0.3
+    while t < length - 0.05:
+        add(out, t, sfx_click() * 0.7)
+        t += period
+        period = max(0.06, period * 0.93)
+    return out
+
+
+def sfx_sizzle(length: float = 3.0) -> np.ndarray:
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    noise = spectral_filter(RNG.normal(0, 1, n), 3000, 12000)
+    return noise * (t / length) ** 2 * 0.35
+
+
+def sfx_pop(length: float = 0.6) -> np.ndarray:
+    """A bulb bursting: a sharp pop and a little air."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    pop = spectral_filter(RNG.normal(0, 1, n), 400, 8000) * np.exp(-t * 45)
+    low = np.sin(2 * np.pi * (90 + 200 * np.exp(-t * 40)) * t) * np.exp(-t * 20) * 0.6
+    return (pop + low) * 0.8
+
+
+def sfx_glass(length: float = 1.6) -> np.ndarray:
+    """Shards landing: a scatter of tiny bright rings."""
+    n = int(length * SR)
+    out = np.zeros(n)
+    for _ in range(14):
+        at = RNG.uniform(0, length * 0.7)
+        k = int(0.25 * SR)
+        tt = np.arange(k) / SR
+        f = RNG.uniform(3000, 6500)
+        add(out, at, np.sin(2 * np.pi * f * tt) * np.exp(-tt * 30) * RNG.uniform(0.1, 0.3))
+    return out
+
+
+def sfx_ripple(length: float = 0.6) -> np.ndarray:
+    """Several parts appearing in a quick run: rising ticks."""
+    n = int(length * SR)
+    out = np.zeros(n)
+    for i in range(6):
+        k = int(0.12 * SR)
+        tt = np.arange(k) / SR
+        add(out, i * 0.06, np.sin(2 * np.pi * midi(79 + i * 2) * tt) * np.exp(-tt * 50) * 0.25)
+    return out
+
+
+def sfx_pour(length: float = 1.6) -> np.ndarray:
+    """Beads streaming down the wires: soft granular patter."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    grains = spectral_filter(RNG.normal(0, 1, n), 2500, 8000) * (RNG.uniform(0, 1, n) > 0.985)
+    return spectral_filter(grains, 2000, 9000) * env_adsr(n, 0.1, 0.3, 0.8, 0.4) * 1.5
+
+
+def sfx_buzz(length: float = 0.55) -> np.ndarray:
+    """Wrong answer: a flat square-wave buzz."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    tone = np.sign(np.sin(2 * np.pi * 98 * t)) + 0.5 * np.sign(np.sin(2 * np.pi * 104 * t))
+    return spectral_filter(tone, 80, 4000) * env_adsr(n, 0.01, 0.1, 0.8, 0.08) * 0.22
+
+
+def sfx_ding(length: float = 1.2) -> np.ndarray:
+    """Right answer: a bright bell (two partials, slow decay)."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = midi(88)
+    return (np.sin(2 * np.pi * f * t) + 0.4 * np.sin(2 * np.pi * f * 2.4 * t) * np.exp(-t * 4)) * np.exp(-t * 3) * 0.3
+
+
+def sfx_ratchet(length: float = 0.25) -> np.ndarray:
+    n = int(length * SR)
+    out = np.zeros(n)
+    for i in range(4):
+        add(out, i * 0.05, sfx_tick() * (1 - i * 0.15))
+    return out
+
+
+def sfx_violet(length: float = 2.5) -> np.ndarray:
+    """The Mind's colour: a detuned bell chord with a slow beating shimmer."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    for k, note in enumerate((76, 80, 83, 87)):
+        f = midi(note) * (1 + 0.003 * (k - 1.5))
+        out += np.sin(2 * np.pi * f * t) * np.exp(-t * (1.2 + k * 0.3))
+    return out / 4 * (0.8 + 0.2 * np.sin(2 * np.pi * 3 * t)) * 0.5
+
+
+def sfx_copy(length: float = 0.7) -> np.ndarray:
+    """A board copying itself: a whoosh that lands on a pop."""
+    w = sfx_whoosh(0.45) * 0.8
+    out = np.zeros(int(length * SR))
+    add(out, 0.0, w)
+    add(out, 0.4, sfx_pop(0.3) * 0.5)
+    return out
+
+
 SFX = {
     "clash": lambda e: sfx_clash(),
     "whoosh": lambda e: sfx_whoosh(),
@@ -278,6 +430,23 @@ SFX = {
     "tunnel": lambda e: sfx_tunnel(),
     "grind": lambda e: sfx_grind(e.get("length", 3.0)),
     "measure": lambda e: sfx_measure(),
+    "zap": lambda e: sfx_zap(),
+    "click": lambda e: sfx_click(),
+    "tick": lambda e: sfx_tick(),
+    "thud": lambda e: sfx_thud(),
+    "blip": lambda e: sfx_blip(),
+    "bzz": lambda e: sfx_bzz(e.get("length", 1.0)),
+    "buzzer": lambda e: sfx_buzzer(e.get("length", 6.0)),
+    "sizzle": lambda e: sfx_sizzle(e.get("length", 3.0)),
+    "pop": lambda e: sfx_pop(),
+    "glass": lambda e: sfx_glass(),
+    "ripple": lambda e: sfx_ripple(),
+    "pour": lambda e: sfx_pour(e.get("length", 1.6)),
+    "buzz": lambda e: sfx_buzz(),
+    "ding": lambda e: sfx_ding(),
+    "ratchet": lambda e: sfx_ratchet(),
+    "violet": lambda e: sfx_violet(),
+    "copy": lambda e: sfx_copy(),
 }
 
 
@@ -292,6 +461,13 @@ PROGRESSIONS = {
     "climax": [[45, 52, 57, 60], [41, 53, 57, 60], [36, 52, 55, 60], [40, 52, 56, 59]],
     "hush": [[45, 57, 64, 72]],
     "resolve": [[41, 53, 57, 60], [36, 52, 55, 60], [43, 55, 59, 62], [45, 57, 61, 64]],
+    # first_light: C major for play, drifting to A minor as the Mind wakes.
+    "tinker": [[48, 55, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62], [48, 55, 60, 64]],
+    "tinker2": [[48, 55, 60, 64], [45, 57, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62]],
+    "build": [[41, 57, 60, 65], [43, 55, 59, 62], [48, 55, 60, 64], [45, 57, 60, 64]],
+    "learn": [[48, 55, 60, 64], [43, 55, 59, 62], [45, 57, 60, 64], [41, 57, 60, 65]],
+    "wonder": [[45, 57, 60, 64], [41, 57, 60, 65], [48, 55, 60, 64], [44, 56, 59, 64]],
+    "grow": [[45, 52, 57, 60], [44, 52, 56, 59], [41, 53, 57, 60], [40, 52, 56, 59]],
 }
 LAYERS = {
     "void": {"pad": 0.55, "air": 0.25},
@@ -301,6 +477,12 @@ LAYERS = {
     "climax": {"pad": 0.55, "bass": 0.6, "kick": 0.7, "snare": 0.4, "hat": 0.18, "arp": 0.3},
     "hush": {"pad": 0.45, "air": 0.35},
     "resolve": {"pad": 0.6, "arp": 0.12},
+    "tinker": {"pad": 0.35, "pulse": 0.3, "arp": 0.3, "hat": 0.08},
+    "tinker2": {"pad": 0.35, "pulse": 0.3, "arp": 0.3, "bass": 0.3, "hat": 0.12, "kick": 0.3},
+    "build": {"pad": 0.45, "arp": 0.35, "pulse": 0.3, "hat": 0.1},
+    "learn": {"pad": 0.35, "bass": 0.3, "kick": 0.35, "hat": 0.12, "arp": 0.25},
+    "wonder": {"pad": 0.6, "arp": 0.3, "air": 0.2},
+    "grow": {"pad": 0.55, "bass": 0.55, "kick": 0.6, "snare": 0.3, "hat": 0.15, "arp": 0.3},
 }
 
 
@@ -448,10 +630,13 @@ def resolve(ref: str | float, events: dict, lines: dict) -> float:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--episode", default="space_duel", help="folder under audio/")
     ap.add_argument("--voices", default=str(ROOT / "tools" / "voices"))
     ap.add_argument("--piper", default="piper")
     ap.add_argument("--retts", action="store_true", help="re-synthesize every line")
     args = ap.parse_args()
+    global DIR
+    DIR = ROOT / "audio" / args.episode
 
     story = json.loads((DIR / "story.json").read_text())
     n = int(story["duration"] * SR)
@@ -497,6 +682,18 @@ def main() -> None:
     music *= duck[:, None]
 
     mix = music * 0.9 + np.stack([sfx_l, sfx_r], axis=1) * 0.8 + voice_bus[:, None]
+
+    # 4. Designed silences (style bible S6): duck everything by 24 dB, with
+    # 40 ms fades, so the hit after them lands at full scale.
+    if story.get("silences"):
+        gain = np.ones(n)
+        fade = int(0.04 * SR)
+        for sil in story["silences"]:
+            a, b = int(resolve(sil["from"], events, lines) * SR), int(resolve(sil["to"], events, lines) * SR)
+            g = np.full(b - a, 10 ** (-24 / 20))
+            g[:fade] = np.linspace(1, g[fade], fade)
+            gain[a:b] = np.minimum(gain[a:b], g)
+        mix *= gain[:, None]
     mix = np.tanh(mix * 1.1) / np.tanh(1.1)  # soft limiter
     mix *= 0.89 / np.max(np.abs(mix))  # peak at -1 dBFS
     write_wav(DIR / "master.wav", mix)

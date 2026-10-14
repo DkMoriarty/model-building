@@ -22,6 +22,11 @@ Non-negotiables (details in the handover, §6):
 - Check work with stills (`node scripts/render.mjs --project=space_duel --at=80,125`)
   before full renders.
 
+Episodes: `space_duel` (The Entangled Blade) and `first_light` (FIRST LIGHT,
+episode 1 of the Spark series; treatment in `docs/episodes/first_light.md`).
+Audio for an episode: `python tools/build_space_audio.py --episode <name>`;
+audit: `python tools/frame_audit.py --episode <name>`.
+
 Checks before any commit: `npm run typecheck`, and a probe/render with
 `--strict` for any project you touched.
 Never commit `audio/space_duel/master.wav` or `output_renders/`.

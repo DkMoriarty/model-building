@@ -122,12 +122,16 @@ def resolve(ref, events: dict, lines: dict) -> float:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--video", default=str(ROOT / "output_renders/space_duel.mp4"))
-    ap.add_argument("--story", default=str(ROOT / "audio/space_duel/story.json"))
-    ap.add_argument("--cues", default=str(ROOT / "audio/space_duel/cues.json"))
+    ap.add_argument("--episode", default="space_duel", help="sets the default video, story and cues paths")
+    ap.add_argument("--video")
+    ap.add_argument("--story")
+    ap.add_argument("--cues")
     ap.add_argument("--rate", type=float, default=2.0, help="samples per second")
     ap.add_argument("--out", default=str(ROOT / "output_renders/audit"))
     args = ap.parse_args()
+    args.video = args.video or str(ROOT / f"output_renders/{args.episode}.mp4")
+    args.story = args.story or str(ROOT / f"audio/{args.episode}/story.json")
+    args.cues = args.cues or str(ROOT / f"audio/{args.episode}/cues.json")
 
     video = Path(args.video)
     name = video.stem
@@ -137,6 +141,9 @@ def main() -> None:
     cues = json.loads(Path(args.cues).read_text())
     events = {k: float(v) for k, v in cues["events"].items()}
     lines = cues["lines"]
+    # An episode may declare its own impact events and holds in story.json.
+    impact_prefixes = tuple(story.get("audit", {}).get("impacts", IMPACT_PREFIXES))
+    holds = set(story.get("audit", {}).get("holds", HOLDS))
     beat = 60 / cues["bpm"]
     frame = 1 / FPS
 
@@ -166,7 +173,7 @@ def main() -> None:
     sfx_times = []
     for e in story["sfx"]:
         sfx_times.append((resolve(e["at"], events, lines) + e.get("offset", 0.0), e["type"]))
-    impacts = {k: v for k, v in events.items() if k.startswith(IMPACT_PREFIXES) and not k.startswith("fight")}
+    impacts = {k: v for k, v in events.items() if k.startswith(impact_prefixes) and not k.startswith("fight")}
     sync = []
     for k, t in sorted(impacts.items(), key=lambda kv: kv[1]):
         if not any(abs(t - st) <= frame for st, _ in sfx_times):
@@ -190,7 +197,7 @@ def main() -> None:
     energy = [0.0] + [float(np.abs(b - a).mean()) for a, b in zip(weights, weights[1:])]
     dead = []
     for (t0, k0), (t1, k1) in zip(marks, marks[1:]):
-        if t1 - t0 <= 4 or k0 in HOLDS:
+        if t1 - t0 <= 4 or k0 in holds:
             continue
         # The gap is dead only if the picture is also still for > 4 s of it.
         still, run_start = 0.0, None
