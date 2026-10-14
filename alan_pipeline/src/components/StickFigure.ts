@@ -12,7 +12,8 @@ import {
   TimingFunction,
   useTime,
 } from '@motion-canvas/core';
-import {Colors, Stroke} from '../styles';
+import {BIPED, proportionsOf, strokeOf} from '../figureSpec';
+import {Colors} from '../styles';
 
 /**
  * Every rotatable joint on the rig. Angles are in degrees and are LOCAL to the
@@ -60,15 +61,8 @@ export interface StickFigureProps extends NodeProps {
   pose?: Pose;
 }
 
-const DEFAULT_PROPORTIONS: Proportions = {
-  headRadius: 34,
-  neck: 10,
-  torso: 120,
-  upperArm: 62,
-  forearm: 60,
-  thigh: 72,
-  shin: 70,
-};
+/** Measured default: the BIPED spec (docs/STYLE_BIBLE.md, section 2). */
+const DEFAULT_PROPORTIONS: Proportions = proportionsOf(BIPED);
 
 /** Relaxed standing pose. */
 export const IDLE: Pose = {
@@ -149,7 +143,7 @@ export class StickFigure extends Node {
 
   public constructor({
     color = Colors.ink,
-    lineWidth = Stroke.limb,
+    lineWidth = strokeOf(BIPED),
     proportions,
     pose,
     ...props
@@ -201,12 +195,13 @@ export class StickFigure extends Node {
     const leftLeg = limb('leftHip', 'leftKnee', p.thigh, p.shin);
     const rightLeg = limb('rightHip', 'rightKnee', p.thigh, p.shin);
 
+    // Open ring head, same weight as the limbs: reads at any zoom.
+    // The ring's OUTER diameter is H, so the path sits half a stroke inside.
     const head = new Circle({
       y: -(p.neck + p.headRadius),
-      size: p.headRadius * 2,
+      size: p.headRadius * 2 - lineWidth,
       stroke,
-      lineWidth: Stroke.head,
-      fill: Colors.background,
+      lineWidth,
     });
 
     const chest = new Node({

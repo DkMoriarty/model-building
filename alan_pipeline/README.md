@@ -39,6 +39,69 @@ Browser lookup order: `CHROME_PATH` → Playwright's Chromium → installed Chro
 automatically; otherwise run `npx playwright install chromium`. ffmpeg comes
 bundled via `@ffmpeg-installer/ffmpeg` (override with `FFMPEG_PATH`).
 
+## Projects
+
+| project | what | render |
+| --- | --- | --- |
+| `alan_pipeline` | `opening_fight`: 5 s stick-figure test scene | `npm run render` |
+| `space_duel` | **The Entangled Blade**: a 3 min 20 s sword fight in space, told visually | `npm run render -- --project=space_duel` |
+
+The editor (`npm start`) lists both projects.
+
+### space_duel: The Entangled Blade
+
+A relay keeper near the Moon is challenged by a traveller who arrives at 0.8c,
+and they fight for one half of an entangled pair of blades. Each physics idea
+on screen is computed, not hand-drawn:
+
+| on screen | physics | where |
+| --- | --- | --- |
+| Ship shortened to 0.60 L₀ | Lorentz contraction, `1/γ` | `components/Ship.ts` |
+| IR beacon seen as violet; hull lights redden, then vanish | relativistic Doppler `√((1+β)/(1−β))` + wavelength→colour | `physics.ts`, `Ship.ts` |
+| Wavefronts bunch ahead of the ship | light emitted from past positions, growing at c | `Effects.ts: wavefronts` |
+| "IMAGE ARRIVES" just before the ship | arrival time `d/c` vs `d/v` | `acts/arrival.ts` |
+| Twin clocks: 5 years vs 3 | `dτ = dt/γ`, integrated each frame | `acts/arrival.ts` |
+| Camera never moves during the fight | centre-of-mass frame: no external force | `stage.ts: bindToCentreOfMass` |
+| Lighter keeper recoils 1.5× farther | `m₁Δv₁ = −m₂Δv₂` | `stage.ts`, `acts/fight.ts` |
+| Tuck → faster spin, live ω readout | `ω = L / I(pose)`, I from joint positions each frame | `stage.ts: inertia`, `acts/fight.ts: spin` |
+| Blade as a cloud of ghost angles | superposition weighted by `|ψ|²` | `components/Blade.ts` |
+| Contact makes the ghosts vanish | measurement collapse | `acts/fight.ts` |
+| Small wave packet passes the barrier | tunnelling `T ≈ e^(−2κd)` | `physics.ts`, `acts/fight.ts: tunnelling` |
+| Keeper reads ↑, the other blade shows ↓ | singlet anti-correlation, no signalling | `acts/fight.ts: finale` |
+| Sparks fly straight; the lost blade drifts and spins forever | Newton I, conserved angular momentum | `Effects.ts`, `acts/fight.ts` |
+| Stars do not twinkle | no atmosphere | `components/Starfield.ts` |
+| Sound despite the vacuum | none travels through space; audio is contact vibration | on-screen tag, `acts/arrival.ts` |
+
+**How everything lands on time:**
+- **One timing file.** `audio/space_duel/story.json` holds every spoken line,
+  events and sound effects.
+- **Audio builder.** `tools/build_space_audio.py` synthesizes the spoken lines,
+  measures each clip, and fails if a line overruns its slot. It renders the
+  music and effects at the same times, and writes `cues.json` for the scene.
+- **Late beats.** Every action waits on `syncTo(cue)` and warns if it is late;
+  `--strict` turns any warning into a failed render.
+- **Blade contact.** Every clash is solved geometrically. Before each
+  exchange, both strike poses are tried in place, and the exact separation at
+  which the blades cross is found. On the contact frame the blade gap is
+  measured, and it warns on a miss.
+- **Fire-and-forget effects** (sparks, exhaust, shake) run on a
+  scene-lifetime runner (`stage.spawn`). A bare `yield` fork would be
+  cancelled when its parent returns, freezing an effect half-drawn.
+
+```bash
+npm run audio:space                                  # rebuild master.wav + cues.json
+npm run render -- --project=space_duel --strict      # ~12,000 frames -> output_renders/space_duel.mp4
+npm run render -- --project=space_duel --at=80,125   # just a few stills, for checking
+```
+
+### Look and motion
+
+Figures are built from a measured head-unit system (`src/figureSpec.ts`), and
+motion follows the timing tables in
+[`docs/STYLE_BIBLE.md`](./docs/STYLE_BIBLE.md): contact holds, flash frames,
+short shakes, smear trails. The style bible is a living document; update it
+whenever you study a new reference.
+
 ## Layout
 
 ```

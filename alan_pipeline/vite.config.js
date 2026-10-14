@@ -12,7 +12,7 @@ const ffmpeg = unwrap(ffmpegPlugin);
 export default defineConfig({
   plugins: [
     motionCanvas({
-      project: './src/project.ts',
+      project: ['./src/project.ts', './src/space_duel.ts', './src/first_light.ts', './src/first_game.ts'],
       // Uncompressed PNG frames land here (fast NVMe frame cache).
       output: './output_renders',
     }),
