@@ -975,6 +975,11 @@
    "type": "thud",
    "at": "leapChair",
    "gain": 0.5
+  },
+  {
+   "type": "click",
+   "at": "m_run",
+   "gain": 0.5
   }
  ],
  "music": [
