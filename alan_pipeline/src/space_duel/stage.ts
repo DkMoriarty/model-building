@@ -9,12 +9,19 @@ import {ClockDial, PhysicsLabel, Subtitles, titleCard} from './components/Hud';
 import {earth, moon, station} from './components/Scenery';
 import {Ship} from './components/Ship';
 import {Starfield} from './components/Starfield';
+import {dustField} from './components/Ambient';
 
 /** Everything the acts share: camera, layers and cast. */
 export interface Stage {
   view: View2D;
   /** Camera: everything in world space lives under this node. */
   world: Node;
+  /** Distant traffic (satellites, comet, debris): half-speed parallax. */
+  backdrop: Node;
+  /** Foreground dust: moves faster than the camera, for depth. */
+  dust: Node;
+  /** Scene clock in seconds, updated every frame (drives blinks, rotation). */
+  time: SimpleSignal<number, void>;
   stars: Starfield;
   scenery: Node;
   earth: Node;
@@ -56,14 +63,24 @@ export interface Stage {
 
 export function buildStage(view: View2D): Stage {
   view.fill('#050508');
+  const time = createSignal(0);
   const stars = new Starfield();
   const world = new Node({});
   stars.pan(() => world.position().scale(-1));
-  view.add([stars, world]);
+  const backdrop = new Node({position: () => world.position().scale(0.5)});
+  const field = dustField();
+  const dust = new Node({position: () => world.position().scale(1.35), children: [field.node]});
+  // Dust drifts slowly on its own, wrapping around the frame.
+  field.specks.forEach((c, i) => {
+    const x0 = c.x();
+    const vx = 6 + (i % 5) * 3;
+    c.x(() => ((x0 + vx * time() + 1200) % 2400) - 1200);
+  });
+  view.add([stars, backdrop, world, dust]);
 
-  const earthNode = earth({x: -1150, y: 1650, opacity: 0});
+  const earthNode = earth({x: -1150, y: 1650, opacity: 0}, time);
   const moonNode = moon({x: 700, y: -330, opacity: 0});
-  const stationNode = station({x: 230, y: 40, scale: 0.8, opacity: 0});
+  const stationNode = station({x: 230, y: 40, scale: 0.8, opacity: 0}, time);
   const tether = new Line({points: [], stroke: 'rgba(200,200,210,0.5)', lineWidth: 3, lineDash: [10, 8], opacity: 0});
   const scenery = new Node({children: [earthNode, moonNode, stationNode, tether]});
 
@@ -94,6 +111,9 @@ export function buildStage(view: View2D): Stage {
   return {
     view,
     world,
+    backdrop,
+    dust,
+    time,
     stars,
     scenery,
     earth: earthNode,
@@ -121,6 +141,7 @@ export function buildStage(view: View2D): Stage {
     spawn: task => queue.push(task),
     runner: function* (until: number) {
       while (useTime() < until - 1e-6) {
+        time(useTime());
         while (queue.length) yield queue.shift()!;
         yield;
       }
@@ -142,6 +163,15 @@ export function bindToCentreOfMass(stage: Stage): void {
 /** Current separation (alien minus keeper) implied by the fighters' positions. */
 export function separationOf(stage: Stage): Vector2 {
   return stage.alien.body.position().sub(stage.keeper.body.position());
+}
+
+/**
+ * Convert a world-space (absolute) point into the camera node's local space,
+ * where props, effects and drifting objects live. Always use the node's own
+ * matrix: subtracting offsets and dividing by zoom by hand drifts by 100+ px.
+ */
+export function toWorldLocal(s: Stage, absolute: Vector2): Vector2 {
+  return absolute.transformAsPoint(s.world.worldToLocal());
 }
 
 /** Seconds per rendered frame. */

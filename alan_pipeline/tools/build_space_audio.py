@@ -141,6 +141,15 @@ def sfx_clash(length: float = 1.6) -> np.ndarray:
     return (out * 0.35 + tick + thump) * 0.8
 
 
+def sfx_tink(length: float = 0.7) -> np.ndarray:
+    """A small metal part tapped: a short, bright bar ring."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    base = 1850 * (1 + RNG.uniform(-0.03, 0.03))
+    out = sum(a * np.sin(2 * np.pi * base * r * t) * np.exp(-d * t) for r, a, d in [(1, 1, 9), (2.76, 0.5, 14), (5.4, 0.25, 22)])
+    return out * 0.22
+
+
 def sfx_whoosh(length: float = 0.9) -> np.ndarray:
     n = int(length * SR)
     t = np.arange(n) / SR
@@ -257,6 +266,7 @@ def sfx_measure(length: float = 1.2) -> np.ndarray:
 SFX = {
     "clash": lambda e: sfx_clash(),
     "whoosh": lambda e: sfx_whoosh(),
+    "tink": lambda e: sfx_tink(),
     "thrust": lambda e: sfx_thrust(e.get("length", 2.0)),
     "boom": lambda e: sfx_boom(),
     "riser": lambda e: sfx_riser(e.get("length", 3.0)),

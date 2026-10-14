@@ -1,5 +1,6 @@
 import {makeScene2D} from '@motion-canvas/2d';
 import {all, ThreadGenerator} from '@motion-canvas/core';
+import {ambient} from '../acts/ambient';
 import {arrival} from '../acts/arrival';
 import {departure} from '../acts/departure';
 import {fight} from '../acts/fight';
@@ -13,6 +14,7 @@ import {buildStage, Stage} from '../stage';
  */
 export default makeScene2D(function* (view) {
   const stage = buildStage(view);
+  stage.spawn(ambient(stage));
   yield* all(story(stage), subtitles(stage), stage.runner(duration));
 });
 

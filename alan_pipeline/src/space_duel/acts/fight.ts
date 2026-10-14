@@ -20,7 +20,7 @@ import {exhaust, sparks} from '../components/Effects';
 import {ALIEN_BLADE, ALIEN_COLOR, Fighter, KEEPER_BLADE} from '../components/Fighters';
 import {at, Cue, syncTo} from '../cues';
 import {tunnelProbability} from '../physics';
-import {bindToCentreOfMass, bladeContact, everyFrame, inertia, separationOf, Stage} from '../stage';
+import {bindToCentreOfMass, bladeContact, everyFrame, inertia, separationOf, Stage, toWorldLocal} from '../stage';
 
 const GUARD: Pose = {
   torso: 10,
@@ -165,7 +165,7 @@ function* whiteout(s: Stage, strength = 0.8): ThreadGenerator {
  * leave nothing (style bible, section 3).
  */
 function* smearTrails(s: Stage, until: number): ThreadGenerator {
-  const toLocal = (p: Vector2) => p.sub(s.world.absolutePosition()).scale(1 / s.world.scale().x);
+  const toLocal = (p: Vector2) => toWorldLocal(s, p);
   const trails = [
     {blade: s.keeper.blade, color: KEEPER_BLADE},
     {blade: s.alien.blade, color: ALIEN_BLADE},
@@ -491,7 +491,7 @@ function* tunnelling(s: Stage): ThreadGenerator {
   s.fx.add(incoming);
   yield* syncTo('barrier', -2.0);
   yield* s.alien.body.pose({...GUARD, ...STYLES.mid.strike}, 0.3, easeInCubic);
-  centre(s.alien.blade.tip().sub(s.world.absolutePosition()).scale(1 / s.world.scale().x));
+  centre(toWorldLocal(s, s.alien.blade.tip()));
   const wall = () => barrier.position().add([30, 0]);
   yield* all(amp(1, 0.3), centre(wall(), at('barrier', 8) - useTime(), linear));
 
@@ -556,6 +556,7 @@ function* finale(s: Stage): ThreadGenerator {
   const ring = new Circle({size: 60, stroke: KEEPER_BLADE, lineWidth: 4});
   keeper.blade.add(ring);
   keeper.blade.spin(1);
+  keeper.blade.showSpin(1);
   s.spawn(all(ring.size(220, 0.6, easeOutCubic), ring.opacity(0, 0.6)));
   yield* s.label.show('measure A → ↑', 'the keeper reads his own blade');
 
@@ -564,6 +565,7 @@ function* finale(s: Stage): ThreadGenerator {
   yield* s.label.show('singlet: A ↑  ⇒  B ↓', 'perfectly anti-correlated, always');
   yield* syncTo('spinDown');
   alien.blade.spin(-1);
+  alien.blade.showSpin(1);
   alien.blade.spread(0);
   const ring2 = new Circle({size: 60, stroke: ALIEN_BLADE, lineWidth: 4});
   alien.blade.add(ring2);

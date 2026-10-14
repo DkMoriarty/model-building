@@ -50,7 +50,8 @@ export function createKeeper(props: StickFigureProps = {}): Fighter {
       lineWidth: STROKE * 0.45,
     }),
   );
-  const blade = new Blade({color: KEEPER_BLADE, length: H * 3.2, width: BLADE_STROKE, rotation: -70});
+  // Hidden (hilt included) until the keeper draws it.
+  const blade = new Blade({color: KEEPER_BLADE, length: H * 3.2, width: BLADE_STROKE, rotation: -70, opacity: 0});
   blade.extend(0);
   body.bones.rightFist.add(blade);
   return {body, blade};
@@ -83,7 +84,7 @@ export function createAlien(props: StickFigureProps = {}): Fighter {
     ...antenna(-H * 0.1, -H * 0.38, -H * 1.1),
     ...antenna(H * 0.12, H * 0.28, -H * 1.18),
   ]);
-  const blade = new Blade({color: ALIEN_BLADE, length: H * 3.6, width: BLADE_STROKE, rotation: -70});
+  const blade = new Blade({color: ALIEN_BLADE, length: H * 3.6, width: BLADE_STROKE, rotation: -70, opacity: 0});
   blade.extend(0);
   body.bones.rightFist.add(blade);
   return {body, blade};

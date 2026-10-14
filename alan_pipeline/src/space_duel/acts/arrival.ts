@@ -1,13 +1,15 @@
-import {Line, Node, Txt} from '@motion-canvas/2d';
-import {all, easeInOutCubic, easeInOutSine, easeOutCubic, linear, ThreadGenerator, useTime, Vector2, waitFor} from '@motion-canvas/core';
-import {StickFigure} from '../../components/StickFigure';
+import {Circle, Line, Node, Txt} from '@motion-canvas/2d';
+import {all, easeInCubic, easeInOutCubic, easeInOutSine, easeOutCubic, linear, ThreadGenerator, useLogger, useTime, Vector2, waitFor} from '@motion-canvas/core';
+import {JOINTS, Pose, StickFigure} from '../../components/StickFigure';
+import {hexNut} from '../components/Ambient';
+import {FIGURE_SCALE} from '../../figureSpec';
 import {Colors, Typography} from '../../styles';
 import {reveal} from '../components/Hud';
 import {wavefronts} from '../components/Effects';
 import {station as stationIcon} from '../components/Scenery';
 import {at, syncTo} from '../cues';
 import {gamma} from '../physics';
-import {everyFrame, Stage} from '../stage';
+import {everyFrame, Stage, toWorldLocal} from '../stage';
 
 /** Diagram scale: light crosses 90 px per second of screen time. */
 const C = 90;
@@ -31,34 +33,118 @@ function floatPose(fig: StickFigure): void {
   });
 }
 
-export function* arrival(s: Stage): ThreadGenerator {
-  // 0 - 10.5: the void. Stars only; the camera drifts.
-  yield* syncTo('open', 1.5);
-  s.spawn(all(s.blackout.opacity(0, 2.5), s.world.position([-60, 20], 18, linear)));
+/** Where `fist` would be (world-local) if `fig` held `pose`; tried and restored in one frame. */
+function fistTarget(s: Stage, fig: StickFigure, fist: Node, pose: Pose): Vector2 {
+  const saved = Object.fromEntries(JOINTS.map(j => [j, fig.joints[j]()])) as Pose;
+  fig.setPose(pose);
+  const abs = fist.absolutePosition();
+  fig.setPose(saved);
+  return toWorldLocal(s, abs);
+}
 
-  yield* syncTo('title');
-  yield* reveal(s.title, 0.8);
-  yield* waitFor(1.9);
-  yield* s.title.opacity(0, 0.6);
+const HOLD_IN_FRONT: Pose = {rightShoulder: -70, rightElbow: -70, head: 18, torso: 8};
+const CATCH_HIGH: Pose = {leftShoulder: -150, leftElbow: -25, head: -25};
+const PRESENT: Pose = {leftShoulder: -80, leftElbow: -60, head: 10, rightShoulder: 20, rightElbow: -30};
 
-  // 10.5 - 18: the relay at Earth-Moon L2, its keeper on a tether.
-  yield* syncTo('station');
-  floatPose(s.keeper.body);
-  s.keeper.body.position([-170, 70]);
-  s.keeper.body.rotation(-8);
-  s.tether.points(() => [s.station.position().add([-60, 10]), s.keeper.body.position()]);
+function* nutPlay(s: Stage): ThreadGenerator {
+  const keeper = s.keeper.body;
+  const nut = hexNut();
+  keeper.bones.rightFist.add(nut);
+
+  // He turns the nut over in front of his face.
+  yield* syncTo('play');
+  yield* keeper.pose(HOLD_IN_FRONT, 0.8, easeInOutCubic);
+  s.spawn(nut.rotation(90, 1.0, easeInOutSine));
+
+  // Toss: let go, and it flies in a straight line, spinning at a constant
+  // rate, to exactly where his other hand will be on 'catch'.
+  yield* syncTo('toss', 0.18);
+  yield* keeper.pose({rightShoulder: -120, rightElbow: -20}, 0.18, easeOutCubic);
+  nut.reparent(s.world);
+  const catchAt = fistTarget(s, keeper, keeper.bones.leftFist, CATCH_HIGH);
+  const flight = at('catch') - at('toss');
+  // The flight runs in this thread, not spawned: a background tween's final
+  // frame would land after the hand-off below and knock the nut out of the
+  // palm (it writes world coordinates into the fist's local space).
   yield* all(
-    s.earth.opacity(1, 1.2),
-    s.moon.opacity(1, 1.2),
-    s.station.opacity(1, 1.2),
-    s.keeper.body.opacity(1, 1.2),
-    s.tether.opacity(1, 1.2),
-    s.label.show('EARTH–MOON L2', 'gravity of both + the orbit hold a station in step with the Moon'),
+    nut.position(catchAt, flight, linear),
+    nut.rotation(nut.rotation() + 540, flight, linear),
+    keeper.pose({head: -25, rightShoulder: -40, rightElbow: -40}, 0.8, easeInOutSine),
+    (function* () {
+      yield* syncTo('catch', 0.35);
+      yield* keeper.pose(CATCH_HIGH, 0.35, easeOutCubic);
+    })(),
   );
-  s.spawn(all(
-    s.keeper.body.rotation(6, 7, easeInOutSine),
-    s.keeper.body.position([-150, 50], 7, easeInOutSine),
-  ));
+  const palm = toWorldLocal(s, keeper.bones.leftFist.absolutePosition());
+  if (nut.position().sub(palm).magnitude > 4) useLogger().warn(`nut: catch misses the hand by ${nut.position().sub(palm).magnitude.toFixed(0)} px`);
+  nut.reparent(keeper.bones.leftFist);
+  nut.position(Vector2.zero);
+
+  // Present it, then let it hover: no friction, so it spins in place.
+  yield* syncTo('twirl', 0.7);
+  yield* keeper.pose(PRESENT, 0.7, easeInOutCubic);
+  nut.reparent(s.world);
+  const hover = nut.position();
+  // Flick: the right hand comes to exactly where the nut hovers. The hover
+  // spin runs in this thread too, so it has ended before the flick spin starts.
+  const flickPose: Pose = {rightShoulder: PRESENT.leftShoulder!, rightElbow: PRESENT.leftElbow!};
+  const hoverTime = at('flick') - at('twirl');
+  yield* all(
+    nut.rotation(nut.rotation() + 720 * hoverTime, hoverTime, linear),
+    keeper.pose({leftShoulder: -30, leftElbow: -40, head: 14}, 0.6, easeOutCubic),
+    (function* () {
+      yield* syncTo('flick', 0.25);
+      yield* keeper.pose(flickPose, 0.25, easeInCubic);
+    })(),
+  );
+  const tap = toWorldLocal(s, keeper.bones.rightFist.absolutePosition());
+  if (tap.sub(hover).magnitude > 4) useLogger().warn(`nut: flick misses by ${tap.sub(hover).magnitude.toFixed(0)} px`);
+  const away = new Vector2(-300, -40);
+  const life = 20;
+  s.spawn(all(nut.position(hover.add(away.scale(life)), life, linear), nut.rotation(nut.rotation() + 400 * life, life, linear)));
+  s.spawn(keeper.pose({rightShoulder: -20, rightElbow: -30, head: 0}, 0.6, easeOutCubic));
+
+  // Far off, where it went: a violet pinprick (the ship's beacon, blueshifted).
+  yield* syncTo('glint');
+  // Pull out to the wide shot: the station, Earth, and the dark beyond.
+  s.spawn(all(s.world.scale(1, 1.4, easeInOutCubic), s.world.position([-60, 20], 1.4, easeInOutCubic)));
+  const glint = new Circle({position: [-820, -60], size: 0, fill: '#b7a6ff', shadowColor: 'rgba(183,166,255,0.6)', shadowBlur: 20});
+  s.world.add(glint);
+  s.spawn(glint.size(14, 0.3, easeOutCubic).to(6, 0.6).to(12, 0.6).to(0, 2.0));
+  // He turns to look: a held beat of curiosity.
+  yield* keeper.face(-1, 0.25);
+  yield* keeper.pose({head: -12, torso: -6}, 0.5, easeOutCubic);
+}
+
+export function* arrival(s: Stage): ThreadGenerator {
+  // 0 - 18: the keeper at the relay, fidgeting with a hex nut. The nut is
+  // the first thing to obey the rules this film is about: once let go, it
+  // keeps its velocity and its spin. It drifts off toward a violet glint.
+  const keeper = s.keeper.body;
+  floatPose(keeper);
+  // Clear of the solar wing: no tangents between the figure and the station.
+  keeper.position([-250, 110]);
+  keeper.rotation(-4);
+  s.tether.points(() => [s.station.position().add([-60, 10]), keeper.position()]);
+  s.earth.opacity(1);
+  s.moon.opacity(1);
+  s.station.opacity(1);
+  keeper.opacity(1);
+  s.tether.opacity(1);
+  // Medium close-up for the toy beat (figure ~35% of frame height, keeper on
+  // the 0.38 lead-room line); it pulls out to the wide shot at the glint.
+  const close = 1.8;
+  s.world.scale(close);
+  s.world.position([-230 - keeper.x() * close, 30 - keeper.y() * close]);
+  s.spawn(s.blackout.opacity(0, 2.5));
+  yield* nutPlay(s);
+
+  // Title over the curiosity hold.
+  // Title over the curiosity hold, with the scene dimmed behind it.
+  yield* syncTo('title');
+  yield* all(reveal(s.title, 0.8), s.blackout.opacity(0.55, 0.8));
+  yield* waitFor(1.6);
+  yield* all(s.title.opacity(0, 0.5), s.blackout.opacity(0, 0.5));
 
   // 18 - 48: the approach, drawn as a space-time diagram.
   yield* syncTo('diagram');
@@ -172,6 +258,8 @@ function* standoff(s: Stage): ThreadGenerator {
   s.world.position([0, 0]);
   s.world.scale(1.15);
   keeper.body.rotation(0);
+  // He turned to look at the glint; face the traveller again.
+  keeper.body.scale([FIGURE_SCALE, FIGURE_SCALE]);
   keeper.body.position([-330, 90]);
   keeper.body.setPose({torso: 2, leftShoulder: -20, leftElbow: -20, rightShoulder: 10, rightElbow: -20, leftHip: -8, leftKnee: 12, rightHip: 8, rightKnee: 10});
   alien.body.setPose({torso: 0, leftShoulder: 10, leftElbow: -10, rightShoulder: 10, rightElbow: -10, leftHip: -6, leftKnee: 8, rightHip: 6, rightKnee: 8});
@@ -189,15 +277,15 @@ function* standoff(s: Stage): ThreadGenerator {
   yield* syncTo('drawAlien');
   yield* all(
     alien.body.pose({rightShoulder: -100, rightElbow: -30, torso: 4}, 0.5),
+    alien.blade.opacity(1, 0.2),
     alien.blade.extend(1, 0.8, easeOutCubic),
     alien.blade.spread(6, 0.8).to(0, 0.6),
-    alien.blade.showSpin(1, 0.5),
   );
   yield* syncTo('drawKeeper');
   yield* all(
     keeper.body.pose({rightShoulder: -100, rightElbow: -30, torso: 4}, 0.5),
+    keeper.blade.opacity(1, 0.2),
     keeper.blade.extend(1, 0.8, easeOutCubic),
-    keeper.blade.showSpin(1, 0.5),
   );
 
   yield* syncTo('lblVacuum');

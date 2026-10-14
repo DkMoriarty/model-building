@@ -8,9 +8,31 @@ const STATION_SCALE = 0.6;
 const structure = propStroke(TIERS.structure, STATION_SCALE);
 const detail = propStroke(TIERS.detail, STATION_SCALE);
 
-/** Earth's limb: a huge sphere mostly off-frame, with a thin atmosphere glow. */
-export function earth(props: NodeProps = {}): Node {
+/**
+ * Earth's limb: a huge sphere mostly off-frame, with a thin atmosphere glow
+ * and slow cloud bands (Earth turns once a day; the bands creep).
+ */
+export function earth(props: NodeProps = {}, time: () => number = () => 0): Node {
   const r = 1400;
+  const clouds = new Node({
+    rotation: () => time() * 0.4,
+    // Two short, faint weather arcs: enough to show the planet turning,
+    // never enough to read as rings.
+    children: [
+      [0.9, -128, -108, 9],
+      [0.95, -96, -82, 6],
+    ].map(
+      ([f, a0, a1, w]) =>
+        new Circle({
+          size: r * 2 * f,
+          startAngle: a0,
+          endAngle: a1,
+          stroke: 'rgba(230,240,255,0.11)',
+          lineWidth: w,
+          lineCap: 'round',
+        }),
+    ),
+  });
   return new Node({
     ...props,
     children: [
@@ -41,6 +63,7 @@ export function earth(props: NodeProps = {}): Node {
           ],
         }),
       }),
+      clouds,
     ],
   });
 }
@@ -70,8 +93,13 @@ export function moon(props: NodeProps = {}): Node {
   });
 }
 
-/** The relay station: hub, truss, two solar wings and a dish. */
-export function station(props: NodeProps = {}): Node {
+/**
+ * The relay station: hub, truss, two solar wings and a dish. Navigation
+ * lights blink on the music's beat (2 per second at 120 bpm); the dish
+ * sweeps slowly.
+ */
+export function station(props: NodeProps = {}, time: () => number = () => 0): Node {
+  const blink = (phase: number) => () => (Math.floor(time() * 2 + phase) % 2 === 0 ? 1 : 0.15);
   const panel = (x: number) =>
     new Rect({
       x,
@@ -114,7 +142,7 @@ export function station(props: NodeProps = {}): Node {
         lineWidth: structure,
         children: [
           new Rect({width: 60, height: 14, radius: 7, y: -16, fill: 'rgba(120,200,255,0.5)'}),
-          new Circle({x: 50, y: 26, size: 10, fill: Colors.accent}),
+          new Circle({x: 50, y: 26, size: 10, fill: Colors.accent, opacity: blink(0)}),
         ],
       }),
       new Line({
@@ -125,9 +153,13 @@ export function station(props: NodeProps = {}): Node {
         stroke: '#6b6b78',
         lineWidth: structure,
       }),
+      // Wing-tip nav lights: red port, green starboard, alternating.
+      new Circle({x: -405, size: 10, fill: '#ff4d4d', opacity: blink(0)}),
+      new Circle({x: 405, size: 10, fill: '#4dff88', opacity: blink(1)}),
       new Circle({
         y: -118,
         size: 80,
+        rotation: () => Math.sin(time() * 0.35) * 25,
         startAngle: 200,
         endAngle: 340,
         stroke: '#9a9aa8',

@@ -54,18 +54,8 @@ export function* departure(s: Stage): ThreadGenerator {
 
   // Fade out, title, end.
   yield* syncTo('end');
-  const credit = new Txt({
-    y: 210,
-    text: 'every frame computed from code · no generative video',
-    fill: Colors.inkMuted,
-    fontFamily: Typography.family,
-    fontSize: 24,
-    opacity: 0,
-  });
-  s.hud.add(credit);
   yield* s.blackout.opacity(1, 1.2);
   s.title.moveToTop();
-  credit.moveToTop();
-  yield* all(reveal(s.title, 0.8), credit.opacity(1, 0.8, easeOutCubic));
+  yield* reveal(s.title, 0.8);
   yield* syncTo(duration - 0.05);
 }

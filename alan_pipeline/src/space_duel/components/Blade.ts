@@ -21,7 +21,8 @@ const amplitude = (k: number) => Math.exp(-(k * k) / 4.5);
  * - `extend` 0..1 draws the blade out of the hilt.
  * - `spread` (degrees) > 0 puts the blade in superposition: ghost copies at
  *   the other possible angles, faded by their probability. 0 = measured.
- * - `spin` shows its entangled spin: 0 = unmeasured (?), 1 = up, -1 = down.
+ * - `spin` shows its entangled spin once measured: 1 = up, -1 = down
+ *   (0 = unmeasured, nothing drawn).
  */
 export class Blade extends Node {
   public readonly extend: SimpleSignal<number, this>;
@@ -93,7 +94,7 @@ export class Blade extends Node {
         x: 34,
         y: 6,
         rotation: () => -this.absoluteRotation() + this.rotation(),
-        text: () => (this.spin() > 0 ? '↑' : this.spin() < 0 ? '↓' : '?'),
+        text: () => (this.spin() > 0 ? '↑' : this.spin() < 0 ? '↓' : ''),
         fill: () => (this.spin() === 0 ? '#d0d0d8' : color),
         fontFamily: Typography.mono,
         fontSize: 34,
