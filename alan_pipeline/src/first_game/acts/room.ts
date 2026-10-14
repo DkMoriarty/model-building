@@ -1,5 +1,5 @@
 import {Node, Rect, Txt} from '@motion-canvas/2d';
-import {all, easeInCubic, easeInOutCubic, easeInOutSine, easeOutBack, easeOutCubic, ThreadGenerator, useTime, Vector2} from '@motion-canvas/core';
+import {all, createSignal, easeInCubic, easeInOutCubic, easeInOutSine, easeOutBack, easeOutCubic, ThreadGenerator, useTime, Vector2, waitFor} from '@motion-canvas/core';
 import {Pose} from '../../components/StickFigure';
 import {detach, reach, Stage, worldOf} from '../../first_light/stage';
 import {CodeView} from '../components/CodeView';
@@ -40,6 +40,8 @@ export interface Monitor {
   say(text: string | null, color?: string): void;
   /** The whole screen becomes the game (no code). */
   fullscreen(on: boolean, d?: number): ThreadGenerator;
+  /** The red wash over the screen once the computer is angry. */
+  red?: Rect;
 }
 
 export function buildMonitor(s: Stage, room: Room): Monitor {
@@ -118,10 +120,10 @@ function* arrowKeys(s: Stage, until: number): ThreadGenerator {
 }
 
 /**
- * 0 - 72 s. No game, so Spark writes one. hello world first; then a ball, a
+ * 0 - 64 s. No game, so Spark writes one. hello world first; then a ball, a
  * move, walls, a paddle; the speed glitch; an opponent and a rule: ping pong.
- * Spark plays and scores. Late at night the opponent is made unbeatable;
- * Spark loses, laughs, yawns, and drifts towards the screen.
+ * Spark plays and scores. The computer loses, and wakes up: it types by
+ * itself, learns, gets angry, and calls pull(spark).
  */
 export function* roomAct(s: Stage, room: Room, m: Monitor): ThreadGenerator {
   const spark = s.spark.body;
@@ -242,40 +244,59 @@ export function* roomAct(s: Stage, room: Room, m: Monitor): ThreadGenerator {
   detach(pad);
   pad.position(PAD_AT);
 
-  // ---- Into the night: cpu.speed = 99. Unbeatable, on purpose.
+  // ---- The computer loses, and wakes up. Its paddle trembles.
+  yield* syncTo('tremble', 0);
+  const red = new Rect({width: SCREEN.w, height: SCREEN.h, fill: PONG_COLORS.cpu, opacity: 0});
+  room.screen.add(red);
+  m.red = red;
+  s.spawn(spark.pose({...HOLD, torso: 14, head: -6}, 0.3, easeOutCubic));
+  s.spawn(red.opacity(0.12, 0.3).to(0.04, 0.3));
+  for (let i = 0; i < 12; i++) {
+    court.rightY(i % 2 ? -10 : 10);
+    yield* waitFor(1 / 30);
+  }
+  court.rightY(0);
+  // It types by itself: cpu.learn(). Spark lifts his hands off the keys.
   yield* syncTo('zoomCode2', 0);
   yield* all(camTo(s, CODE_SHOT, 0.35), m.fullscreen(false, 0.35));
-  yield* typeLine(s, m, 'c10');
-  yield* syncTo('grin', 0);
-  for (let i = 0; i < 3; i++) {
-    yield* spark.pose({...TYPE, torso: 4, head: -20, leftShoulder: -70, leftElbow: -90, rightShoulder: -64, rightElbow: -100}, 0.1);
-    yield* spark.pose({leftShoulder: -60, rightShoulder: -74}, 0.1);
+  s.spawn(selfType(s, m, 's1'));
+  yield* syncTo('handsOff', 0.2);
+  yield* spark.pose({...SIT_CHAIR, torso: -8, head: -16, leftShoulder: -100, leftElbow: -120, rightShoulder: -96, rightElbow: -126}, 0.2, easeOutCubic);
+  yield* syncTo('s1Run', 0);
+  court.showScore(0);
+  m.label.text('LEARNING...');
+  m.label.fill(PONG_COLORS.cpu);
+  m.label.opacity(1);
+  // cpu.angry = true: the screen goes red. Spark recoils.
+  yield* selfType(s, m, 's2');
+  m.label.text('ANGRY');
+  s.spawn(red.opacity(0.45, 0.15, easeOutCubic));
+  s.spawn(shakeView(s, 6, 8));
+  yield* spark.pose({...SIT_CHAIR, torso: -12, head: -10, leftShoulder: -96, leftElbow: -120, rightShoulder: -92, rightElbow: -126}, 0.2, easeOutBack);
+  // pull(spark): Spark shakes his head, no, no.
+  s.spawn(selfType(s, m, 's3'));
+  yield* syncTo('s3', 0);
+  for (let i = 0; i < 4; i++) yield* spark.joints.head(i % 2 ? -22 : 2, 0.2, easeInOutSine);
+}
+
+/** The computer types a line by itself: no hands, the same 12 characters a second. */
+function* selfType(s: Stage, m: Monitor, cue: Cue): ThreadGenerator {
+  const text = code[cue];
+  yield* syncTo(cue, 0);
+  m.code.newLine(text);
+  yield* m.code.type(at(cue), CPS);
+  yield* syncTo(`${cue}Enter` as Cue, 0);
+  m.code.enter();
+  yield* syncTo(`${cue}Run` as Cue, 0);
+}
+
+function* shakeView(s: Stage, px: number, frames: number): ThreadGenerator {
+  for (let i = 0; i < frames; i++) {
+    const a = i * 2.4;
+    s.shake(new Vector2(Math.cos(a), Math.sin(a)).scale(px * (1 - i / frames)));
+    yield;
   }
-  yield* syncTo('clock1', 0.5);
-  yield* camTo(s, WIDE, 0.5);
-  yield* room.hours(26, 0.8, easeInOutCubic);
-  // Play it: the computer is everywhere at once. A point lost in a blink.
-  yield* syncTo('play2', 0.5);
-  yield* all(camTo(s, OVER, 0.5), spark.pose(HOLD, 0.5, easeInOutCubic), m.fullscreen(true, 0.5));
-  pad.position(() => padAt());
-  court.scoreL(0);
-  court.scoreR(0);
-  const lose = rallies['lose'];
-  s.spawn(thumbs(s, lose));
-  yield* playRally(court, lose, at('gameOverMini'), {left: SPEED.spark, right: SPEED.cpu99}, 'lose');
-  court.scoreR(1);
-  court.ball.opacity(0);
-  m.say('GAME OVER', PONG_COLORS.cpu);
-  yield* syncTo('laugh', 0);
-  for (let i = 0; i < 4; i++) yield* spark.pose({torso: i % 2 ? 0 : -10, head: i % 2 ? -10 : -26}, 0.15, easeInOutSine);
-  // Sleepy: a yawn, then the head drops towards the screen.
-  yield* syncTo('yawn', 0);
-  detach(pad);
-  pad.position(PAD_AT);
-  yield* spark.pose({...SIT_CHAIR, torso: -14, head: -34, leftShoulder: -170, rightShoulder: -170, leftElbow: -30, rightElbow: -30}, 0.6, easeInOutSine);
-  yield* spark.pose(SIT_CHAIR, 0.8, easeInOutSine);
-  yield* syncTo('droop', 0);
-  yield* spark.pose({...SIT_CHAIR, torso: 30, head: 20, leftShoulder: -10, rightShoulder: -20}, 1.0, easeInOutSine);
+  s.shake(Vector2.zero);
 }
 
 /** Draw a rally's ball until `until` (no paddles involved). */
@@ -292,20 +313,48 @@ function* thumbs(s: Stage, r: (typeof rallies)[string]): ThreadGenerator {
   }
 }
 
-/** Pull-in: the screen floods with light and Spark is drawn into it. */
-export function* pullIn(s: Stage): ThreadGenerator {
+/**
+ * Pull-in: two red pixel hands reach out of the screen, take Spark by the
+ * wrists and drag him in. He shrinks into the glass and the screen floods white.
+ */
+export function* pullIn(s: Stage, m: Monitor): ThreadGenerator {
   const spark = s.spark.body;
   yield* syncTo('pull', 0);
+  s.spawn(all(s.cam(SCREEN.centre.add([-150, 40]), 1.2, easeInOutCubic), s.zoom(2.2, 1.2, easeInOutCubic)));
+  const hands: Node[] = [];
+  const wrists = [spark.bones.leftFist, spark.bones.rightFist];
+  for (const [i, fist] of wrists.entries()) {
+    const from = SCREEN.centre.add([-SCREEN.w / 2 + 20, -30 + i * 50]);
+    const reachT = createSignal(0);
+    const hand = new Node({});
+    // A chain of pixels from the screen edge to the wrist: an arm made of squares.
+    for (let k = 0; k < 9; k++) {
+      const u = (k + 1) / 9;
+      hand.add(
+        new Rect({
+          width: 12,
+          height: 12,
+          fill: k % 2 ? PONG_COLORS.cpu : '#ff8fa3',
+          opacity: () => (u <= reachT() ? 1 : 0),
+          position: () => {
+            const to = worldOf(s, fist);
+            return from.add(to.sub(from).scale(u * Math.min(1, reachT() / u)));
+          },
+        }),
+      );
+    }
+    s.fx.add(hand);
+    hands.push(hand);
+    s.spawn(reachT(1, 0.5, easeOutCubic));
+  }
+  m.red?.opacity(0.7);
+  yield* waitFor(0.5);
+  // Grabbed: arms straight out towards the screen, leaning in against his will.
+  yield* spark.pose({torso: 34, head: 10, leftShoulder: -88, rightShoulder: -96, leftElbow: -4, rightElbow: -4, leftHip: -60, rightHip: -40, leftKnee: 40, rightKnee: 30}, 0.6, easeInCubic);
+  yield* syncTo('suck', 0);
   const glow = new Rect({position: SCREEN.centre, width: SCREEN.w, height: SCREEN.h, fill: '#ffffff', opacity: 0});
   s.props.add(glow);
-  s.spawn(all(glow.opacity(0.85, 1.2, easeInCubic), s.room(1, 1.2), s.cam(SCREEN.centre.add([-60, 20]), 1.2, easeInOutCubic), s.zoom(2.4, 1.2, easeInOutCubic)));
-  for (let i = 0; i < 14; i++) {
-    const p = new Rect({position: SCREEN.centre.add([-150 + (i % 4) * 20, -60 + i * 9]), width: 8, height: 8, fill: i % 2 ? '#8ecae6' : '#ffffff'});
-    s.fx.add(p);
-    s.spawn(all(p.position(worldOf(s, spark.bones.head).add([(i % 5) * 6, (i % 3) * 8]), 1.1, easeInOutSine), p.opacity(0, 1.3)));
-  }
-  yield* syncTo('suck', 0);
-  spark.setPose({torso: 40, head: 20, leftShoulder: -100, rightShoulder: -110, leftElbow: -10, rightElbow: -10, leftHip: -40, rightHip: -20, leftKnee: 20, rightKnee: 10});
+  hands.forEach(h => h.remove());
   yield* all(
     spark.position(SCREEN.centre, 0.9, easeInCubic),
     spark.scale([0.05, 0.05], 0.6, easeInCubic),

@@ -159,74 +159,133 @@ def dodge(t0: float, drops: list[tuple[float, float]], floor: float = 300.0, top
     return {"moves": moves, "blocks": blocks, "events": events, "fall": round(fall, 4), "top": top, "floor": floor, "size": size, "nearMiss": near}
 
 
+CAR_HALF = 110.0       # half a car's length (Spark's and the red ones)
+
+
 def race(t0: float) -> dict:
     """
-    Side-on race on a straight road to a cliff edge, then a ramp jump.
+    Side-on race on a two-lane road (near lane: Spark; far lane: room to
+    overtake) to a broken bridge, then a ramp jump over the gap.
 
     Spark accelerates at 600 u/s^2 to 900 u/s. Two red cars come from behind
-    at 1100 u/s; each bump is a collision between equal masses with
-    restitution 0.5 (Spark gains speed, the rammer loses it). At the edge
-    Spark brakes at 1400 u/s^2 and stops 60 units short; the red cars, still
-    closing at speed and braking only at 900 u/s^2, cannot stop in time and
-    go over (stopping distance v^2 / 2a > the room they have). Then Spark
-    backs up, takes a run at the ramp, and jumps the gap.
+    at 1100 u/s; each bump is a rear collision between equal masses with
+    restitution 0.5 (Spark gains speed, the rammer loses it), after which the
+    rammer pulls into the far lane and Spark eases back to 900. At the edge
+    Spark brakes at 1400 u/s^2 and stops with his front bumper 60 units short
+    of the lip; the red cars in the far lane react 0.25 s later and brake at
+    900 u/s^2, but their stopping distance is longer than the road they have,
+    so both go over. Then Spark backs up, takes an 800-unit run at the lip
+    (a 25 degree kicker) and jumps the gap; the key hangs 900 units past the
+    landing, the door 970 units after that, where he stops.
+
+    Positions are car centres along the road, from Spark's start (x = 0).
+    Every phase is constant acceleration (x = x0 + v0 s + a s^2 / 2), a
+    smooth hand-off (cubic Hermite between two (x, v) states), or flight.
     """
-    ev = {}
-    # Spark: 0 -> 900 u/s over 1.5 s (600 u/s^2), then cruise.
+    ev: dict[str, float] = {}
+    spark: list[dict] = []
+
+    def acc(t: float, dur: float, x0: float, v0: float, a: float) -> tuple[float, float]:
+        spark.append({"kind": "acc", "t": round(t, 4), "until": round(t + dur, 4), "x0": round(x0, 3), "v0": round(v0, 3), "a": a})
+        return x0 + v0 * dur + a * dur * dur / 2, v0 + a * dur
+
     a = 600.0
     ev["go"] = t0
+    x, v = acc(t0, 1.5, 0.0, 0.0, a)
     ev["cruise"] = t0 + 1.5
-    x_cruise = 0.5 * a * 1.5**2  # 675
-    v = 900.0
-    # Bumps: rammers at 1100 u/s, equal mass, restitution e = 0.5.
-    e = 0.5
-    u_r, u_s = 1100.0, 900.0
-    v_s = (u_s + u_r + e * (u_r - u_s)) / 2      # Spark after the bump
-    v_r = (u_s + u_r - e * (u_r - u_s)) / 2      # rammer after
     ev["bump1"] = ev["cruise"] + 1.6
+    x, v = acc(ev["cruise"], 1.6, x, v, 0.0)
+    e = 0.5
+
+    def bump(u_s: float, u_r: float) -> tuple[float, float]:
+        return (u_s + u_r + e * (u_r - u_s)) / 2, (u_s + u_r - e * (u_r - u_s)) / 2
+
+    # Red car A rams at 1100 u/s, red car B at 1150.
+    rams = {"A": 1100.0, "B": 1150.0}
+    v_s, v_rA = bump(v, rams["A"])
+    x_b1 = x
+    # Spark lifts off the throttle: back to 900 u/s at 250 u/s^2.
+    t_ease = (v_s - 900.0) / 250.0
+    x, v = acc(ev["bump1"], t_ease, x, v_s, -250.0)
     ev["bump2"] = ev["bump1"] + 1.4
-    # After the bumps Spark is moving at v_s (1050); the edge lies ahead.
-    # Spark brakes at 1400 u/s^2: stopping distance v^2 / 2a.
-    brake = 1400.0
-    d_stop = v_s**2 / (2 * brake)
-    t_stop = v_s / brake
+    x, v = acc(ev["bump1"] + t_ease, 1.4 - t_ease, x, v, 0.0)
+    v_s2, v_rB = bump(v, rams["B"])
+    x_b2 = x
     ev["brake"] = ev["bump2"] + 1.2
+    x, v = acc(ev["bump2"], 1.2, x, v_s2, 0.0)
+    x_brake = x
+    brake = 1400.0
+    t_stop = v_s2 / brake
     ev["stop"] = ev["brake"] + t_stop
-    # The red cars are 140 units behind Spark when he brakes, at 1000 u/s, and
-    # react 0.25 s later, braking at 900 u/s^2.
-    gap_behind, v_red, react, red_brake = 140.0, 1000.0, 0.25, 900.0
-    room = gap_behind + d_stop + 60  # to the edge
-    red_need = v_red * react + v_red**2 / (2 * red_brake)
-    assert red_need > room + 100, "the red cars must not be able to stop"
-    # The red car reaches the edge when v_red t - red_brake (t - react)^2 / 2 = room.
-    t_edge = react
-    while v_red * t_edge - 0.5 * red_brake * max(0.0, t_edge - react) ** 2 < room:
-        t_edge += 1 / 600
-    v_edge = v_red - red_brake * (t_edge - react)
-    ev["overEdge"] = ev["brake"] + t_edge
-    # Ballistic fall into the void: gone from frame after ~1 s.
-    ev["fallGone"] = ev["overEdge"] + 1.0
-    # Spark backs up 800 units (2.4 s), then takes a run: 0 -> 1386 u/s at 1200 u/s^2 over 800 units.
-    ev["reverse"] = ev["fallGone"] + 0.6
+    x, v = acc(ev["brake"], t_stop, x, v_s2, -brake)
+    x_stop = x
+    lip = x_stop + CAR_HALF + 60  # the lip of the kicker: Spark's centre is here at take-off
+    d_stop = x_stop - x_brake
+
+    # After ramming, each red car pulls into the far lane and speeds up to
+    # draw level: A almost alongside Spark when he brakes, B a car behind it,
+    # both at 1050 u/s. They react 0.25 s later and brake at 900 u/s^2.
+    react, red_brake = 0.25, 900.0
+    reds = []
+    for name, behind, vb, bt, xb, v_after in (("A", 60.0, 1050.0, ev["bump1"], x_b1, v_rA), ("B", 360.0, 1100.0, ev["bump2"], x_b2, v_rB)):
+        xc = x_brake - behind  # centre at the brake
+        room = lip - (xc + CAR_HALF)
+        need = vb * react + vb * vb / (2 * red_brake)
+        assert need > room + 40, f"red car {name} must not be able to stop ({need:.0f} vs {room:.0f})"
+        rest = room - vb * react
+        v_edge = math.sqrt(vb * vb - 2 * red_brake * rest)
+        t_edge = react + (vb - v_edge) / red_brake
+        u_r = rams[name]
+        phases = [
+            {"kind": "acc", "t": round(bt - 6.0, 4), "until": round(bt, 4), "x0": round(xb - 2 * CAR_HALF - u_r * 6.0, 3), "v0": u_r, "a": 0.0},
+            {"kind": "hermite", "t": round(bt, 4), "until": round(ev["brake"], 4), "x0": round(xb - 2 * CAR_HALF, 3), "v0": round(v_after, 3), "x1": round(xc, 3), "v1": vb},
+            {"kind": "acc", "t": round(ev["brake"], 4), "until": round(ev["brake"] + react, 4), "x0": round(xc, 3), "v0": vb, "a": 0.0},
+            {"kind": "acc", "t": round(ev["brake"] + react, 4), "until": round(ev["brake"] + t_edge, 4), "x0": round(xc + vb * react, 3), "v0": vb, "a": -red_brake},
+        ]
+        # Over the lip at the kicker's 25 degrees, then a free fall into the gap.
+        ang = math.radians(25)
+        phases.append({"kind": "fly", "t": round(ev["brake"] + t_edge, 4), "until": round(ev["brake"] + t_edge + 1.6, 4), "x0": round(lip - CAR_HALF, 3), "vx": round(v_edge * math.cos(ang), 3), "vy": round(-v_edge * math.sin(ang), 3)})
+        span = (v_edge * math.cos(ang)) * 2 * v_edge * math.sin(ang) / G
+        assert span < 520 - 2 * CAR_HALF, "a red car must fall short of the far side"
+        lanes = [{"t": round(bt + 0.1, 4), "to": 1, "d": 0.35}]
+        reds.append({"name": name, "phases": phases, "lanes": lanes, "overEdge": round(ev["brake"] + t_edge, 4), "vEdge": round(v_edge, 2), "room": round(room, 2), "need": round(need, 2), "ram": u_r, "after": round(v_after, 2)})
+    ev["overEdge"] = min(r["overEdge"] for r in reds)
+    ev["overEdge2"] = max(r["overEdge"] for r in reds)
+    ev["fallGone"] = ev["overEdge2"] + 1.0
+    # Spark backs up so that an 800-unit run ends on the lip.
+    ev["reverse"] = ev["fallGone"] + 0.4
+    run_from = lip - 800.0
+    spark.append({"kind": "ease", "t": round(ev["stop"], 4), "until": round(ev["reverse"], 4), "x0": round(x_stop, 3), "x1": round(x_stop, 3)})
     ev["run"] = ev["reverse"] + 2.4
-    t_run = math.sqrt(2 * 800 / 1200.0)
-    v_take = 1200.0 * t_run
+    spark.append({"kind": "ease", "t": round(ev["reverse"], 4), "until": round(ev["run"], 4), "x0": round(x_stop, 3), "x1": round(run_from, 3)})
+    run_a = 1200.0
+    t_run = math.sqrt(2 * 800 / run_a)
+    v_take = run_a * t_run
     ev["ramp"] = ev["run"] + t_run
-    # The ramp launches at 25 degrees; gap 520 units; land on the far side, same height.
+    acc(ev["run"], t_run, run_from, 0.0, run_a)
     ang = math.radians(25)
     vx, vy = v_take * math.cos(ang), -v_take * math.sin(ang)
     t_fly = 2 * -vy / G
     span = vx * t_fly
-    assert span > 520 + 120, f"the jump must clear the gap (span {span:.0f})"
+    assert span > 520 + 2 * CAR_HALF, f"the jump must clear the gap (span {span:.0f})"
     ev["landJump"] = ev["ramp"] + t_fly
-    # On to the key, 900 units further at v_take.
-    ev["key"] = ev["landJump"] + 900 / v_take
+    spark.append({"kind": "fly", "t": round(ev["ramp"], 4), "until": round(ev["landJump"], 4), "x0": round(lip, 3), "vx": round(vx, 3), "vy": round(vy, 3)})
+    x_land = lip + span
+    # Landing: the suspension takes the vertical speed; the horizontal speed carries on.
+    acc(ev["landJump"], 900 / vx, x_land, vx, 0.0)
+    ev["key"] = ev["landJump"] + 900 / vx
+    x_key = x_land + 900
+    dec = vx / 1.4
+    acc(ev["key"], 1.4, x_key, vx, -dec)
     ev["doorArrive"] = ev["key"] + 1.4
+    x_door = x_key + vx * 1.4 / 2
     return {
         "events": {k: round(t, 4) for k, t in ev.items()},
+        "spark": spark,
+        "reds": reds,
         "numbers": {
-            "accel": a, "cruise": v, "xCruise": x_cruise, "rammer": u_r, "afterBumpSpark": v_s, "afterBumpRammer": v_r,
-            "brake": brake, "dStop": d_stop, "redSpeed": v_red, "redBrake": red_brake, "room": room, "redNeed": red_need,
-            "vEdge": v_edge, "takeoff": v_take, "rampAngle": 25, "span": span, "flight": t_fly, "gap": 520,
+            "carHalf": CAR_HALF, "accel": a, "cruise": 900.0, "afterBump1Spark": v_s, "afterBump2Spark": v_s2,
+            "brake": brake, "dStop": d_stop, "xStop": x_stop, "lip": lip, "gap": 520.0, "takeoff": v_take, "rampAngle": 25,
+            "span": span, "flight": t_fly, "xLand": x_land, "xKey": x_key, "xDoor": x_door, "g": G,
         },
     }

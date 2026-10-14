@@ -52,7 +52,9 @@ export class Room extends Node {
             ],
           }),
         children: [
-          new Circle({x: 50, y: -60, size: 34, fill: () => (this.morning() > 0.5 ? '#fff3b0' : '#e8e8f0'), shadowColor: 'rgba(255,255,220,0.6)', shadowBlur: 18}),
+          // The moon sets as the sun comes up from below the sill.
+          new Circle({x: 50, y: -60, size: 34, fill: '#e8e8f0', shadowColor: 'rgba(255,255,220,0.6)', shadowBlur: 18, opacity: () => 1 - this.morning()}),
+          new Circle({x: -30, y: () => 150 - 210 * this.morning(), size: 56, fill: '#ffd166', shadowColor: 'rgba(255,209,102,0.9)', shadowBlur: 40, opacity: () => Math.min(1, this.morning() * 3)}),
           ...[
             [-60, -80],
             [-20, -30],

@@ -30,3 +30,10 @@ a study or a mistake teaches something.
 | `rgba()` with alpha in exponent notation crashes the canvas | FIRST LIGHT render failure at 2:15 | `withAlpha` prints fixed-point |
 | Sounds authored as offsets from an event are tied to it | audit false positives | `frame_audit.py` treats offset sounds as anchored |
 | Medium close-ups crop at the knees by design | audit false positives | subject audit skips feet at zoom ≥ 1.8 |
+| **Keep the approved half; grow the story from its last beat** | user feedback on FIRST GAME v3 ("perfect till he invents the game") | v4 keeps 0–55 s exactly as it was; the new half starts at the computer losing |
+| The villain's power should come from what the hero just did | the computer learns *because* it lost | §7: cause → effect → new question |
+| A rule the audience can count beats a rule they must remember | "win 3 games" | three lock lights on the door and in every round's HUD; one lights per win |
+| A physics plan must check the outcome it promises | the red cars must not be able to stop | `first_game_plans.race` asserts stopping distance > room, the jump span > gap, and that no two cars overlap |
+| One lane can't hold a chase where the hero brakes | a red car would have hit Spark from behind | two lanes in side view: rammers pull into the far lane, then can't stop |
+| A jump that lands level needs both edges level | the kicker lifts the car 37 units | the far side of the gap is raised by the kicker's rise |
+| Aimed hazards need a moving target | falling blocks at fixed spots let Spark stand still | `dodge(aim=True)`: each block aims at where Spark stands when it drops |

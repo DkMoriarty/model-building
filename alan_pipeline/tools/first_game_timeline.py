@@ -73,6 +73,7 @@ def main() -> None:
     R: dict[str, dict] = {}
 
     def ev(name: str, t: float) -> float:
+        assert name not in E, f"cue {name} is defined twice"
         E[name] = round(t, 4)
         return E[name]
 
@@ -207,9 +208,9 @@ def main() -> None:
             sfx("tick", cue, offset=round(k / CPS, 4), gain=0.5)
         t += len(line) / CPS + 1.4
     ev("stepBack", E["say4"] + 0.4)
-    ev("door0", t)
+    ev("door0", E["say3"] + 0.6)
     sfx("pop", "door0", gain=0.5)
-    ev("setFeet", E["door0"] + 1.2)
+    ev("setFeet", t - 0.2)
     ev("portal1", E["setFeet"] + 1.2)
     sfx("whoosh", "portal1", gain=0.6)
 
@@ -269,8 +270,10 @@ def main() -> None:
     ev("keyhole", E["light3"] + 1.2)
     sfx("tick", "keyhole")
     ev("keyShow", E["keyhole"] + 1.2)
-    sfx("violet", "keyShow", gain=0.6)
-    ev("point", E["keyShow"] + 1.0)
+    sfx("glitch", "keyShow", gain=0.5)
+    ev("keyGlow", E["keyShow"] + 1.0)
+    sfx("violet", "keyGlow", gain=0.6)
+    ev("point", E["keyShow"] + 2.6)
     ev("car", E["point"] + 1.0)
     sfx("pop", "car", gain=0.5)
     ev("getIn", E["car"] + 1.2)
@@ -284,6 +287,7 @@ def main() -> None:
     sfx("thud", "race_bump2", gain=0.9)
     sfx("grind", "race_brake", length=0.7, gain=0.6)
     sfx("fall8", "race_overEdge")
+    sfx("fall8", "race_overEdge2", gain=0.7)
     sfx("boom", "race_fallGone", gain=0.5)
     sfx("riser", "race_run", length=1.2, gain=0.6)
     sfx("whoosh", "race_ramp")
@@ -304,8 +308,8 @@ def main() -> None:
     ev("sunrise", E["relief"] + 2.0)
     ev("turn", E["sunrise"] + 2.4)
     ev("see", E["turn"] + 0.8)
-    ev("doubleTake", E["see"] + 0.6)
-    ev("dissolve", E["doubleTake"] + 1.2)
+    ev("seeTwice", E["see"] + 0.6)
+    ev("dissolve", E["seeTwice"] + 1.2)
     sfx("glitch", "dissolve", gain=0.4)
     ev("wakeUp", E["dissolve"] + 0.6)
     sfx("thud", "wakeUp", gain=0.5)
@@ -324,7 +328,7 @@ def main() -> None:
         {"section": "chipFinal", "from": E["race_go"], "to": E["unlock"]},
         {"section": "morning", "from": E["sunrise"], "to": duration},
     ]
-    impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "r1a_", "r1b_", "tremble", "s1", "s2", "s3", "suck", "land", "touch", "glitch", "eye", "door0", "portal", "win", "light", "run_", "dodge_", "keyhole", "keyShow", "car", "getIn", "race_bump", "race_brake", "race_overEdge", "race_ramp", "race_landJump", "race_key", "unlock", "through", "home", "dissolve", "wakeUp", "clock"]
+    impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "r1a_", "r1b_", "tremble", "s1", "s2", "s3", "suck", "land", "touch", "glitch", "eye", "door0", "portal", "win", "light", "run_", "dodge_", "keyhole", "keyShow", "keyGlow", "car", "getIn", "race_bump", "race_brake", "race_overEdge", "race_ramp", "race_landJump", "race_key", "unlock", "through", "home", "dissolve", "wakeUp", "clock"]
     story = {
         "title": "First Game",
         "bpm": 100,
@@ -335,14 +339,14 @@ def main() -> None:
         "events": E,
         "sfx": S,
         "music": M,
-        "silences": [{"from": E["glitch"] - 0.6, "to": E["glitch"]}, {"from": E["race_brake"] + 0.6, "to": E["race_overEdge"]}],
+        "silences": [{"from": E["glitch"] - 0.6, "to": E["glitch"]}, {"from": E["race_brake"] + 0.3, "to": E["race_overEdge"]}],
         "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,
         "shadow": SHADOW,
         "rallies": R,
         "audit": {
             "impacts": impacts,
-            "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "zoomOut", "point1", "handsOff", "look", "walk", "wonder", "rise", "say1", "say2", "say3", "say4", "stepBack", "setFeet", "r1", "r1react", "r2", "r3", "point", "relief", "sunrise", "turn", "see", "stretch", "end"],
+            "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "zoomOut", "point1", "handsOff", "look", "walk", "wonder", "rise", "say1", "say2", "say3", "say4", "stepBack", "setFeet", "r1", "r1react", "r2", "r3", "point", "relief", "sunrise", "turn", "see", "seeTwice", "stretch", "end"],
             "declared": [[0, 2.0, "fade in on the dark room"], [E["suck"], E["land"], "pulled through the screen"]],
         },
     }

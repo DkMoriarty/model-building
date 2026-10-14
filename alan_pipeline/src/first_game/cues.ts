@@ -37,3 +37,48 @@ export interface Rally {
 }
 /** Every ball flight in the film, computed by tools/pong.py. */
 export const rallies = (cues as unknown as {rallies: Record<string, Rally>}).rallies;
+
+/** The Shadow's lines, typed in red, one per cue say1..say4. */
+export const shadow = (cues as unknown as {shadow: string[]}).shadow;
+
+/** Round 2: Spark's run (x of the pelvis over time) and the blocks, from tools/first_game_plans.py. */
+export interface RunSegment {
+  t: number;
+  x: number;
+  v: number;
+  until: number;
+  kind: 'run' | 'jump' | 'tumble';
+}
+export interface RunnerPlan {
+  segments: RunSegment[];
+  events: {kind: 'jump' | 'land' | 'clip' | 'up' | 'finish'; t: number; x: number}[];
+  blocks: {x: number; i: number}[];
+}
+/** Round 3: Spark's moves and the falling blocks. */
+export interface DodgePlan {
+  moves: {t: number; from: number; to: number; until: number; kind: 'run' | 'dive'}[];
+  blocks: {drop: number; land: number; x: number; gap: number}[];
+  fall: number;
+  top: number;
+  floor: number;
+  size: number;
+  nearMiss: {drop: number; land: number; x: number; gap: number};
+}
+/** A phase of motion along the road: constant acceleration, smooth hand-off, ease, or flight. */
+export type RacePhase =
+  | {kind: 'acc'; t: number; until: number; x0: number; v0: number; a: number}
+  | {kind: 'hermite'; t: number; until: number; x0: number; v0: number; x1: number; v1: number}
+  | {kind: 'ease'; t: number; until: number; x0: number; x1: number}
+  | {kind: 'fly'; t: number; until: number; x0: number; vx: number; vy: number};
+export interface RacePlan {
+  events: Record<string, number>;
+  spark: RacePhase[];
+  reds: {name: string; phases: RacePhase[]; lanes: {t: number; to: number; d: number}[]; overEdge: number; vEdge: number}[];
+  numbers: {carHalf: number; lip: number; gap: number; xStop: number; xLand: number; xKey: number; xDoor: number; rampAngle: number; g: number; takeoff: number};
+}
+const plans = (cues as unknown as {rallies: Record<string, unknown>}).rallies;
+export const runnerPlan = plans['runner'] as RunnerPlan;
+export const dodgePlan = plans['dodge'] as DodgePlan;
+export const racePlan = plans['race'] as RacePlan;
+/** Gravity in the computer world (units/s^2), the same constant the planners use. */
+export const G = racePlan.numbers.g;
