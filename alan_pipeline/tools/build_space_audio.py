@@ -437,6 +437,13 @@ def sfx_key(length: float = 0.06) -> np.ndarray:
     return (spectral_filter(RNG.normal(0, 1, n), 1500, 7000) * np.exp(-t * 220) + np.sin(2 * np.pi * f * t) * np.exp(-t * 160) * 0.3) * 0.35
 
 
+def sfx_enter(length: float = 0.12) -> np.ndarray:
+    """The Enter key: a longer, lower, heavier click."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    return (spectral_filter(RNG.normal(0, 1, n), 600, 5000) * np.exp(-t * 120) + np.sin(2 * np.pi * 900 * t) * np.exp(-t * 90) * 0.4) * 0.5
+
+
 def sfx_beep(length: float = 0.18) -> np.ndarray:
     n = int(length * SR)
     return square(880, n, 0.25) * env_adsr(n, 0.005, 0.05, 0.7, 0.04) * 0.12
@@ -551,6 +558,7 @@ SFX = {
     "violet": lambda e: sfx_violet(),
     "copy": lambda e: sfx_copy(),
     "key": lambda e: sfx_key(),
+    "enter": lambda e: sfx_enter(),
     "beep": lambda e: sfx_beep(),
     "jump8": lambda e: sfx_jump8(),
     "fall8": lambda e: sfx_fall8(),
@@ -845,6 +853,10 @@ def main() -> None:
         "lines": lines,
         "events": events,
     }
+    # Episode data the scene needs verbatim (the code typed on screen, physics).
+    for key in ("code", "physics"):
+        if key in story:
+            cues[key] = story[key]
     (DIR / "cues.json").write_text(json.dumps(cues, indent=2) + "\n")
     print(f"wrote master.wav ({story['duration']}s) and cues.json ({len(lines)} lines, {len(events)} events)")
     for lid, l in lines.items():

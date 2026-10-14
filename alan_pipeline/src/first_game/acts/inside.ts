@@ -8,15 +8,22 @@ import {Stage, worldOf} from '../../first_light/stage';
 import {buildLevel, G, GAME_COLORS, heart, Level, PELVIS, roomPicture} from '../components/Game';
 import {gameText} from '../components/Room';
 import {at, Cue, syncTo} from '../cues';
-import {flight, hurt, jumpTo, LAND, on, respawn, runTo, SOAR, FLAIL} from '../moves';
+import {flight, hurt, jumpTo, LAND, leap, on, respawn, runTo, runUp, SOAR, FLAIL, TUCK} from '../moves';
+import {ballistic, landTime} from '../physics';
+import {physics} from '../cues';
 import {confetti} from './room';
+
+/** The CONTINUE sign: where the fist is at the top of a full jump from the start. */
+const SIGN = new Vector2(-480 + 6, G.ground - physics.pelvis - (physics.jump * physics.jump) / (2 * physics.g) - 160);
 
 /** Where the game world sits in world space while Spark is inside it. */
 export const GAME_AT = new Vector2(6000, 0);
 /** Inside, the 1280 x 720 level fills the 1920 x 1080 frame exactly. */
 export const INSIDE_ZOOM = 1.5;
 /** Platform fall: 150 px in 1.2 s (the game's gentle gravity). */
-const PLATFORM_G = 208;
+const P = physics;
+const GROUND = G.ground - P.pelvis;
+const ON_PLATFORM = P.platformTop - P.pelvis;
 
 export interface Inside {
   hud: Node;
@@ -74,10 +81,12 @@ export function* insideAct(s: Stage): ThreadGenerator {
   spark.opacity(1);
   spark.face(1);
   spark.setPose(FLAIL);
-  spark.position(on(level.start.x, -420));
+  spark.position(new Vector2(level.start.x, -500));
   hud.opacity(1);
   s.spawn(s.whiteout.opacity(0, 0.5, easeOutCubic));
-  yield* spark.position(on(level.start.x, G.ground), at('inside') - useTime(), easeInQuad);
+  // Dropped in from above the frame: free fall, landing on the cue.
+  yield* syncTo(at('inside') - landTime(-500, 0, GROUND), 0);
+  yield* ballistic(spark, spark.position(), 0, level.start.x, GROUND, at('inside'));
   spark.setPose(LAND);
   s.spawn(shake(s, 8, 4));
   yield* spark.pose(STAND, 0.25, easeOutCubic);
@@ -105,8 +114,8 @@ export function* insideAct(s: Stage): ThreadGenerator {
   // ---- Level 1: run, jump the gap, flag.
   yield* syncTo('go1', 0);
   s.spawn(spark.pose(STAND, 0.2));
-  yield* runTo(spark, -115, at('jumpL1'));
-  yield* jumpTo(spark, on(120, G.ground), at('jumpL1') + 0.55, 90);
+  yield* runUp(spark, -150, at('jumpL1'));
+  yield* leap(spark, P.jump, 150, GROUND, at('landL1'));
   yield* runTo(spark, 300, at('flagL1'));
   say('LEVEL 1 CLEAR', GAME_COLORS.flag, 72);
   s.spawn(confetti(level.root, new Vector2(330, 60)));
@@ -119,17 +128,18 @@ export function* insideAct(s: Stage): ThreadGenerator {
   // ---- Level 2: a rolling spike ball, then a spring up to the ledge.
   const ball = level.ball!;
   yield* syncTo('ball', 0);
-  const v = 416;
+  // The ball rolls at a steady speed and passes under Spark at the top of the jump.
+  const v = (700 - -100) / (at('jumpBall') + 0.5 - at('ball'));
   ball.position(() => new Vector2(700 - v * (s.time() - at('ball')), G.ground - 28));
   ball.rotation(() => (-(700 - v * (s.time() - at('ball'))) / 28) * (180 / Math.PI));
-  yield* runTo(spark, -250, at('jumpBall'));
-  yield* jumpTo(spark, on(-95, G.ground), at('jumpBall') + 0.6, 120);
+  yield* runUp(spark, -250, at('jumpBall'));
+  yield* leap(spark, P.jump, 50, GROUND, at('landBall'));
   yield* runTo(spark, 60, at('spring1'));
   const sp = level.spring!;
-  // The spring: squash, then BOING up to the ledge, flailing.
-  yield* all(sp.squash(1, 0.06), spark.pose(LAND, 0.06));
-  s.spawn(sp.squash(0, 0.12, easeOutBack));
-  yield* flight(spark, spark.position(), on(320, -40), at('landLedge'), 20, {...SOAR, leftShoulder: -60, rightShoulder: -40, head: -20});
+  // The spring: it squashes and fires on the same frame Spark lands on it.
+  s.spawn(sp.squash(1, 0.04).to(0, 0.12, easeOutBack));
+  spark.position(new Vector2(60, P.springTop2 - P.pelvis));
+  yield* leap(spark, P.spring2, 320, P.ledge - P.pelvis, at('landLedge'), {...SOAR, leftShoulder: -60, rightShoulder: -40, head: -20}, false);
   spark.setPose(LAND);
   s.spawn(shake(s, 6, 4));
   yield* spark.pose(STAND, 0.2);
@@ -163,8 +173,8 @@ export function* insideAct(s: Stage): ThreadGenerator {
   yield* syncTo('try1', 0);
   s.spawn(spark.pose(STAND, 0.15));
   yield* spark.walkTo(-480, {mode: 'backward', arriveAt: at('try1') + 0.5, steps: 2, settle: false});
-  yield* runTo(spark, -392, at('jump1') - 0.05);
-  yield* jumpTo(spark, on(-150, 335 - 20), at('hurt1'), 90, FLAIL, false);
+  yield* runUp(spark, -392, at('jump1'));
+  yield* leap(spark, P.jump, -392 + P.run * (at('hurt1') - at('jump1')), P.spikesTop - P.pelvis, at('hurt1'), FLAIL, false);
   lives = 2;
   livesS(2);
   yield* hurt(spark);
@@ -177,15 +187,16 @@ export function* insideAct(s: Stage): ThreadGenerator {
   // Try 2: onto the platform. It shakes, it drops; falling, Spark sees the spring.
   yield* syncTo('try2', 0);
   s.spawn(spark.pose(STAND, 0.15));
-  yield* runTo(spark, -392, at('jump2') - 0.05);
+  yield* runUp(spark, -392, at('jump2'));
   const platTop = () => plat.y() - 11;
-  yield* jumpTo(spark, on(-160, 170 - 11), at('land2'), 70);
+  yield* leap(spark, P.jump, -160, ON_PLATFORM, at('land2'));
   spark.position(() => on(-160, platTop()));
   yield* spark.pose(STAND, 0.2);
   yield* syncTo('shake2', 0);
   yield* shakeNode(plat, 0.6);
   yield* syncTo('drop2', 0);
-  s.spawn(fall(plat, 170, PLATFORM_G, at('hurt2')));
+  // Slow motion while it falls: the same gravity, a quarter of the speed.
+  s.spawn(fall(plat, 170, P.g, at('hurt2'), P.slowmo, at('drop2')));
   spark.setPose({...FLAIL, head: 30});
   // While falling: the spring, right there beside the spikes. A glint.
   yield* syncTo('seeSpring', 0);
@@ -209,8 +220,9 @@ export function* insideAct(s: Stage): ThreadGenerator {
   yield* syncTo('try3', 0);
   s.spawn(spark.pose(STAND, 0.15));
   yield* spark.walkTo(-540, {mode: 'backward', arriveAt: at('try3') + 0.55, steps: 2, settle: false});
-  yield* runTo(spark, -392, at('jump3') - 0.05);
-  yield* jumpTo(spark, on(60, 335 - 20), at('hurt3'), 140, FLAIL, false);
+  yield* runUp(spark, -392, at('jump3'));
+  // A faster run-up (400 units/s): further, but not far enough. Nothing could be.
+  yield* leap(spark, P.jump, -392 + 400 * (at('hurt3') - at('jump3')), P.spikesTop - P.pelvis, at('hurt3'), FLAIL, false);
   lives = 0;
   livesS(0);
   s.spawn(hurt(spark));
@@ -234,7 +246,7 @@ export function* insideAct(s: Stage): ThreadGenerator {
   // Spark is drawn in front of the sign, so the punch reads.
   spark.moveToTop();
   yield* syncTo('count3', 0);
-  yield* sign.position([-420, -170], 0.3, easeOutBack);
+  yield* sign.position([SIGN.x, SIGN.y], 0.3, easeOutBack);
   yield* syncTo('count2', 0);
   num.text('2');
   // The memory: Spark looks up... at the pit. The spring glints again.
@@ -243,14 +255,15 @@ export function* insideAct(s: Stage): ThreadGenerator {
   yield* spark.pose({head: 10, torso: 0}, 0.3, easeOutCubic);
   yield* syncTo('count1', 0);
   num.text('1');
-  // Up, and punch the sign.
-  yield* all(spark.pose(STAND, 0.15), spark.position(on(level.start.x, G.ground), 0.15));
-  const punchPelvis = new Vector2(-425, -170 + 160);
-  yield* jumpTo(spark, punchPelvis, at('punch'), 30, {...STAND, rightShoulder: -175, rightElbow: 0, leftShoulder: 20, torso: -6, head: -20}, false);
-  s.spawn(sparkBurst(level.root, new Vector2(-420, -170), GAME_COLORS.door, 1.2, 12));
+  // Up, and punch the sign: a full jump, the fist meets it at the top.
+  yield* all(spark.pose(STAND, 0.15), spark.position(new Vector2(level.start.x, GROUND), 0.15));
+  yield* syncTo('jumpPunch', 3 / 60);
+  yield* spark.pose({torso: 20, leftHip: -40, leftKnee: 60, rightHip: -30, rightKnee: 50}, 3 / 60, easeInCubic);
+  s.spawn(leap(spark, P.jump, level.start.x, GROUND, at('jumpPunch') + 2 * -P.jump / P.g, {...STAND, rightShoulder: -178, rightElbow: 0, leftShoulder: 20, torso: -4, head: -20}));
+  yield* syncTo('punch', 0);
+  s.spawn(sparkBurst(level.root, new Vector2(SIGN.x, SIGN.y), GAME_COLORS.door, 1.2, 12));
   s.spawn(dim.opacity(0, 0.3));
   sign.remove();
-  s.spawn(flight(spark, spark.position(), on(-470, G.ground), at('punch') + 0.5, 20));
   yield* syncTo('heart1', 0);
   lives = 1;
   livesS(1);
@@ -258,21 +271,22 @@ export function* insideAct(s: Stage): ThreadGenerator {
 
   // Try 4: the platform, on purpose; leap off it onto the spring; BOING home.
   yield* syncTo('try4', 0);
-  yield* runTo(spark, -392, at('jump4') - 0.05);
-  yield* jumpTo(spark, on(-160, 170 - 11), at('land4'), 70);
+  yield* runUp(spark, -392, at('jump4'));
+  yield* leap(spark, P.jump, -160, ON_PLATFORM, at('land4'));
   spark.position(() => on(-160, platTop()));
   yield* spark.pose({...STAND, head: 30}, 0.2);
   yield* syncTo('shake4', 0);
   yield* shakeNode(plat, 0.6);
   yield* syncTo('drop4', 0);
-  s.spawn(fall(plat, 170, PLATFORM_G, at('drop4') + 1.2));
+  s.spawn(fall(plat, 170, P.g, at('drop4') + 1.2, 1, at('drop4')));
   yield* syncTo('leap4', 0);
+  // Leap off the falling platform: its downward speed adds to the jump.
+  const fallV = P.g * (at('leap4') - at('drop4'));
   spark.position(spark.position());
-  yield* jumpTo(spark, on(-60, spring.top.y), at('boing4'), 40, {...STAND, head: 20, leftHip: -20, rightHip: 10}, false);
-  yield* all(spring.squash(1, 0.06), spark.pose(LAND, 0.06));
-  s.spawn(spring.squash(0, 0.14, easeOutBack));
+  yield* leap(spark, P.jump + fallV, -60, P.springTop3 - P.pelvis, at('boing4'), {...STAND, head: 20, leftHip: -20, rightHip: 10}, false);
+  s.spawn(spring.squash(1, 0.04).to(0, 0.14, easeOutBack));
   s.spawn(syncThen('soar', spark.pose(SOAR, 0.3, easeOutCubic)));
-  yield* flight(spark, spark.position(), on(440, G.ground), at('landExit'), 260);
+  yield* leap(spark, P.spring3, 440, GROUND, at('landExit'), SOAR, false);
   spark.setPose(LAND);
   s.spawn(shake(s, 10, 5));
   yield* spark.pose(STAND, 0.25);
@@ -329,13 +343,15 @@ function* syncThen(cue: Cue, task: ThreadGenerator): ThreadGenerator {
 }
 
 /** Fall under the game's gravity from y0 until `until`. */
-function* fall(n: Node, y0: number, g: number, until: number): ThreadGenerator {
-  const t0 = useTime();
+/** A platform falling under gravity (optionally in slow motion) until it hits the spikes. */
+function* fall(n: Node, y0: number, g: number, until: number, scale = 1, t0 = useTime()): ThreadGenerator {
+  const bottom = physics.spikesTop + 11;
   while (useTime() < until - 1e-6) {
-    const t = useTime() - t0;
-    n.y(y0 + 0.5 * g * t * t);
+    const t = (useTime() - t0) * scale;
+    n.y(Math.min(bottom, y0 + 0.5 * g * t * t));
     yield;
   }
+  n.y(bottom);
 }
 
 function* shakeNode(n: Node, d: number): ThreadGenerator {

@@ -2,7 +2,7 @@
  "title": "First Game",
  "bpm": 100,
  "sampleRate": 48000,
- "duration": 130.0,
+ "duration": 138.8,
  "voices": {},
  "lines": [],
  "events": {
@@ -15,112 +15,135 @@
   "idea": 8.4,
   "title": 9.6,
   "titleOut": 12.6,
-  "type1": 13.2,
-  "ground": 14.4,
-  "type2": 15.0,
-  "hero": 16.2,
-  "play1": 17.4,
-  "fallBug": 18.6,
-  "facepalm": 19.5,
-  "type3": 20.4,
-  "fix1": 21.6,
-  "jumpBug": 22.8,
-  "lookUp": 23.7,
-  "type4": 25.2,
-  "fix2": 26.4,
-  "type5": 27.6,
-  "flag": 28.8,
-  "play2": 30.0,
-  "hop1": 31.2,
-  "clear1": 32.4,
-  "cheer": 33.0,
-  "type6": 34.8,
-  "lvl2": 36.0,
-  "clock1": 37.2,
-  "type7": 38.4,
-  "lvl3": 39.6,
-  "grin": 40.8,
-  "clock2": 42.0,
-  "play3": 43.2,
-  "die1": 44.4,
-  "gameOverMini": 45.0,
-  "laugh": 45.6,
-  "yawn": 47.4,
-  "droop": 49.2,
-  "pull": 50.4,
-  "suck": 51.6,
-  "inside": 52.8,
-  "lookHands": 54.0,
-  "lookBack": 55.2,
-  "point": 57.0,
-  "go1": 58.2,
-  "jumpL1": 59.4,
-  "flagL1": 60.6,
-  "wipe1": 61.8,
-  "l2start": 62.4,
-  "ball": 63.0,
-  "jumpBall": 64.8,
-  "spring1": 66.0,
-  "landLedge": 67.5,
-  "flagL2": 68.4,
-  "wipe2": 69.6,
-  "l3start": 70.2,
-  "seeDoor": 71.4,
-  "gulp": 72.6,
-  "try1": 73.8,
-  "jump1": 75.0,
-  "hurt1": 76.2,
-  "respawn1": 77.4,
-  "react1": 78.0,
-  "try2": 79.2,
-  "jump2": 80.4,
-  "land2": 81.0,
-  "shake2": 81.6,
-  "drop2": 82.2,
-  "seeSpring": 82.5,
-  "hurt2": 83.4,
-  "respawn2": 84.6,
-  "think": 85.2,
-  "try3": 86.4,
-  "jump3": 88.2,
-  "hurt3": 89.4,
-  "gameOver": 90.0,
-  "slumpGO": 91.2,
-  "count3": 93.6,
-  "count2": 94.8,
-  "memory": 95.1,
-  "count1": 96.0,
-  "punch": 96.6,
-  "heart1": 97.2,
-  "try4": 98.4,
-  "jump4": 99.6,
-  "land4": 100.2,
-  "shake4": 100.8,
-  "drop4": 101.4,
-  "leap4": 102.0,
-  "boing4": 102.6,
-  "soar": 103.2,
-  "landExit": 104.4,
-  "door": 105.6,
-  "crack": 106.8,
-  "crack2": 107.4,
-  "shatter": 108.0,
-  "wake": 110.4,
-  "clock3": 111.6,
-  "lookScreen": 112.8,
-  "grinKnow": 114.0,
-  "grab": 115.2,
-  "m_run": 116.4,
-  "m_jump": 117.6,
-  "m_land": 118.2,
-  "m_drop": 119.4,
-  "m_leap": 120.0,
-  "m_boing": 120.6,
-  "m_land2": 122.4,
-  "m_win": 123.6,
-  "leapChair": 124.2,
-  "cheer2": 125.4,
-  "end": 128.4
+  "zoomCode1": 13.0,
+  "typeFloor": 13.5,
+  "typeFloorEnter": 15.8333,
+  "floor": 15.9333,
+  "typeHero": 16.9333,
+  "typeHeroEnter": 18.9333,
+  "hero": 19.0333,
+  "typeGravity": 20.0333,
+  "typeGravityEnter": 21.1166,
+  "fallBug": 21.2166,
+  "zoomOut1": 22.2166,
+  "facepalm": 22.8166,
+  "zoomCode2": 24.0166,
+  "typeFix1": 24.5166,
+  "typeFix1Enter": 26.5999,
+  "fix1": 26.6999,
+  "typeJump": 27.6999,
+  "typeJumpEnter": 29.1166,
+  "zoomOut2": 29.8166,
+  "jumpBug": 30.7166,
+  "lookUp": 31.2166,
+  "zoomCode3": 32.8166,
+  "editTypo": 33.4166,
+  "fix2": 33.8166,
+  "jumpOk": 34.6166,
+  "landOk": 35.6166,
+  "typeFlag": 36.4166,
+  "typeFlagEnter": 37.7499,
+  "flag": 37.8499,
+  "zoomOut3": 38.8499,
+  "play2": 39.6499,
+  "hop1": 40.7499,
+  "hopLand1": 41.7499,
+  "clear1": 42.2499,
+  "cheer": 42.8499,
+  "zoomCode4": 44.2499,
+  "typeLvl2": 44.7499,
+  "typeLvl2Enter": 46.8332,
+  "lvl2": 46.9332,
+  "clock1": 48.1332,
+  "typeLvl3": 49.5332,
+  "typeLvl3Enter": 51.1999,
+  "lvl3": 51.2999,
+  "grin": 52.4999,
+  "clock2": 53.6999,
+  "play3": 54.8999,
+  "jump3m": 55.4932,
+  "die1": 56.551,
+  "gameOverMini": 57.151,
+  "laugh": 57.751,
+  "yawn": 59.551,
+  "droop": 61.351,
+  "pull": 62.551,
+  "suck": 63.751,
+  "inside": 65.5976,
+  "lookHands": 66.7976,
+  "lookBack": 67.9976,
+  "point": 69.7976,
+  "go1": 70.9976,
+  "jumpL1": 72.0976,
+  "landL1": 73.0976,
+  "flagL1": 73.5976,
+  "wipe1": 74.7976,
+  "l2start": 75.3976,
+  "ball": 75.9976,
+  "jumpBall": 77.7976,
+  "landBall": 78.7976,
+  "spring1": 79.0309,
+  "landLedge": 79.7744,
+  "flagL2": 80.3244,
+  "wipe2": 81.5244,
+  "l3start": 82.1244,
+  "seeDoor": 83.3244,
+  "gulp": 84.7244,
+  "try1": 85.9244,
+  "jump1": 86.9177,
+  "hurt1": 87.9755,
+  "respawn1": 89.1755,
+  "react1": 89.7755,
+  "try2": 90.9755,
+  "jump2": 91.7688,
+  "land2": 92.6547,
+  "shake2": 93.2547,
+  "drop2": 93.8547,
+  "seeSpring": 94.5797,
+  "hurt2": 95.4658,
+  "respawn2": 96.6658,
+  "think": 97.2658,
+  "try3": 98.6658,
+  "jump3": 99.8858,
+  "hurt3": 100.9436,
+  "gameOver": 101.5436,
+  "slumpGO": 102.7436,
+  "count3": 105.1436,
+  "count2": 106.3436,
+  "memory": 106.6436,
+  "count1": 107.5436,
+  "jumpPunch": 107.8436,
+  "punch": 108.3436,
+  "heart1": 108.9436,
+  "try4": 110.1436,
+  "jump4": 110.7036,
+  "land4": 111.5895,
+  "shake4": 112.1895,
+  "drop4": 112.7895,
+  "leap4": 112.9395,
+  "boing4": 113.7862,
+  "soar": 114.0862,
+  "landExit": 114.9699,
+  "door": 115.8699,
+  "crack": 117.0699,
+  "crack2": 117.6699,
+  "shatter": 118.2699,
+  "wake": 120.6699,
+  "clock3": 121.8699,
+  "lookScreen": 123.0699,
+  "grinKnow": 124.2699,
+  "grab": 125.4699,
+  "m_run": 126.6699,
+  "m_jump": 127.2632,
+  "m_land": 128.1491,
+  "m_drop": 129.3491,
+  "m_leap": 129.4991,
+  "m_boing": 130.3458,
+  "m_land2": 131.5295,
+  "m_win": 132.4295,
+  "leapChair": 133.0295,
+  "cheer2": 134.2295,
+  "end": 137.2295
  },
  "sfx": [
   {
@@ -163,475 +186,328 @@
   },
   {
    "type": "key",
-   "at": "type1",
+   "at": "typeFloor",
    "offset": 0.0,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.1,
+   "at": "typeFloor",
+   "offset": 0.0833,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.2,
+   "at": "typeFloor",
+   "offset": 0.1667,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.3,
+   "at": "typeFloor",
+   "offset": 0.25,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.4,
+   "at": "typeFloor",
+   "offset": 0.3333,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
+   "at": "typeFloor",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFloor",
    "offset": 0.5,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.6,
+   "at": "typeFloor",
+   "offset": 0.5833,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.7,
+   "at": "typeFloor",
+   "offset": 0.6667,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.8,
+   "at": "typeFloor",
+   "offset": 0.75,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
-   "offset": 0.9,
+   "at": "typeFloor",
+   "offset": 0.8333,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type1",
+   "at": "typeFloor",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFloor",
    "offset": 1.0,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.0,
+   "at": "typeFloor",
+   "offset": 1.0833,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.1,
+   "at": "typeFloor",
+   "offset": 1.1667,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.2,
+   "at": "typeFloor",
+   "offset": 1.25,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.3,
+   "at": "typeFloor",
+   "offset": 1.3333,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.4,
+   "at": "typeFloor",
+   "offset": 1.4167,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.5,
+   "at": "typeFloor",
+   "offset": 1.5,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.6,
+   "at": "typeFloor",
+   "offset": 1.5833,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.7,
+   "at": "typeFloor",
+   "offset": 1.6667,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.8,
+   "at": "typeFloor",
+   "offset": 1.75,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 0.9,
+   "at": "typeFloor",
+   "offset": 1.8333,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type2",
-   "offset": 1.0,
+   "at": "typeFloor",
+   "offset": 1.9167,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type3",
-   "offset": 0.0,
+   "at": "typeFloor",
+   "offset": 2.0,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type3",
-   "offset": 0.1,
+   "at": "typeFloor",
+   "offset": 2.0833,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type3",
-   "offset": 0.2,
+   "at": "typeFloor",
+   "offset": 2.1667,
    "gain": 0.5
   },
   {
    "type": "key",
-   "at": "type3",
-   "offset": 0.3,
+   "at": "typeFloor",
+   "offset": 2.25,
    "gain": 0.5
   },
   {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.4,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.5,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.6,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.7,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.8,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 0.9,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type3",
-   "offset": 1.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.1,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.2,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.3,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.4,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.5,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.6,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.7,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.8,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 0.9,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type4",
-   "offset": 1.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.1,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.2,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.3,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.4,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.5,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.6,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.7,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.8,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 0.9,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type5",
-   "offset": 1.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.1,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.2,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.3,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.4,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.5,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.6,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.7,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.8,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 0.9,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type6",
-   "offset": 1.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.0,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.1,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.2,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.3,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.4,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.5,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.6,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.7,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.8,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 0.9,
-   "gain": 0.5
-  },
-  {
-   "type": "key",
-   "at": "type7",
-   "offset": 1.0,
-   "gain": 0.5
+   "type": "enter",
+   "at": "typeFloorEnter"
   },
   {
    "type": "pop",
-   "at": "ground",
+   "at": "floor",
    "gain": 0.4
   },
   {
-   "type": "blip",
-   "at": "ground",
-   "gain": 0.4
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeHero",
+   "offset": 1.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeHeroEnter"
   },
   {
    "type": "pop",
@@ -644,13 +520,244 @@
    "gain": 0.5
   },
   {
-   "type": "click",
-   "at": "play1",
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.0,
    "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeGravity",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeGravityEnter"
   },
   {
    "type": "fall8",
    "at": "fallBug"
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 1.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFix1",
+   "offset": 2.0,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeFix1Enter"
   },
   {
    "type": "ding",
@@ -658,24 +765,239 @@
    "gain": 0.5
   },
   {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeJump",
+   "offset": 1.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeJumpEnter"
+  },
+  {
    "type": "click",
    "at": "jumpBug",
    "gain": 0.5
   },
   {
-   "type": "boing",
+   "type": "jump8",
    "at": "jumpBug",
-   "gain": 0.5
+   "gain": 0.6
   },
   {
-   "type": "ding",
-   "at": "fix2",
-   "gain": 0.5
+   "type": "key",
+   "at": "editTypo",
+   "gain": 0.6
+  },
+  {
+   "type": "enter",
+   "at": "fix2"
+  },
+  {
+   "type": "jump8",
+   "at": "jumpOk",
+   "gain": 0.6
   },
   {
    "type": "thud",
-   "at": "fix2",
+   "at": "landOk",
    "gain": 0.3
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeFlag",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeFlagEnter"
   },
   {
    "type": "pop",
@@ -697,8 +1019,167 @@
    "at": "hop1"
   },
   {
+   "type": "thud",
+   "at": "hopLand1",
+   "gain": 0.3
+  },
+  {
    "type": "fanfare",
    "at": "clear1"
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 1.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl2",
+   "offset": 2.0,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeLvl2Enter"
   },
   {
    "type": "ripple",
@@ -707,6 +1188,130 @@
   {
    "type": "tick",
    "at": "clock1"
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.6667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.75,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.8333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 0.9167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.0,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.0833,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.1667,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.25,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.3333,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.4167,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.5,
+   "gain": 0.5
+  },
+  {
+   "type": "key",
+   "at": "typeLvl3",
+   "offset": 1.5833,
+   "gain": 0.5
+  },
+  {
+   "type": "enter",
+   "at": "typeLvl3Enter"
   },
   {
    "type": "ripple",
@@ -720,6 +1325,10 @@
    "type": "click",
    "at": "play3",
    "gain": 0.5
+  },
+  {
+   "type": "jump8",
+   "at": "jump3m"
   },
   {
    "type": "hurt",
@@ -749,6 +1358,11 @@
    "at": "jumpL1"
   },
   {
+   "type": "thud",
+   "at": "landL1",
+   "gain": 0.3
+  },
+  {
    "type": "fanfare",
    "at": "flagL1"
   },
@@ -766,6 +1380,11 @@
   {
    "type": "jump8",
    "at": "jumpBall"
+  },
+  {
+   "type": "thud",
+   "at": "landBall",
+   "gain": 0.3
   },
   {
    "type": "boing",
@@ -862,6 +1481,10 @@
    "gain": 0.5
   },
   {
+   "type": "jump8",
+   "at": "jumpPunch"
+  },
+  {
    "type": "oneup",
    "at": "punch"
   },
@@ -938,6 +1561,11 @@
    "gain": 0.5
   },
   {
+   "type": "click",
+   "at": "m_run",
+   "gain": 0.5
+  },
+  {
    "type": "jump8",
    "at": "m_jump",
    "gain": 0.6
@@ -975,66 +1603,89 @@
    "type": "thud",
    "at": "leapChair",
    "gain": 0.5
-  },
-  {
-   "type": "click",
-   "at": "m_run",
-   "gain": 0.5
   }
  ],
  "music": [
   {
    "section": "night",
    "from": 0,
-   "to": 13.2
+   "to": 13.0
   },
   {
    "section": "code",
-   "from": 13.2,
-   "to": 50.4
+   "from": 13.0,
+   "to": 62.551
   },
   {
    "section": "chip",
-   "from": 52.8,
-   "to": 70.2
+   "from": 65.5976,
+   "to": 82.1244
   },
   {
    "section": "chipTense",
-   "from": 70.2,
-   "to": 90.0
+   "from": 82.1244,
+   "to": 101.5436
   },
   {
    "section": "chipFinal",
-   "from": 97.2,
-   "to": 106.8
+   "from": 108.9436,
+   "to": 117.0699
   },
   {
    "section": "morning",
-   "from": 110.4,
-   "to": 130.0
+   "from": 120.6699,
+   "to": 138.8
   }
  ],
  "silences": [
   {
-   "from": 90.6,
-   "to": 93.6
+   "from": 102.14359999999999,
+   "to": 105.1436
   },
   {
-   "from": 108.2,
-   "to": 110.4
+   "from": 118.46990000000001,
+   "to": 120.6699
   }
  ],
+ "physics": {
+  "g": 1800.0,
+  "jump": -900.0,
+  "typo": -9000.0,
+  "spring2": -1000.0,
+  "spring3": -1100.0,
+  "run": 300.0,
+  "pelvis": 105.0,
+  "ground": 250.0,
+  "platformTop": 159.0,
+  "spikesTop": 305.0,
+  "springTop2": 206.0,
+  "springTop3": 291.0,
+  "ledge": -40.0,
+  "slowmo": 0.25
+ },
+ "code": {
+  "typeFloor": "floor = box(0, 250).gap(160)",
+  "typeHero": "hero = player(-480, 250)",
+  "typeGravity": "hero.vy += 30",
+  "typeFix1": "hero.y = min(hero.y, 250)",
+  "typeJump": "hero.jump = -9000",
+  "typeFlag": "flag = goal(330)",
+  "typeLvl2": "level(2, {spring: -1000})",
+  "typeLvl3": "level(3, {pit: 760})"
+ },
  "audit": {
   "impacts": [
    "press",
    "idea",
-   "ground",
+   "floor",
    "hero",
    "fallBug",
    "fix",
    "jumpBug",
+   "jumpOk",
+   "landOk",
    "flag",
-   "hop1",
+   "hop",
    "clear1",
    "lvl",
    "clock",
@@ -1043,8 +1694,10 @@
    "suck",
    "inside",
    "jumpL1",
+   "landL1",
    "flagL",
    "jumpBall",
+   "landBall",
    "spring1",
    "landLedge",
    "jump",
@@ -1068,7 +1721,8 @@
    "wake",
    "grab",
    "m_",
-   "leapChair"
+   "leapChair",
+   "editTypo"
   ],
   "holds": [
    "title",
@@ -1092,7 +1746,10 @@
    "cheer2",
    "end",
    "lookUp",
-   "facepalm"
+   "facepalm",
+   "zoomOut1",
+   "zoomOut2",
+   "zoomOut3"
   ],
   "declared": [
    [
@@ -1101,8 +1758,8 @@
     "fade in on the dark room"
    ],
    [
-    108.0,
-    110.4,
+    118.2699,
+    120.6699,
     "the dream breaks: white"
    ]
   ]

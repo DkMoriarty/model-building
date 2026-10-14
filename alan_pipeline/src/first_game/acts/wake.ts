@@ -5,11 +5,12 @@ import {Stage, worldOf} from '../../first_light/stage';
 import {G, GAME_COLORS} from '../components/Game';
 import {CLOCK_AT, Room, SCREEN, SCREEN_SCALE, SEAT} from '../components/Room';
 import {at, syncTo} from '../cues';
-import {flight, jumpTo, LAND, on, runTo} from '../moves';
+import {LAND, leap, on, runTo, runUp, SOAR} from '../moves';
+import {physics as P} from '../cues';
 import {confetti, Monitor, SIT_CHAIR} from './room';
 import {Pose} from '../../components/StickFigure';
 
-const PLATFORM_G = 208;
+
 
 /**
  * 110.4 - 130 s. Awake at the desk: morning. On the screen, level 3, the
@@ -80,21 +81,20 @@ export function* wakeAct(s: Stage, room: Room, m: Monitor): ThreadGenerator {
   plat.opacity(1);
   yield* syncTo('m_run', 0);
   jab();
-  yield* runTo(mini, -392, at('m_jump') - 0.05);
+  yield* runUp(mini, -392, at('m_jump'));
   jab();
-  yield* jumpTo(mini, on(-160, 159), at('m_land'), 70);
+  yield* leap(mini, P.jump, -160, P.platformTop - P.pelvis, at('m_land'));
   mini.position(() => on(-160, plat.y() - 11));
   yield* waitFor(0.55);
   yield* shake(plat, 0.6);
   yield* syncTo('m_drop', 0);
-  s.spawn(fall(plat, 170, PLATFORM_G, at('m_drop') + 1.2));
+  s.spawn(fall(plat, 170, P.g, at('m_drop') + 1.2, at('m_drop')));
   yield* syncTo('m_leap', 0);
   jab();
   mini.position(mini.position());
-  yield* jumpTo(mini, on(-60, spring.top.y), at('m_boing'), 40, undefined, false);
-  yield* all(spring.squash(1, 0.06), mini.pose(LAND, 0.06));
-  s.spawn(spring.squash(0, 0.14, easeOutBack));
-  yield* flight(mini, mini.position(), on(440, G.ground), at('m_land2'), 260);
+  yield* leap(mini, P.jump + P.g * (at('m_leap') - at('m_drop')), -60, P.springTop3 - P.pelvis, at('m_boing'), undefined, false);
+  s.spawn(spring.squash(1, 0.04).to(0, 0.14, easeOutBack));
+  yield* leap(mini, P.spring3, 440, G.ground - P.pelvis, at('m_land2'), SOAR, false);
   mini.setPose(LAND);
   yield* mini.pose(STAND, 0.25);
   yield* runTo(mini, 470, at('m_win') - 0.1);
@@ -126,11 +126,11 @@ function* shakeOnce(s: Stage): ThreadGenerator {
   s.shake(Vector2.zero);
 }
 
-function* fall(n: import('@motion-canvas/2d').Node, y0: number, g: number, until: number): ThreadGenerator {
-  const t0 = s0();
+function* fall(n: import('@motion-canvas/2d').Node, y0: number, g: number, until: number, t0 = s0()): ThreadGenerator {
+  const bottom = P.spikesTop + 11;
   while (s0() < until - 1e-6) {
     const t = s0() - t0;
-    n.y(y0 + 0.5 * g * t * t);
+    n.y(Math.min(bottom, y0 + 0.5 * g * t * t));
     yield;
   }
 }

@@ -10,3 +10,8 @@ export type Cue = keyof typeof cues.events;
 export const timeline = createTimeline<Cue>(cues.events as Record<Cue, number>, cues.bpm);
 export const {at, syncTo, playUntil, beat} = timeline;
 export const duration = cues.duration;
+
+/** The code Spark types, by cue (style bible K5: real code, shown exactly). */
+export const code = cues.code as Record<string, string>;
+/** The game's physics constants; every flight in the film obeys them. */
+export const physics = cues.physics;

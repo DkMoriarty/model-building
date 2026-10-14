@@ -4,6 +4,7 @@ import {Pose, StickFigure} from '../components/StickFigure';
 import {SPARK_COLOR} from '../first_light/components/Spark';
 import {STAND} from '../first_light/acts/dark';
 import {PELVIS} from './components/Game';
+import {ballistic, freeFall} from './physics';
 
 /**
  * Platformer moves for a figure that lives inside a level (level-local
@@ -62,7 +63,6 @@ export function* flight(fig: Node, a: Vector2, b: Vector2, landAt: number, h: nu
  */
 export function* hurt(fig: StickFigure): ThreadGenerator {
   fig.setPose(FLAIL);
-  const p = fig.position();
   const flash = (function* () {
     for (let i = 0; i < 8; i++) {
       fig.color(i % 2 ? '#ffffff' : '#ef476f');
@@ -70,7 +70,8 @@ export function* hurt(fig: StickFigure): ThreadGenerator {
     }
     fig.color(SPARK_COLOR);
   })();
-  yield* all(flash, fig.y(p.y - 80, 0.25, easeOutCubic).to(p.y + 520, 0.6, easeInQuad), fig.rotation(200, 0.85, linear));
+  // The game's hurt bounce: up at 600 units/s, then gravity takes it off the screen.
+  yield* all(flash, freeFall(fig, -600, 1.0), fig.rotation(200, 1.0, linear));
   fig.opacity(0);
   fig.rotation(0);
 }
@@ -88,3 +89,15 @@ export function* respawn(fig: StickFigure, at: Vector2): ThreadGenerator {
 }
 
 export {easeOutCubic};
+
+/** Run to the take-off point so the 3-frame crouch ends exactly on `takeoffAt`. */
+export function* runUp(fig: StickFigure, x: number, takeoffAt: number): ThreadGenerator {
+  yield* runTo(fig, x, takeoffAt - 3 / 60);
+  yield* fig.pose({torso: 20, leftHip: -40, leftKnee: 60, rightHip: -30, rightKnee: 50}, 3 / 60, easeInCubic);
+}
+
+/** An exact jump: leaves now with vertical speed `vy`, lands at (toX, toY) on `landAt`. */
+export function* leap(fig: StickFigure, vy: number, toX: number, toY: number, landAt: number, air: Pose = TUCK, squash = true): ThreadGenerator {
+  yield* all(fig.pose(air, 0.15, easeOutCubic), ballistic(fig, fig.position(), vy, toX, toY, landAt));
+  if (squash) yield* fig.pose(LAND, 2 / 60);
+}

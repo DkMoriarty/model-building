@@ -30,10 +30,11 @@ export function* frameAuditor(s: Stage, until: number, exempt: [number, number, 
     const excused = exempt.some(([a, b]) => t >= a && t <= b);
     const visible = !excused && s.spark.body.opacity() > 0.1 && s.blackout.opacity() < 0.95;
     for (const [part, node] of points) {
-      // A medium close-up crops at the knees by design.
-      if (part.endsWith('foot') && s.zoom() >= cropFeetAtZoom) continue;
+      // An insert shot (zoom >= 4) is on an object, not the character; a
+      // medium close-up crops at the knees by design. Neither is a violation.
+      const excusedPart = s.zoom() >= 4 || (part.endsWith('foot') && s.zoom() >= cropFeetAtZoom);
       const v = node.absolutePosition().transformAsPoint(s.view.worldToLocal());
-      const out = visible && (Math.abs(v.x) > HALF_W - SAFE || Math.abs(v.y) > HALF_H - SAFE);
+      const out = visible && !excusedPart && (Math.abs(v.x) > HALF_W - SAFE || Math.abs(v.y) > HALF_H - SAFE);
       if (out && !open.has(part)) open.set(part, t);
       if (!out && open.has(part)) {
         const from = open.get(part)!;
