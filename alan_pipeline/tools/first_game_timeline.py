@@ -290,7 +290,7 @@ def main() -> None:
         "audit": {
             "impacts": impacts,
             "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "grin", "laugh", "yawn", "droop", "lookHands", "lookBack", "seeDoor", "gulp", "react1", "react2", "stare", "slumpGO", "grinKnow", "cheer2", "end", "zoomOut", "point1", "l1", "l2", "l3"],
-            "declared": [[0, 2.0, "fade in on the dark room"], [E["shatter"], E["wake"], "the dream breaks: white"]],
+            "declared": [[0, 2.0, "fade in on the dark room"], [E["crack"], E["wake"], "the dream breaks: cracks, shards, white"]],
         },
     }
     (ROOT / "audio/first_game/story.json").write_text(json.dumps(story, indent=1) + "\n")
