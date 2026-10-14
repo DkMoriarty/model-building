@@ -5,6 +5,11 @@ Code-driven, deterministic Alan Becker-style animation on Motion Canvas.
 hold setup, architecture, the engineering and style rules, current state and
 next steps.
 
+**Making a film from a storyline:** follow the project skill
+`.claude/skills/storyline-to-film/` (repo root). It is the full method behind
+FIRST GAME v4: story refinement, physics planners, timeline, animation, sound
+design, verification and delivery.
+
 Non-negotiables (details in the handover, §6):
 - Show, don't narrate: voice only for a cold open and character dialogue.
 - Figures come from `src/figureSpec.ts` (ratios of H; stroke 0.14 H; open-ring
