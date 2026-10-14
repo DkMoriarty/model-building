@@ -289,3 +289,30 @@ def race(t0: float) -> dict:
             "span": span, "flight": t_fly, "xLand": x_land, "xKey": x_key, "xDoor": x_door, "g": G,
         },
     }
+
+
+def phase_state(phases: list[dict], t: float) -> tuple[float, float]:
+    """(x, speed) of a car at time t from its race phases, the same maths the scene draws."""
+    p = phases[0]
+    if t < p["t"]:
+        t = p["t"]
+    for q in phases:
+        p = q
+        if t <= q["until"] + 1e-9:
+            break
+    t = min(t, p["until"])
+    s, d = t - p["t"], p["until"] - p["t"]
+    if p["kind"] == "acc":
+        return p["x0"] + p["v0"] * s + p["a"] * s * s / 2, p["v0"] + p["a"] * s
+    if p["kind"] == "ease":
+        u = s / d if d > 0 else 1.0
+        k = 0.5 - 0.5 * math.cos(math.pi * u)
+        v = (p["x1"] - p["x0"]) * math.pi * math.sin(math.pi * u) / (2 * d) if d > 0 else 0.0
+        return p["x0"] + (p["x1"] - p["x0"]) * k, v
+    if p["kind"] == "hermite":
+        u = s / d
+        h00, h10, h01, h11 = 2 * u**3 - 3 * u**2 + 1, u**3 - 2 * u**2 + u, -2 * u**3 + 3 * u**2, u**3 - u**2
+        x = h00 * p["x0"] + h10 * d * p["v0"] + h01 * p["x1"] + h11 * d * p["v1"]
+        dx = (6 * u * u - 6 * u) * p["x0"] + (3 * u * u - 4 * u + 1) * d * p["v0"] + (-6 * u * u + 6 * u) * p["x1"] + (3 * u * u - 2 * u) * d * p["v1"]
+        return x, dx / d
+    return p["x0"] + p["vx"] * s, p["vx"]

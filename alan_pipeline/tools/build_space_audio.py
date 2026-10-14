@@ -552,6 +552,163 @@ def sfx_shatter(length: float = 2.0) -> np.ndarray:
     return sfx_glass(length) * 2.5
 
 
+
+# ---- drama: voices without words, alarms, falls, crashes and engines.
+
+
+def vocal(f0: np.ndarray, formants: list[tuple[float, float, float]], breath: float = 0.08) -> np.ndarray:
+    """A voiced sound by additive synthesis: harmonics of a moving f0, shaped by formant peaks."""
+    n = len(f0)
+    phase = 2 * np.pi * np.cumsum(f0) / SR
+    out = np.zeros(n)
+    kmax = int(4500 / max(80.0, float(np.min(f0))))
+    for k in range(1, kmax + 1):
+        fk = k * f0
+        amp = sum(g * np.exp(-0.5 * ((fk - fc) / bw) ** 2) for fc, bw, g in formants) + 0.02 / k
+        out += amp * np.sin(k * phase)
+    noise = spectral_filter(RNG.normal(0, 1, n), 400, 5000) * breath
+    return out + noise
+
+
+VOWEL_A = [(800, 110, 1.0), (1250, 130, 0.7), (2600, 180, 0.25)]
+VOWEL_UH = [(620, 100, 1.0), (1200, 130, 0.5), (2500, 180, 0.2)]
+
+
+def sfx_laugh(length: float = 1.0) -> np.ndarray:
+    """A happy "ha-ha-ha-ha": four syllables, each with an h onset, pitch stepping down."""
+    out = np.zeros(int(length * SR))
+    for i, p0 in enumerate([340, 320, 300, 285]):
+        m = int(0.15 * SR)
+        tt = np.arange(m) / SR
+        f0 = p0 * (1 + 0.08 * np.exp(-tt * 20))
+        v = vocal(f0, VOWEL_A, 0.05) * env_adsr(m, 0.02, 0.04, 0.8, 0.06)
+        h = spectral_filter(RNG.normal(0, 1, int(0.04 * SR)), 600, 4000) * np.linspace(0, 1, int(0.04 * SR)) * 0.25
+        at = int(i * 0.19 * SR)
+        out[at : at + len(h)] += h[: len(out) - at]
+        a2 = at + len(h)
+        out[a2 : a2 + m] += v[: max(0, len(out) - a2)]
+    return out / (np.max(np.abs(out)) + 1e-9) * 0.35
+
+
+def sfx_oof(length: float = 0.28) -> np.ndarray:
+    """A grunt on impact: "uh!", short and falling."""
+    m = int(length * SR)
+    tt = np.arange(m) / SR
+    v = vocal(230 * np.exp(-tt * 1.5), VOWEL_UH, 0.12) * env_adsr(m, 0.005, 0.06, 0.6, 0.1)
+    return v / (np.max(np.abs(v)) + 1e-9) * 0.32
+
+
+def sfx_sigh(length: float = 1.8) -> np.ndarray:
+    """Relief: a long breath out, "haaah", voice falling under the breath."""
+    m = int(length * SR)
+    tt = np.arange(m) / SR
+    f0 = 200 - 70 * tt / length
+    v = vocal(f0, VOWEL_A, 0.0) * 0.45
+    air = spectral_filter(RNG.normal(0, 1, m), 500, 4500) * 0.9
+    env = np.minimum(1, tt / 0.25) * np.exp(-tt * 1.4)
+    out = (v + air) * env
+    return out / (np.max(np.abs(out)) + 1e-9) * 0.3
+
+
+def sfx_alarm(length: float = 3.0) -> np.ndarray:
+    """A two-tone alarm (720 / 960 Hz), each tone 0.25 s, square-ish and loud."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = np.where((t // 0.25) % 2 == 0, 720.0, 960.0)
+    ph = np.cumsum(f) / SR
+    tone = np.sign(np.sin(2 * np.pi * ph)) * 0.6 + np.sin(2 * np.pi * ph) * 0.4
+    return spectral_filter(tone, 300, 5000) * env_adsr(n, 0.02, 0.1, 1.0, 0.2) * 0.1
+
+
+def sfx_panic(length: float = 6.0) -> np.ndarray:
+    """A panic bed: a racing heartbeat (lub-dub at 2.2 Hz, rising) and a trembling high string."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    out = np.zeros(n)
+    bt = 0.0
+    while bt < length:
+        rate = 2.0 + 1.0 * bt / length
+        for off, g in ((0.0, 1.0), (0.14, 0.7)):
+            k = int(0.16 * SR)
+            tt = np.arange(k) / SR
+            thump = np.sin(2 * np.pi * (70 + 60 * np.exp(-tt * 30)) * tt) * np.exp(-tt * 22)
+            click = spectral_filter(RNG.normal(0, 1, k), 300, 1500) * np.exp(-tt * 60) * 0.5
+            i = int((bt + off) * SR)
+            seg = (thump + click)[: max(0, n - i)]
+            out[i : i + len(seg)] += seg * g
+        bt += 1 / rate
+    string = (saw(midi(78), n, 10, -0.004) + saw(midi(79), n, 10, 0.004)) * (0.6 + 0.4 * np.sin(2 * np.pi * 9 * t))
+    out += spectral_filter(string, 500, 5000) * 0.35 * (0.5 + 0.5 * t / length)
+    return out * env_adsr(n, 0.3, 0.1, 1.0, 0.4) * 0.22
+
+
+def sfx_whistle(length: float = 0.9) -> np.ndarray:
+    """A cartoon falling whistle: a pure tone sliding down from 1.8 kHz to 450 Hz."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    f = 1800 * (450 / 1800) ** (t / length)
+    tone = np.sin(2 * np.pi * np.cumsum(f) / SR) * (1 + 0.04 * np.sin(2 * np.pi * 7 * t))
+    return tone * env_adsr(n, 0.05, 0.05, 1.0, 0.05) * 0.12
+
+
+def sfx_crash(length: float = 1.0) -> np.ndarray:
+    """A car crash: a low hit, a crunch of noise and ringing sheet-metal partials."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    hit = np.sin(2 * np.pi * (60 + 90 * np.exp(-t * 25)) * t) * np.exp(-t * 10)
+    crunch = spectral_filter(RNG.normal(0, 1, n), 400, 7000) * np.exp(-t * 9) * (0.6 + 0.4 * (RNG.random(n) > 0.6))
+    metal = sum(np.sin(2 * np.pi * f * t + i) * np.exp(-t * (5 + i)) for i, f in enumerate([523, 1187, 1733, 2410])) * 0.25
+    out = hit * 0.9 + crunch * 0.7 + metal
+    return out / (np.max(np.abs(out)) + 1e-9) * 0.4
+
+
+def sfx_screech(length: float = 0.8) -> np.ndarray:
+    """Tyres skidding: narrow-band noise around 2.8 kHz, wobbling."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    carrier = np.sin(2 * np.pi * np.cumsum(2800 + 250 * np.sin(2 * np.pi * 13 * t)) / SR)
+    noise = spectral_filter(RNG.normal(0, 1, n), 2200, 3600)
+    return (carrier * 0.5 + noise * 0.8) * env_adsr(n, 0.02, 0.05, 0.9, 0.15) * 0.09
+
+
+def engine_track(track: dict, n: int) -> tuple[np.ndarray, np.ndarray]:
+    """An engine whose pitch follows the car's real speed (sampled from the race plan).
+
+    Revs climb through gears: within each 300 u/s band the engine note rises an
+    octave, then drops on the shift. Loudness follows throttle (acceleration)
+    and distance from the camera, which rides with Spark's car.
+    """
+    t0, dt = track["from"], track["dt"]
+    v = np.asarray(track["v"], float)
+    dist = np.asarray(track.get("dist", np.zeros_like(v)), float)
+    m = int(len(v) * dt * SR)
+    tt = np.arange(m) / SR
+    vi = np.interp(tt, np.arange(len(v)) * dt, v)
+    di = np.interp(tt, np.arange(len(v)) * dt, dist)
+    acc = np.gradient(vi) * SR
+    gear = np.minimum(np.abs(vi) // 300, 4)
+    within = (np.abs(vi) - gear * 300) / 300
+    f = track.get("pitch", 1.0) * (34 + 34 * within + 6 * gear)
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.zeros(m)
+    for k in range(1, 28):
+        fk = k * f
+        w = np.exp(-0.5 * ((fk - 700) / 600) ** 2) + 0.35 / k
+        tone += w * np.sin(k * phase + k)
+    rumble = spectral_filter(RNG.normal(0, 1, m), 60, 900) * 0.3
+    throttle = 0.55 + 0.45 * np.clip(acc / 600, 0, 1)
+    idle = np.where(np.abs(vi) < 5, 0.5, 1.0)
+    near = 1 / (1 + np.abs(di) / 700)
+    sig = (tone + rumble) * throttle * idle * near
+    sig *= env_adsr(m, 0.15, 0.05, 1.0, 0.3)
+    sig = sig / (np.max(np.abs(tone)) + 1e-9) * track.get("gain", 0.1)
+    pan = np.clip(di / 1500, -0.8, 0.8)
+    out_l, out_r = np.zeros(n), np.zeros(n)
+    add(out_l, t0, sig * (1 - pan) * 0.7)
+    add(out_r, t0, sig * (1 + pan) * 0.7)
+    return out_l, out_r
+
+
 SFX = {
     "clash": lambda e: sfx_clash(),
     "whoosh": lambda e: sfx_whoosh(),
@@ -602,6 +759,14 @@ SFX = {
     "rattle": lambda e: sfx_rattle(),
     "crack": lambda e: sfx_crack(),
     "shatter": lambda e: sfx_shatter(),
+    "laugh": lambda e: sfx_laugh(),
+    "oof": lambda e: sfx_oof(),
+    "sigh": lambda e: sfx_sigh(e.get("length", 1.8)),
+    "alarm": lambda e: sfx_alarm(e.get("length", 3.0)),
+    "panic": lambda e: sfx_panic(e.get("length", 6.0)),
+    "whistle": lambda e: sfx_whistle(e.get("length", 0.9)),
+    "crash": lambda e: sfx_crash(),
+    "screech": lambda e: sfx_screech(e.get("length", 0.8)),
 }
 
 
@@ -897,8 +1062,23 @@ def main() -> None:
         add(sfx_l, at, sig, e.get("gain", 1.0) * (1 - pan) * 0.7)
         add(sfx_r, at, sig, e.get("gain", 1.0) * (1 + pan) * 0.7)
 
+    # Engines: continuous tracks whose pitch follows each car's speed.
+    for track in story.get("engines", []):
+        el, er = engine_track(track, n)
+        sfx_l += el
+        sfx_r += er
+
     # 3. Music, ducked under the voice.
     music = build_music(story, n) * story.get("musicGain", 1.0)
+    # Music dips (an episode's "musicDuck": [from, to, dB]) let a sound take over a moment.
+    for a_, b_, db_ in story.get("musicDuck", []):
+        i0, i1 = int(resolve(a_, {k: float(v) for k, v in story["events"].items()}, {}) * SR), int(resolve(b_, {k: float(v) for k, v in story["events"].items()}, {}) * SR)
+        g = np.ones(n)
+        ramp = int(0.3 * SR)
+        g[i0:i1] = 10 ** (db_ / 20)
+        g[max(0, i0 - ramp) : i0] = np.linspace(1, 10 ** (db_ / 20), i0 - max(0, i0 - ramp))
+        g[i1 : i1 + ramp] = np.linspace(10 ** (db_ / 20), 1, len(g[i1 : i1 + ramp]))
+        music *= g[:, None]
     env = smooth(voice_bus, 0.25)
     duck = 1 - 0.6 * np.clip(env / 0.04, 0, 1)
     music *= duck[:, None]

@@ -162,6 +162,7 @@ def main() -> None:
     end = rally("first", r)
     ev("point1", end)
     ev("cheer", end + 0.3)
+    sfx("laugh", "cheer", gain=0.9)
 
     # ---- the computer loses, and wakes up: it types by itself
     ev("tremble", E["cheer"] + 1.6)
@@ -185,10 +186,15 @@ def main() -> None:
     sfx("riser", "pull", length=1.2, gain=0.7)
     ev("suck", E["pull"] + 1.2)
     sfx("whoosh", "suck")
+    sfx("alarm", "s2Run", length=round(E["suck"] - E["s2Run"], 2), gain=3.0)
+    sfx("panic", "s1Run", length=round(E["suck"] + 0.9 - E["s1Run"], 2), gain=1.8)
+    sfx("whistle", "suck", length=0.9, gain=1.5)
 
     # ---- the binary world
     land = ev("land", E["suck"] + 0.9 + 0.1 + math.sqrt(2 * (195 - -520) / plans.G))
     sfx("thud", "land")
+    sfx("whistle", "land", offset=-round(math.sqrt(2 * (195 - -520) / plans.G), 4), length=round(math.sqrt(2 * (195 - -520) / plans.G), 4), gain=1.8)
+    sfx("oof", "land", gain=0.9)
     ev("look", land + 1.0)
     ev("walk", E["look"] + 1.6)
     ev("touch", E["walk"] + 2.6)
@@ -225,6 +231,7 @@ def main() -> None:
     end = rally("r1b", r)
     ev("win1", end + 0.1)
     sfx("fanfare", "win1")
+    sfx("laugh", "win1", offset=0.5, gain=0.9)
     ev("light1", E["win1"] + 1.0)
     sfx("ding", "light1")
     ev("portal2", E["light1"] + 1.2)
@@ -240,11 +247,15 @@ def main() -> None:
         if k == "finish":
             ev("win2", e_["t"])
             sfx("fanfare", "win2")
+            sfx("laugh", "win2", offset=0.5, gain=0.9)
             continue
         key = f"run_{k}{n[k]}"
         n[k] += 1
         ev(key, e_["t"])
         sfx({"jump": "jump8", "land": "thud", "clip": "hurt", "up": "blip"}[k], key, gain={"land": 0.3}.get(k, 0.7))
+        if k == "clip":
+            sfx("oof", key, gain=0.9)
+            sfx("thud", key, offset=0.6, gain=0.7)
     ev("light2", E["win2"] + 1.0)
     sfx("ding", "light2")
     ev("portal3", E["light2"] + 1.2)
@@ -263,8 +274,11 @@ def main() -> None:
         if m_["kind"] == "dive":
             ev(f"dodge_dive{i}", m_["t"])
             sfx("whoosh", f"dodge_dive{i}", gain=0.6)
+            sfx("oof", f"dodge_dive{i}", offset=round(m_["until"] - m_["t"], 4), gain=0.9)
+            sfx("thud", f"dodge_dive{i}", offset=round(m_["until"] - m_["t"], 4), gain=0.5)
     ev("win3", r3 + 1.0 + 9.0)
     sfx("fanfare", "win3")
+    sfx("laugh", "win3", offset=0.5, gain=0.9)
     ev("light3", E["win3"] + 1.0)
     sfx("ding", "light3")
 
@@ -285,16 +299,35 @@ def main() -> None:
     for k, tt in rc["events"].items():
         ev(f"race_{k}", tt)
     sfx("riser", "race_go", length=1.5, gain=0.5)
-    sfx("thud", "race_bump1", gain=0.9)
-    sfx("thud", "race_bump2", gain=0.9)
-    sfx("grind", "race_brake", length=0.7, gain=0.6)
-    sfx("fall8", "race_overEdge")
-    sfx("fall8", "race_overEdge2", gain=0.7)
+    for b in ("race_bump1", "race_bump2"):
+        sfx("crash", b, gain=0.9)
+        sfx("oof", b, offset=0.05, gain=0.8)
+    sfx("screech", "race_brake", length=round(E["race_stop"] - E["race_brake"], 3), gain=1.0)
+    sfx("screech", "race_brake", offset=0.25, length=round(E["race_overEdge2"] - E["race_brake"] - 0.25, 3), gain=0.7, pan=-0.4)
+    sfx("whistle", "race_overEdge", length=1.0, gain=0.8)
+    sfx("whistle", "race_overEdge2", length=1.0, gain=0.6)
+    sfx("crash", "race_fallGone", gain=0.6)
     sfx("boom", "race_fallGone", gain=0.5)
     sfx("riser", "race_run", length=1.2, gain=0.6)
     sfx("whoosh", "race_ramp")
     sfx("thud", "race_landJump", gain=0.8)
+    sfx("oof", "race_landJump", offset=0.03, gain=0.7)
     sfx("oneup", "race_key")
+    sfx("laugh", "race_key", offset=0.2, gain=0.9)
+    # Engines: Spark's from the moment he gets in until he stops at the door, the red cars while they chase.
+    dt = 0.02
+    t_in, t_out = E["getIn"] + 0.5, E["race_doorArrive"] + 0.8
+    sp = [plans.phase_state(rc["spark"], t_in + i * dt) for i in range(int((t_out - t_in) / dt))]
+    engines = [{"from": round(t_in, 4), "dt": dt, "v": [round(v, 1) for _, v in sp], "gain": 0.16, "pitch": 1.0}]
+    for red in rc["reds"]:
+        r0, r1 = red["phases"][0]["t"], red["overEdge"] + 1.0
+        vs, ds = [], []
+        for i in range(int((r1 - r0) / dt)):
+            t_ = r0 + i * dt
+            x, v = plans.phase_state(red["phases"], t_)
+            vs.append(round(v, 1))
+            ds.append(round(x - plans.phase_state(rc["spark"], t_)[0], 1))
+        engines.append({"from": round(r0, 4), "dt": dt, "v": vs, "dist": ds, "gain": 0.14, "pitch": 1.3})
     ev("unlock", E["race_doorArrive"] + 1.0)
     sfx("click", "unlock")
     sfx("ding", "unlock", offset=0.2)
@@ -306,6 +339,7 @@ def main() -> None:
     # ---- home: relief, sunrise, and himself
     ev("home", E["through"] + 0.6)
     sfx("thud", "home", gain=0.6)
+    sfx("sigh", "relief", offset=0.7, length=1.8, gain=1.0)
     ev("relief", E["home"] + 1.0)
     ev("sunrise", E["relief"] + 2.0)
     ev("turn", E["sunrise"] + 2.4)
@@ -347,6 +381,8 @@ def main() -> None:
         "music": M,
         # The score sits about 7 dB higher than the earlier films: it carries the story with no voice.
         "musicGain": 2.2,
+        # The angry computer: the music drops away under the alarm and the heartbeat.
+        "musicDuck": [[E["s1Run"], E["s2Run"], -5], [E["s2Run"], E["suck"] + 0.9, -12]],
         # A melody over every section, in the band small speakers play.
         "melody": {
             "night": {"wave": "bell", "gain": 0.45},
@@ -365,6 +401,7 @@ def main() -> None:
         "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,
         "shadow": SHADOW,
+        "engines": engines,
         "rallies": R,
         "audit": {
             "impacts": impacts,
