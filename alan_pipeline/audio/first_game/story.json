@@ -2702,6 +2702,52 @@
   }
  ],
  "musicGain": 2.2,
+ "melody": {
+  "night": {
+   "wave": "bell",
+   "gain": 0.45
+  },
+  "code": {
+   "wave": "bell",
+   "gain": 0.5
+  },
+  "standoff": {
+   "wave": "bell",
+   "gain": 0.5
+  },
+  "hush": {
+   "wave": "bell",
+   "gain": 0.35
+  },
+  "grow": {
+   "wave": "bell",
+   "gain": 0.5
+  },
+  "chip": {
+   "wave": "square",
+   "gain": 0.45
+  },
+  "chipTense": {
+   "wave": "square",
+   "gain": 0.45
+  },
+  "wonder": {
+   "wave": "bell",
+   "gain": 0.5
+  },
+  "chipFinal": {
+   "wave": "square",
+   "gain": 0.5
+  },
+  "resolve": {
+   "wave": "bell",
+   "gain": 0.5
+  },
+  "morning": {
+   "wave": "bell",
+   "gain": 0.55
+  }
+ },
  "silences": [
   {
    "from": 74.88340000000001,

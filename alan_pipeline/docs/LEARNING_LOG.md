@@ -38,3 +38,4 @@ a study or a mistake teaches something.
 | A jump that lands level needs both edges level | the kicker lifts the car 37 units | the far side of the gap is raised by the kicker's rise |
 | Aimed hazards need a moving target | falling blocks at fixed spots let Spark stand still | `dodge(aim=True)`: each block aims at where Spark stands when it drops |
 | **The score must be heard, end to end** | user feedback on FIRST GAME v4 ("music hasn't come") | music measured per section; no gaps between sections; `musicGain` per episode (FIRST GAME: x2.2, about +7 dB) |
+| **Measure the music where people listen: phone speakers** | user still couldn't hear the music after +7 dB | the score's energy was below 300 Hz (bass, kick, low pads), which phones don't play; every FIRST GAME section now carries a melody at 500 Hz - 1 kHz, and the check measures the 300 Hz - 4 kHz band |

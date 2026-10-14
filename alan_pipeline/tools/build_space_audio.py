@@ -654,6 +654,42 @@ LAYERS = {
 }
 
 
+# Four bars of melody, as indices into the bar's chord (-1 = rest), eighth notes.
+MELODY = [
+    [3, -1, 2, 3, 1, -1, 2, -1],
+    [2, -1, 3, 2, 1, -1, 0, -1],
+    [1, 2, 3, -1, 3, 2, 1, -1],
+    [3, -1, -1, 2, -1, 1, -1, -1],
+]
+
+
+def add_melody(left: np.ndarray, right: np.ndarray, t0: float, t1: float, prog: list, bar: float, beat: float, mel: dict) -> None:
+    """A lead line over a section: bell tones ("bell") or a chiptune square ("square")."""
+    bars = int(math.ceil((t1 - t0) / bar))
+    for b in range(bars):
+        chord = prog[b % len(prog)]
+        pattern = MELODY[b % len(MELODY)]
+        for i, idx in enumerate(pattern):
+            st = t0 + b * bar + i * beat / 2
+            if idx < 0 or st >= t1 - 0.05:
+                continue
+            note = chord[idx]
+            while note < 72:
+                note += 12
+            hold = beat / 2 * (2 if i + 1 < len(pattern) and pattern[i + 1] < 0 else 1)
+            k = int(min(hold, t1 - st) * SR)
+            tt = np.arange(k) / SR
+            f = midi(note)
+            if mel.get("wave") == "square":
+                tone = square(f, k, 0.25) * env_adsr(k, 0.003, 0.05, 0.7, 0.04)
+            else:
+                tone = (np.sin(2 * np.pi * f * tt) + 0.35 * np.sin(4 * np.pi * f * tt) + 0.12 * np.sin(6 * np.pi * f * tt)) * np.exp(-tt * 3.5)
+                tone *= env_adsr(k, 0.004, 0.05, 1.0, 0.05)
+            g = mel.get("gain", 0.5) * 0.25
+            add(left, st, tone, g)
+            add(right, st, tone, g)
+
+
 def build_music(story: dict, n: int) -> np.ndarray:
     bpm = story["bpm"]
     beat = 60 / bpm
@@ -733,6 +769,12 @@ def build_music(story: dict, n: int) -> np.ndarray:
                     note = chord[[1, 2, 3, 2][s % 4]] + 12
                     tone = np.sin(2 * np.pi * midi(note) * tt) * np.exp(-tt * 7)
                     add(left if s % 2 else right, st, tone, layers["arp"] * 0.25)
+        # The tune: a melody in the 500 Hz - 1 kHz band, where phone and laptop
+        # speakers actually play (bass, kick and low pads sit below 300 Hz and
+        # vanish on them). An episode opts in per section with story["melody"].
+        mel = story.get("melody", {}).get(name)
+        if mel:
+            add_melody(left, right, t0, t1, prog, bar, beat, mel)
     # Gentle fades at section boundaries come from the per-bar envelopes; add
     # a global fade-in and fade-out.
     fade = np.ones(n)

@@ -347,6 +347,20 @@ def main() -> None:
         "music": M,
         # The score sits about 7 dB higher than the earlier films: it carries the story with no voice.
         "musicGain": 2.2,
+        # A melody over every section, in the band small speakers play.
+        "melody": {
+            "night": {"wave": "bell", "gain": 0.45},
+            "code": {"wave": "bell", "gain": 0.5},
+            "standoff": {"wave": "bell", "gain": 0.5},
+            "hush": {"wave": "bell", "gain": 0.35},
+            "grow": {"wave": "bell", "gain": 0.5},
+            "chip": {"wave": "square", "gain": 0.45},
+            "chipTense": {"wave": "square", "gain": 0.45},
+            "wonder": {"wave": "bell", "gain": 0.5},
+            "chipFinal": {"wave": "square", "gain": 0.5},
+            "resolve": {"wave": "bell", "gain": 0.5},
+            "morning": {"wave": "bell", "gain": 0.55},
+        },
         "silences": [{"from": E["glitch"] - 0.6, "to": E["glitch"]}, {"from": E["race_brake"] + 0.3, "to": E["race_overEdge"]}],
         "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,
