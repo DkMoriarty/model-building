@@ -28,19 +28,22 @@ export function* ambient(s: Stage): ThreadGenerator {
   }
 
   // Satellites cross at quiet moments: standoff, two fight lulls, departure.
+  // Lanes run through the open lower sky, clear of the station and the
+  // fighters' silhouettes (no tangents); passing behind Earth's limb on the
+  // left gives a free depth cue.
   const passes: [Cue, number, number][] = [
-    ['sat1', -1, -360],
-    ['sat2', 1, -400],
-    ['sat3', -1, -330],
-    ['sat4', 1, -380],
+    ['sat1', -1, 330],
+    ['sat2', 1, 360],
+    ['sat3', -1, 340],
+    ['sat4', 1, 350],
   ];
   for (const [cue, dir, y] of passes) {
     s.spawn(
       (function* () {
         yield* syncTo(cue);
-        const sat = satellite({position: [dir * 1250, y], scale: 0.8, rotation: dir * 8, opacity: 0.85});
+        const sat = satellite({position: [dir * 1250, y], scale: 1.5, rotation: dir * 8, opacity: 0.9}, s.time);
         s.backdrop.add(sat);
-        yield* all(sat.position([-dir * 1250, y + 60], 16, linear), sat.rotation(-dir * 14, 16, linear));
+        yield* all(sat.position([-dir * 1250, y - 50], 16, linear), sat.rotation(-dir * 14, 16, linear));
         sat.remove();
       })(),
     );

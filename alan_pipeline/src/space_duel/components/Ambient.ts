@@ -25,44 +25,80 @@ export function hexNut(props: NodeProps = {}): Node {
   });
 }
 
-/** A small comms satellite: boxy bus, two panel wings, one dish. */
-export function satellite(props: NodeProps = {}): Node {
-  const panel = (x: number) =>
-    new Rect({
-      x,
-      width: 46,
-      height: 18,
-      fill: '#132344',
-      stroke: '#3a5a9a',
-      lineWidth: TIERS.detail,
-      children: [-11, 0, 11].map(
-        px =>
-          new Line({
-            points: [
-              [px, -9],
-              [px, 9],
-            ],
-            stroke: '#3a5a9a',
-            lineWidth: TIERS.detail * 0.6,
-          }),
-      ),
+/**
+ * A comms satellite (original design): gold-foil hexagonal bus, two
+ * three-panel solar wings on hinged booms, a high-gain dish with a tripod
+ * feed, a star tracker, a whip antenna, thrusters and a blinking beacon.
+ */
+export function satellite(props: NodeProps = {}, time: () => number = () => 0): Node {
+  const d = TIERS.detail;
+  const cellGrid = (w: number, h: number) => {
+    const lines: Line[] = [];
+    for (let i = 1; i < 4; i++) {
+      lines.push(new Line({points: [[-w / 2 + (w * i) / 4, -h / 2], [-w / 2 + (w * i) / 4, h / 2]], stroke: '#2b4a86', lineWidth: d * 0.6}));
+    }
+    lines.push(new Line({points: [[-w / 2, 0], [w / 2, 0]], stroke: '#2b4a86', lineWidth: d * 0.6}));
+    return lines;
+  };
+  const wing = (dir: number) =>
+    new Node({
+      children: [
+        // boom + hinge yoke
+        new Line({points: [[dir * 14, 0], [dir * 30, 0]], stroke: '#8a8a96', lineWidth: d * 1.2}),
+        new Circle({x: dir * 30, size: 6, fill: '#8a8a96'}),
+        ...[0, 1, 2].map(
+          i =>
+            new Rect({
+              x: dir * (46 + i * 30),
+              width: 28,
+              height: 22,
+              fill: '#122244',
+              stroke: '#4a6db0',
+              lineWidth: d,
+              children: cellGrid(28, 22),
+            }),
+        ),
+      ],
     });
+  const hexPts: [number, number][] = Array.from({length: 6}, (_, i) => {
+    const a = (Math.PI / 3) * i + Math.PI / 6;
+    return [Math.cos(a) * 15, Math.sin(a) * 15];
+  });
   return new Node({
     ...props,
     children: [
+      wing(-1),
+      wing(1),
+      // Gold multi-layer insulation over a hexagonal bus, with creases.
       new Line({
-        points: [
-          [-52, 0],
-          [52, 0],
-        ],
-        stroke: '#6b6b78',
-        lineWidth: TIERS.detail,
+        points: hexPts,
+        closed: true,
+        fill: new Gradient({
+          from: [-15, -15],
+          to: [15, 15],
+          stops: [
+            {offset: 0, color: '#d8b25a'},
+            {offset: 0.5, color: '#a9822e'},
+            {offset: 1, color: '#6d521a'},
+          ],
+        }),
+        stroke: '#e8cf8a',
+        lineWidth: d,
       }),
-      panel(-40),
-      panel(40),
-      new Rect({width: 22, height: 26, radius: 3, fill: '#2a2a33', stroke: '#8a8a96', lineWidth: TIERS.detail}),
-      new Circle({y: -20, size: 16, startAngle: 200, endAngle: 340, stroke: '#9a9aa8', lineWidth: TIERS.detail}),
-      new Circle({x: 8, y: 9, size: 4, fill: '#ff5a5a'}),
+      new Line({points: [[-8, -10], [4, 2], [10, -6]], stroke: 'rgba(255,240,200,0.45)', lineWidth: d * 0.6}),
+      new Line({points: [[-10, 6], [2, 10]], stroke: 'rgba(80,60,20,0.6)', lineWidth: d * 0.6}),
+      // High-gain dish with tripod feed.
+      new Circle({y: -24, size: [30, 12], fill: '#d9d9e0', stroke: '#9a9aa8', lineWidth: d}),
+      new Line({points: [[-10, -26], [0, -36], [10, -26]], stroke: '#9a9aa8', lineWidth: d * 0.7}),
+      new Circle({y: -36, size: 4, fill: '#c9c9d4'}),
+      new Line({points: [[0, -15], [0, -20]], stroke: '#8a8a96', lineWidth: d}),
+      // Star tracker and whip antenna.
+      new Rect({x: 10, y: 15, width: 6, height: 9, radius: 2, fill: '#2a2a33', stroke: '#8a8a96', lineWidth: d * 0.7}),
+      new Line({points: [[-9, 13], [-16, 30]], stroke: '#9a9aa8', lineWidth: d * 0.6}),
+      // Thruster nozzles at the corners.
+      ...[[-13, -8], [13, -8], [-13, 8], [13, 8]].map(([x, y]) => new Circle({x, y, size: 3.5, fill: '#5c5c6a'})),
+      // Beacon: blinks once a second.
+      new Circle({x: -4, y: 15, size: 4, fill: '#ff5a5a', opacity: () => (Math.floor(time()) % 2 === 0 ? 1 : 0.2)}),
     ],
   });
 }

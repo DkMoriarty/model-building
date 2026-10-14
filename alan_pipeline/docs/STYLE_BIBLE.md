@@ -5,7 +5,7 @@ fights read. Every number here is a target the code implements. When you study
 a new reference video, add a row to the source log (§9), update the rules it
 changes, and bump the version.
 
-**Version 1.1 · 2026-10-13**
+**Version 1.2 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -124,6 +124,20 @@ the human band: it's an alien, and its ratios are still fixed and measured.
 | medium | 25–35% | fight 24–30% (zoom 1.2–1.5) |
 | close-up | 50–70% | (not yet used) |
 
+**Background props** (ships, satellites, debris):
+- Detail is layered: a silhouette on the structure tier, then inner plates,
+  seams, rivets, vents and lights on the detail tier. Read the silhouette
+  first; the detail rewards a second look.
+- Every prop is an original design with plausible engineering. A satellite
+  has a foil body, solar wings with cell grids, a dish, thrusters and a
+  beacon. A ship has a hull, plates, nacelles, fins, a cockpit and running
+  lights.
+- **Travel lanes:** pass through open sky, never behind another silhouette
+  at the same height (no tangents). Crossing behind a big foreground body,
+  such as Earth's limb, is encouraged: free depth.
+- Motion is constant velocity and spin (vacuum). Beacons blink once per
+  second, or on the beat.
+
 **Props relative to the figure:** handles and vertex dots are about 0.15 ×
 figure height; small props 0.3–0.8 ×; set-piece objects 4–12 ×.
 
@@ -177,6 +191,10 @@ bloom behind it.
   an upright torso with arms out.
 - Escalate ideas in steps (in our duel: classical, then relativistic, then
   quantum).
+- **Open small:** start on a character playing with a small object (a nut,
+  a pebble, a cursor) in a medium close-up. The toy's motion leads the eye
+  to the inciting event, then the camera pulls out. Bookend it if you can
+  (our nut drifts away at the start; the blade drifts away at the end).
 
 ## 8. Sound
 
@@ -200,6 +218,9 @@ and bump the version below.
 
 ## 10. Changelog
 
+- **1.2** (2026-10-14): background-prop rules (layered detail, original
+  engineering, travel lanes, depth crossings). Toy-first opening (a small
+  object sets the story in motion).
 - **1.1** (2026-10-13): composition pass. Placement and headroom, figure
   height by shot type, the 3 : 2 : 1 line tiers (encoded as `strokeTiers`
   and `propStroke`), vertex-dot size, label padding, camera easing, rhythm,
