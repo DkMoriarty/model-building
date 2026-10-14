@@ -2,10 +2,10 @@
 
 A **living** reference for how our figures are built, how they move and how
 fights read. Every number here is a target the code implements. When you study
-a new reference video, add a row to the source log (§9), update the rules it
+a new reference video, add a row to the source log (§10), update the rules it
 changes, and bump the version.
 
-**Version 1.2 · 2026-10-14**
+**Version 1.3 · 2026-10-14**
 
 > **Originality rule.** This file records *technique*: proportion systems, timing,
 > staging and effects grammar. It never copies characters. Our cast is
@@ -42,7 +42,7 @@ changes, and bump the version.
 | **total height** | **4.85 H** | **5.65 H** | 4.5–5 H |
 | limb + head stroke | 0.14 H | 0.14 H | 12–15 % of H |
 
-\*Measured from reference material (§9). The traveller is deliberately outside
+\*Measured from reference material (§10). The traveller is deliberately outside
 the human band: it's an alien, and its ratios are still fixed and measured.
 
 **Line rules**
@@ -204,20 +204,112 @@ bloom behind it.
 - Music swells at transformations and drops to drones during quiet beats.
   Duck the music under dialogue.
 
-## 9. Source log
+## 9. Frame accounting: no frame unaccounted for
+
+Every frame must be explainable: what is on screen, why it is there, where
+it sits, how it got there, and what you hear. The rules below are numeric so
+they can be checked, and most are checked automatically.
+
+### 9.1 Framing (checked every 0.1 s from the scene graph: `src/space_duel/audit.ts`)
+
+| rule | requirement | scope |
+| --- | --- | --- |
+| **F3s** safe margin | every subject point (each fighter's head, chest, hands, feet; a drawn blade's tip) stays inside the 96 px safe margin | hard: fails `--strict` |
+| **F1s** subject balance | the subjects' centroid stays within ±25% of width and ±20% of height from centre | hard |
+| **F2** negative space | 50–97% of the frame is empty (pixel-measured) | hard (`tools/frame_audit.py`) |
+| F1 / F3 whole frame | whole-frame balance and border-band weight | info: set dressing may bleed off-frame |
+
+Deliberate exceptions (an entrance, a tumble, the departure) are declared in
+`EXEMPT` in `audit.ts`, each with a reason. An undeclared exception is a bug.
+
+### 9.2 Objects: entry, growth, exit
+
+**E1 Entry.** Every object arrives in one of four ways:
+- **Along its motion line** from off-frame: satellites, debris, ships.
+- **Scale-in from zero** with ease-out, at least 6 frames, overshoot no more
+  than 8%: rings, dialogs, glints.
+- **Draw-on** (path trim) with ease-out: lines, barriers, blades.
+- **Fade**, at least 9 frames, and only for light and information: glows,
+  labels, subtitles.
+
+Nothing solid pops in on a single frame. Only impact flashes and sparks may.
+
+**E2 Growth.**
+- **Energy** (flashes, rings, wavefronts) expands with ease-out: fast start,
+  soft finish.
+- **Solid objects** grow with ease-in-out, then hold 2–4 frames at full size
+  before anything else happens to them.
+
+**E3 Exit.**
+- **Mirror the entry** with an ease-in (accelerate away), no longer than the
+  entry took.
+- **Or keep going:** leave the frame along the motion line at constant speed
+  (vacuum).
+- Solid objects never fade out mid-frame unless the story says they vanish.
+
+**E4 One focal entry at a time.** A new focal object enters only after the
+previous one has settled, at least 6 frames apart. Background objects may
+overlap focal entries.
+
+**E5 Anchored.** Every entry and exit starts on a cue (`syncTo`), never on a
+chained duration.
+
+### 9.3 Sound (checked from the timeline: `tools/frame_audit.py`)
+
+| rule | requirement |
+| --- | --- |
+| **T1 / S1** sync | every visible impact has a sound within ±1 frame, and every sound has a visual event within ±1 frame. No orphans. |
+| **T2 / S2** grid | impacts land on the 8th-note grid of the score, within ±1 frame |
+| **S3** size match | sound size tracks visual size: bigger sparks and harder shakes get louder hits; flashes get a sub-bass layer |
+| **S4** designed silence | music drops under holds and reveals. Impact sounds lead the picture by 0 frames; whooshes may lead by 2–6 frames (anticipation). |
+| **S5** vacuum honesty | only contact makes sound. Passing satellites, the comet and debris are silent. |
+
+### 9.4 Time
+
+- **T3 dead air:** no stretch longer than 4 s with neither a cue (event, line
+  or sound) nor visible motion, unless it is a declared hold (`HOLDS` in
+  `frame_audit.py`).
+- **Ledger:** every second of the film appears in the audit's per-second
+  ledger with a named purpose. That is an event, a line, a sound, continuous
+  action, or a declared hold.
+
+### 9.5 How to check
+
+```bash
+node scripts/render.mjs --project=space_duel --at=1   # probe: F1s/F3s, late beats, contact misses
+npm run render:space                                  # full render; --strict fails on any of the above
+python tools/frame_audit.py                           # F2, T1-T3 + per-second ledger -> output_renders/audit/
+```
+
+The audit exits non-zero on any hard failure, so it can gate a pipeline run
+(n8n, CI).
+
+### 9.6 Pending: a reference study
+
+The numbers above are our house standard. A detailed teardown of "Animation
+vs. Coding" (Alan Becker channel) is scheduled. It will measure how objects
+enter, expand and leave there, the shot-by-shot frame balance, and the sound
+sync. It runs when vidIQ credits refill (Oct 28), or from user screenshots. It
+is a technique study only: its findings refine these thresholds.
+
+## 10. Source log
 
 | date | source | method | key findings adopted |
 | --- | --- | --- | --- |
 | 2026-10-13 | "Animation vs. Geometry", Alan Becker channel (YouTube `VEJWE6cpqw0`, 9:02) | vidIQ visual analysis, pass 1: construction and motion (no download) | figure 4.5–5 H; torso 1.3–1.5 H; limb segments 1.0–1.2 H; stroke 12–15% H; open-ring head; round caps; 3–8 f anticipation; 2–4 f holds; flash frames; 2–4 f shake at 5–10 px; environment lines 30–50% thinner; gold for climaxes; no dialogue |
 | 2026-10-13 | same video | vidIQ visual analysis, pass 2: composition and aesthetics | ground at two-thirds height; 33–40% headroom; lead room 0.38 / 0.62 × width; figure 8–15% / 25–35% / 50–70% of frame height (wide / medium / close); line tiers 3 : 2 : 1; vertex dots 1.35 × structure stroke; labels padded 12–16 px; cubic camera easing; average shot length 4.5–6 s (exposition) and 1.2–2.5 s (action); 1.5–2 s holds after reveals; soft bloom with sharp edges |
-| next | an Alan Becker **fight** video | vidIQ analysis when credits refill (Oct 28), and/or user screenshots measured frame by frame | pending |
+| next | "Animation vs. Coding" (Alan Becker channel) and a fight video | vidIQ when credits refill (Oct 28), and/or user screenshots measured frame by frame | pending; see §9.6 |
 
 **To add a source:** analyse a video for *technique* (proportions, timing,
 staging, effects), then add a row here. Update §2–§8 where it changes a rule,
 and bump the version below.
 
-## 10. Changelog
+## 11. Changelog
 
+- **1.3** (2026-10-14): §9 Frame accounting. Subject framing and balance
+  (F1s/F3s) measured from the scene graph every 0.1 s; negative space,
+  sound sync, beat grid and dead air checked by `tools/frame_audit.py`.
+  Entry, growth and exit grammar (E1–E5); sound rules (S1–S5).
 - **1.2** (2026-10-14): background-prop rules (layered detail, original
   engineering, travel lanes, depth crossings). Toy-first opening (a small
   object sets the story in motion).

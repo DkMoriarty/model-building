@@ -542,7 +542,7 @@ function* finale(s: Stage): ThreadGenerator {
     alien.blade.rotation(k.grip, 0.38),
   );
   yield* checkContact(s, 'lock');
-  s.spawn(all(alien.blade.spread(7, 2.5, easeInOutSine), s.world.scale(1.5, 4, easeInOutSine)));
+  s.spawn(all(alien.blade.spread(7, 2.5, easeInOutSine), s.world.scale(1.4, 4, easeInOutSine)));
   s.spawn(s.label.hide());
   // Grinding: the locked blades shed sparks while they push.
   s.spawn((function* () {
@@ -563,6 +563,9 @@ function* finale(s: Stage): ThreadGenerator {
   // Across the gap, with nothing crossing it, the other blade is down.
   yield* syncTo('singlet', -1.5);
   yield* s.label.show('singlet: A ↑  ⇒  B ↓', 'perfectly anti-correlated, always');
+  // Pull out a beat early so the blade's swing over the shoulder stays in frame.
+  yield* syncTo('spinDown', 0.5);
+  s.spawn(s.world.scale(1.2, 1.5, easeInOutCubic));
   yield* syncTo('spinDown');
   alien.blade.spin(-1);
   alien.blade.showSpin(1);
@@ -576,7 +579,6 @@ function* finale(s: Stage): ThreadGenerator {
     alien.blade.rotation(alien.blade.rotation() + 80, 0.25, easeOutCubic),
     // Arm stays forward, blade tipped back over the shoulder: the line is open.
     alien.body.pose({rightShoulder: -150, rightElbow: -20, torso: -10}, 0.4, easeOutCubic),
-    s.world.scale(1.25, 1.5, easeInOutCubic),
   ));
 
   // The disarm: a rising cut through the traveller's grip.
