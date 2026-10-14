@@ -910,6 +910,18 @@
    "dance",
    "pullOut",
    "admire"
+  ],
+  "declared": [
+   [
+    0,
+    24.6,
+    "the dark room before the first light (beats 1-3)"
+   ],
+   [
+    168,
+    181,
+    "the bookend in the dark"
+   ]
   ]
  }
 }

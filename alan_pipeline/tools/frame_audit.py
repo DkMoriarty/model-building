@@ -153,6 +153,8 @@ def main() -> None:
     # are meant to be (nearly) empty, so F2 does not apply inside them.
     end_cue = events.get("end", cues["duration"])
     transitions = [(0.0, 1.5, "fade in"), (end_cue - 1.0, cues["duration"], "fade to end card")]
+    # Deliberately near-empty beats an episode declares (e.g. a dark room).
+    transitions += [(float(a), float(b), why) for a, b, why in story.get("audit", {}).get("declared", [])]
     samples = []
     for i, img in enumerate(imgs):
         t = i / args.rate
@@ -171,14 +173,20 @@ def main() -> None:
 
     # ---- timeline -------------------------------------------------------------
     sfx_times = []
+    anchored = []  # authored as an offset from an event: a lead-in or a follow-through tied to it
     for e in story["sfx"]:
-        sfx_times.append((resolve(e["at"], events, lines) + e.get("offset", 0.0), e["type"]))
+        t = resolve(e["at"], events, lines) + e.get("offset", 0.0)
+        sfx_times.append((t, e["type"]))
+        if e.get("offset"):
+            anchored.append(t)
     impacts = {k: v for k, v in events.items() if k.startswith(impact_prefixes) and not k.startswith("fight")}
     sync = []
     for k, t in sorted(impacts.items(), key=lambda kv: kv[1]):
         if not any(abs(t - st) <= frame for st, _ in sfx_times):
             sync.append(f"impact `{k}` at {t:.2f}s has no sound")
     for st, typ in sfx_times:
+        if st in anchored:
+            continue
         if not any(abs(st - t) <= frame for t in events.values()) and not any(abs(st - l[e]) <= frame for l in lines.values() for e in ("start", "end")):
             # sounds placed with an offset are still tied to an event
             sync.append(f"sound `{typ}` at {st:.2f}s has no visual event")

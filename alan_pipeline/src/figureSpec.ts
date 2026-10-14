@@ -92,7 +92,9 @@ export function propStroke(tierPx: number, nodeScale: number): number {
 /** `#rrggbb` -> `rgba(r,g,b,a)`, for soft glows that keep edges sharp. */
 export function withAlpha(hex: string, alpha: number): string {
   const n = parseInt(hex.replace('#', ''), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  // Fixed-point alpha: tiny values would print as 1e-11, which canvas rejects.
+  const a = Math.max(0, Math.min(1, alpha)).toFixed(4);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
 /** Total standing height in units of H (head + neck + torso + leg). */
