@@ -37,3 +37,4 @@ a study or a mistake teaches something.
 | One lane can't hold a chase where the hero brakes | a red car would have hit Spark from behind | two lanes in side view: rammers pull into the far lane, then can't stop |
 | A jump that lands level needs both edges level | the kicker lifts the car 37 units | the far side of the gap is raised by the kicker's rise |
 | Aimed hazards need a moving target | falling blocks at fixed spots let Spark stand still | `dodge(aim=True)`: each block aims at where Spark stands when it drops |
+| **The score must be heard, end to end** | user feedback on FIRST GAME v4 ("music hasn't come") | music measured per section; no gaps between sections; `musicGain` per episode (FIRST GAME: x2.2, about +7 dB) |

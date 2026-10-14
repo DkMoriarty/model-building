@@ -2651,29 +2651,39 @@
    "to": 56.5254
   },
   {
+   "section": "standoff",
+   "from": 56.5254,
+   "to": 65.5921
+  },
+  {
    "section": "hush",
-   "from": 66.4834,
+   "from": 65.5921,
    "to": 75.4834
   },
   {
    "section": "grow",
-   "from": 77.1834,
-   "to": 90.8334
+   "from": 75.4834,
+   "to": 92.0334
   },
   {
    "section": "chip",
    "from": 92.0334,
-   "to": 108.3911
+   "to": 109.5911
   },
   {
    "section": "chipTense",
    "from": 109.5911,
-   "to": 124.0911
+   "to": 125.2911
   },
   {
    "section": "chipTense",
    "from": 125.2911,
-   "to": 136.2911
+   "to": 136.7911
+  },
+  {
+   "section": "wonder",
+   "from": 136.7911,
+   "to": 144.4911
   },
   {
    "section": "chipFinal",
@@ -2681,11 +2691,17 @@
    "to": 159.9026
   },
   {
+   "section": "resolve",
+   "from": 159.9026,
+   "to": 165.5026
+  },
+  {
    "section": "morning",
    "from": 165.5026,
    "to": 176.3
   }
  ],
+ "musicGain": 2.2,
  "silences": [
   {
    "from": 74.88340000000001,

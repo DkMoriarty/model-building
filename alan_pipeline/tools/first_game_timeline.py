@@ -319,15 +319,19 @@ def main() -> None:
     ev("end", E["stretch"] + 2.6)
     duration = round(E["end"] + 1.6, 1)
 
+    # One continuous score, no gaps: every stretch of the film has music under it.
     M = [
         {"section": "night", "from": 0, "to": E["zoomCode"]},
         {"section": "code", "from": E["zoomCode"], "to": E["tremble"]},
-        {"section": "hush", "from": E["land"], "to": E["glitch"]},
-        {"section": "grow", "from": E["eye"], "to": E["portal1"]},
-        {"section": "chip", "from": E["r1"], "to": E["portal2"]},
-        {"section": "chipTense", "from": E["r2"], "to": E["portal3"]},
-        {"section": "chipTense", "from": E["r3"], "to": E["light3"]},
+        {"section": "standoff", "from": E["tremble"], "to": E["suck"] + 1.0},
+        {"section": "hush", "from": E["suck"] + 1.0, "to": E["glitch"]},
+        {"section": "grow", "from": E["glitch"], "to": E["r1"]},
+        {"section": "chip", "from": E["r1"], "to": E["r2"]},
+        {"section": "chipTense", "from": E["r2"], "to": E["r3"]},
+        {"section": "chipTense", "from": E["r3"], "to": E["light3"] + 0.5},
+        {"section": "wonder", "from": E["light3"] + 0.5, "to": E["race_go"]},
         {"section": "chipFinal", "from": E["race_go"], "to": E["unlock"]},
+        {"section": "resolve", "from": E["unlock"], "to": E["sunrise"]},
         {"section": "morning", "from": E["sunrise"], "to": duration},
     ]
     impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "r1a_", "r1b_", "tremble", "s1", "s2", "s3", "suck", "land", "touch", "glitch", "eye", "door0", "portal", "win", "light", "run_", "dodge_", "keyhole", "keyShow", "keyGlow", "car", "getIn", "race_bump", "race_brake", "race_overEdge", "race_ramp", "race_landJump", "race_key", "unlock", "through", "home", "dissolve", "wakeUp", "clock"]
@@ -341,6 +345,8 @@ def main() -> None:
         "events": E,
         "sfx": S,
         "music": M,
+        # The score sits about 7 dB higher than the earlier films: it carries the story with no voice.
+        "musicGain": 2.2,
         "silences": [{"from": E["glitch"] - 0.6, "to": E["glitch"]}, {"from": E["race_brake"] + 0.3, "to": E["race_overEdge"]}],
         "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,

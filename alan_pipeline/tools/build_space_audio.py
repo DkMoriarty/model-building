@@ -856,7 +856,7 @@ def main() -> None:
         add(sfx_r, at, sig, e.get("gain", 1.0) * (1 + pan) * 0.7)
 
     # 3. Music, ducked under the voice.
-    music = build_music(story, n)
+    music = build_music(story, n) * story.get("musicGain", 1.0)
     env = smooth(voice_bus, 0.25)
     duck = 1 - 0.6 * np.clip(env / 0.04, 0, 1)
     music *= duck[:, None]
