@@ -7,9 +7,9 @@ import {Typography} from '../../styles';
  * glyph per character so typing reveals exactly one character per key
  * click, a blinking cursor, our own syntax colours, at most three lines.
  */
-export const FONT = 16;
+export const FONT = 24;
 export const CHAR_W = FONT * 0.6;
-export const LINE_H = 22;
+export const LINE_H = 28;
 const COLORS = {
   number: '#ffd166',
   fn: '#06d6a0',
@@ -44,9 +44,10 @@ export class CodeView extends Node {
   public constructor(props: NodeProps & {width: number; height: number; time: () => number}) {
     const {width, height, time, ...rest} = props;
     super(rest);
-    this.add(new Rect({width, height, fill: '#0b0f18'}));
-    this.body = new Node({x: -width / 2 + 12, y: -height / 2 + 18});
-    this.add(this.body);
+    const frame = new Rect({width, height, fill: '#0b0f18', clip: true});
+    this.add(frame);
+    this.body = new Node({x: -width / 2 + 10, y: -height / 2 + 14});
+    frame.add(this.body);
     this.cursor = new Rect({width: CHAR_W, height: 3, offset: [-1, 0], fill: '#ffffff'});
     this.body.add(this.cursor);
     // Blink on the scene clock (useTime is only valid inside a thread, not while drawing).
@@ -121,6 +122,12 @@ export class CodeView extends Node {
     this.body.add(node);
     this.lines[line] = {node, text, shown};
     this.cursor.position([text.length * CHAR_W, y + FONT * 0.55]);
+  }
+
+  /** Show the last line complete at once (a recalled line, not one being typed). */
+  public reveal(): void {
+    const l = this.lines[this.lines.length - 1];
+    l.shown(l.text.length);
   }
 
   public lineCount(): number {

@@ -15,3 +15,25 @@ export const duration = cues.duration;
 export const code = cues.code as Record<string, string>;
 /** The game's physics constants; every flight in the film obeys them. */
 export const physics = cues.physics;
+
+export interface Segment {
+  t: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  until: number;
+}
+export interface RallyEvent {
+  kind: 'serve' | 'hit' | 'wall' | 'miss' | 'tunnel' | 'goal';
+  t: number;
+  side?: number;
+  y?: number;
+  speed?: number;
+}
+export interface Rally {
+  segments: Segment[];
+  events: RallyEvent[];
+}
+/** Every ball flight in the film, computed by tools/pong.py. */
+export const rallies = (cues as unknown as {rallies: Record<string, Rally>}).rallies;

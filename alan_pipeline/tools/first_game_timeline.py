@@ -1,68 +1,73 @@
 #!/usr/bin/env python3
-"""Build audio/first_game/story.json: the FIRST GAME timeline, derived from physics.
+"""Build audio/first_game/story.json: FIRST GAME, timed by real physics.
 
     python tools/first_game_timeline.py && python tools/build_space_audio.py --episode first_game
 
-Every flight in the game lasts exactly as long as the coded physics says
-(style bible K5): gravity G, the jump speed Spark types, the spring
-strengths. Typing runs at 12 characters a second, one key click per
-character (K2). The code Spark types and the physics constants are written
-into story.json, passed through to cues.json, and read by the scene, so
-the picture, the timeline and the code on screen can never disagree.
+Spark codes a first program (hello world), invents ping pong line by line,
+plays it, falls asleep, and wakes up inside it. Every ball flight comes from
+tools/pong.py: constant speed, true wall reflections, 1.5x speed per hit,
+collisions checked once per frame (so a fast enough ball really can skip
+through a paddle). Typing runs at 12 characters a second, one click per
+character. The code, the rallies and the constants are written into
+story.json, passed through to cues.json, and drawn by the scene as is.
 """
 
 from __future__ import annotations
 
 import json
 import math
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import pong  # noqa: E402
 
-# ---- the game's physics (game units: 1280 x 720 screen, ground at y = 250)
-PHYS = {
-    "g": 1800.0,        # gravity, units/s^2  (hero.vy += 30 per frame at 60 fps)
-    "jump": -900.0,     # jump speed, units/s (after the -9000 typo is fixed)
-    "typo": -9000.0,
-    "spring2": -1000.0, # level 2 spring
-    "spring3": -1100.0, # level 3 spring
-    "run": 300.0,       # running speed, units/s
-    "pelvis": 105.0,    # pelvis height above a surface
-    "ground": 250.0,
-    "platformTop": 159.0,
-    "spikesTop": 305.0,
-    "springTop2": 206.0,
-    "springTop3": 291.0,
-    "ledge": -40.0,
-    "slowmo": 0.25,     # time scale while riding the platform down (try 2)
-}
+ROOT = Path(__file__).resolve().parents[1]
 CPS = 12.0
-ENTER = 0.1  # result fires 6 frames after Enter (K3)
+ENTER = 0.1
 
 CODE = {
-    "typeFloor": "floor = box(0, 250).gap(160)",
-    "typeHero": "hero = player(-480, 250)",
-    "typeGravity": "hero.vy += 30",
-    "typeFix1": "hero.y = min(hero.y, 250)",
-    "typeJump": "hero.jump = -9000",
-    "typeFlag": "flag = goal(330)",
-    "typeLvl2": "level(2, {spring: -1000})",
-    "typeLvl3": "level(3, {pit: 760})",
+    "c1": 'print("hello world")',
+    "c2": "ball = circle(0, 0)",
+    "c3": "ball.move(300, 200)",
+    "c4": "bounce(ball, walls)",
+    "c5": "paddle = bar(-560)",
+    "c6": "ball.speed = 3000",
+    "c7": "ball.speed = 600",
+    "c8": "cpu = bar(560)",
+    "c9": "ball.onHit = v => v*1.5",
+    "c10": "cpu.speed = 99",
 }
 
 
-def land_time(y0: float, vy: float, y1: float, g: float = PHYS["g"]) -> float:
-    """Time for a body at y0 moving at vy to reach y1 on the way down."""
-    a, b, c = 0.5 * g, vy, y0 - y1
-    return (-b + math.sqrt(b * b - 4 * a * c)) / (2 * a)
+def box_bounce(t0: float, x: float, y: float, vx: float, vy: float, until: float, walls_x: bool = True) -> tuple[list[dict], list[float]]:
+    """A ball in a closed box (all four walls), from t0 to `until`."""
+    segs, hits = [], []
+    lim_y = pong.WALL - pong.BALL_R
+    lim_x = 640 - pong.BALL_R
+    t = t0
+    while t < until - 1e-9:
+        tx = ((lim_x if vx > 0 else -lim_x) - x) / vx if (walls_x and vx) else math.inf
+        ty = ((lim_y if vy > 0 else -lim_y) - y) / vy if vy else math.inf
+        dt = min(tx, ty, until - t)
+        segs.append({"t": round(t, 5), "x": round(x, 3), "y": round(y, 3), "vx": vx, "vy": vy, "until": round(t + dt, 5)})
+        x += vx * dt
+        y += vy * dt
+        t += dt
+        if t >= until - 1e-9:
+            break
+        hits.append(round(t, 5))
+        if dt == tx:
+            vx = -vx
+        else:
+            vy = -vy
+    return segs, hits
 
 
 def main() -> None:
-    P = PHYS
-    pel = P["pelvis"]
-    ground = P["ground"] - pel
     E: dict[str, float] = {}
     S: list[dict] = []
+    R: dict[str, dict] = {}
 
     def ev(name: str, t: float) -> float:
         E[name] = round(t, 4)
@@ -71,18 +76,29 @@ def main() -> None:
     def sfx(kind: str, at: str, **kw) -> None:
         S.append({"type": kind, "at": at, **kw})
 
-    def typing(cue: str, start: float, text: str, effect: str | None) -> float:
-        """Type `text` from `start`: a click per character, Enter, then the effect."""
+    def typing(cue: str, start: float) -> float:
+        text = CODE[cue]
         ev(cue, start)
         for i in range(len(text)):
             sfx("key", cue, offset=round(i / CPS, 4), gain=0.5)
         enter = ev(cue + "Enter", start + len(text) / CPS)
         sfx("enter", cue + "Enter")
-        if effect:
-            ev(effect, enter + ENTER)
-        return enter + ENTER
+        return ev(cue + "Run", enter + ENTER)
 
-    # ---- the want
+    def rally(name: str, r: pong.Rally, volume: float = 1.0) -> float:
+        """Register a rally: segments for the picture, a sound for every bounce."""
+        R[name] = {"segments": r.segments, "events": [{"kind": k, "t": round(t, 5), **{a: round(b, 3) for a, b in d.items()}} for k, t, d in r.events]}
+        n = {"hit": 0, "wall": 0}
+        for k, t, d in r.events:
+            if k in ("hit", "wall", "tunnel", "goal", "serve"):
+                key = f"{name}_{k}{n.get(k, 0)}"
+                n[k] = n.get(k, 0) + 1
+                ev(key, t)
+                kind = {"hit": "pong", "wall": "wallbeep", "tunnel": "glitch", "goal": "score", "serve": "pong"}[k]
+                sfx(kind, key, gain=volume)
+        return r.t
+
+    # ---- the want: NO GAME
     for k, t in [("open", 0.0), ("press1", 2.4), ("press2", 3.6), ("press3", 4.8), ("slump", 5.7), ("lookKeys", 7.2), ("idea", 8.4), ("title", 9.6), ("titleOut", 12.6)]:
         ev(k, t)
     for k in ["press1", "press2", "press3"]:
@@ -90,199 +106,137 @@ def main() -> None:
         sfx("beep", k, offset=0.05, gain=0.6)
     sfx("click", "idea", gain=0.6)
 
-    # ---- coding, close on the screen (K1-K4)
-    t = ev("zoomCode1", 13.0)
-    t = typing("typeFloor", t + 0.5, CODE["typeFloor"], "floor")
-    sfx("pop", "floor", gain=0.4)
-    t = typing("typeHero", t + 1.0, CODE["typeHero"], "hero")
-    sfx("pop", "hero", gain=0.4)
-    sfx("blip", "hero", gain=0.5)
-    # Gravity, with no floor collision: the hero drops straight through (bug 1).
-    t = typing("typeGravity", t + 1.0, CODE["typeGravity"], "fallBug")
-    sfx("fall8", "fallBug")
-    t = ev("zoomOut1", t + 1.0)
-    ev("facepalm", t + 0.6)
-    t = ev("zoomCode2", t + 1.8)
-    t = typing("typeFix1", t + 0.5, CODE["typeFix1"], "fix1")
-    sfx("ding", "fix1", gain=0.5)
-    t = typing("typeJump", t + 1.0, CODE["typeJump"], None)
-    # Spark tries the jump: at -9000 the hero leaves the top of the screen in 2 frames (bug 2).
-    t = ev("zoomOut2", t + 0.6)
-    ev("jumpBug", t + 0.9)
-    sfx("click", "jumpBug", gain=0.5)
-    sfx("jump8", "jumpBug", gain=0.6)
-    ev("lookUp", E["jumpBug"] + 0.5)
-    # The fix: cursor back to the number, delete one zero (K6).
-    t = ev("zoomCode3", E["lookUp"] + 1.6)
-    ev("editTypo", t + 0.6)
-    sfx("key", "editTypo", gain=0.6)
-    ev("fix2", E["editTypo"] + 0.4)
-    sfx("enter", "fix2")
-    # Re-run and jump: up 225 units and down in exactly 1.0 s.
-    ev("jumpOk", E["fix2"] + 0.8)
-    sfx("jump8", "jumpOk", gain=0.6)
-    flat = 2 * -P["jump"] / P["g"]
-    ev("landOk", E["jumpOk"] + flat)
-    sfx("thud", "landOk", gain=0.3)
-    t = typing("typeFlag", E["landOk"] + 0.8, CODE["typeFlag"], "flag")
-    sfx("pop", "flag", gain=0.4)
-    sfx("blip", "flag", gain=0.4)
-    # Play level 1 for real.
-    t = ev("zoomOut3", t + 1.0)
-    play2 = ev("play2", t + 0.8)
-    sfx("click", "play2", gain=0.5)
-    run1 = (-150 - -480) / P["run"]
-    ev("hop1", play2 + run1)
-    sfx("jump8", "hop1")
-    ev("hopLand1", E["hop1"] + flat)
-    sfx("thud", "hopLand1", gain=0.3)
-    ev("clear1", E["hopLand1"] + (300 - 150) / P["run"])
-    sfx("fanfare", "clear1")
-    ev("cheer", E["clear1"] + 0.6)
+    # ---- close on the screen: code above, output below
+    ev("zoomCode", 13.0)
+    t = typing("c1", 13.6)
+    sfx("blip", "c1Run", gain=0.5)
+    ev("smile", t + 0.8)
+    t = typing("c2", t + 1.8)
+    sfx("pop", "c2Run", gain=0.4)
+    t = typing("c3", t + 1.2)
+    # ball.move(300, 200): it drifts down-right and leaves the screen.
+    exit_t = (pong.WALL + 20) / 200
+    R["move"] = {"segments": [{"t": t, "x": 0, "y": 0, "vx": 300, "vy": 200, "until": round(t + exit_t, 5)}], "events": []}
+    ev("ballGone", t + exit_t)
+    ev("whereGone", E["ballGone"] + 0.3)
+    t = typing("c4", E["whereGone"] + 1.4)
+    segs, hits = box_bounce(t, 0, 0, 300, 200, t + 4.0)
+    R["box"] = {"segments": segs, "events": [{"kind": "wall", "t": h} for h in hits]}
+    for i, h in enumerate(hits):
+        ev(f"box_wall{i}", h)
+        sfx("wallbeep", f"box_wall{i}", gain=0.7)
+    ev("hypno", t + 1.6)
+    t = typing("c5", t + 4.0)
+    sfx("pop", "c5Run", gain=0.4)
+    # The paddle: Spark plays it with the arrow keys. The right side is still a wall.
+    segs, hits = box_bounce(t + 0.4, 300, -100, -600, 60, t + 0.4 + (300 - (-pong.PADDLE_X + pong.PADDLE_HALF_W + pong.BALL_R)) / 600, walls_x=False)
+    t_hit = segs[-1]["until"]
+    y_hit = segs[-1]["y"] + segs[-1]["vy"] * (t_hit - segs[-1]["t"])
+    segs2, hits2 = box_bounce(t_hit, -pong.PADDLE_X + pong.PADDLE_HALF_W + pong.BALL_R, y_hit, 600, 160, t_hit + 2.2)
+    R["paddle"] = {"segments": segs + segs2, "events": [{"kind": "hit", "t": t_hit, "side": -1, "y": round(y_hit, 3)}] + [{"kind": "wall", "t": h} for h in hits + hits2]}
+    ev("paddleHit", t_hit)
+    sfx("pong", "paddleHit")
+    for i, h in enumerate(hits + hits2):
+        ev(f"paddle_wall{i}", h)
+        sfx("wallbeep", f"paddle_wall{i}", gain=0.7)
+    ev("nod", t_hit + 0.4)
+    # ball.speed = 3000: at 50 units a frame the ball skips over the 12-unit paddle.
+    t = typing("c6", t_hit + 2.6)
+    r = pong.find(t + 0.3, +1, 0, [("serve", 4), ("tunnel", 0)], speed0=3000, speeds=(0, 0))
+    end = rally("glitch", r)
+    ev("doubleTake", end + 0.3)
+    ev("laughG", E["doubleTake"] + 1.0)
+    t = typing("c7", E["laughG"] + 1.2)
+    t = typing("c8", t + 0.8)
+    sfx("pop", "c8Run", gain=0.4)
+    t = typing("c9", t + 1.0)
+    ev("ahHa", t + 0.4)
+    # Pull back: Spark plays its first game, and scores.
+    ev("zoomOut", t + 1.4)
+    play = ev("play", E["zoomOut"] + 1.0)
+    r = pong.find(play + 0.3, +1, 0, [("serve", 12), ("hit", -18), ("hit", 22), ("hit", 34), ("miss", 0)], speeds=(pong.REACH, 80))
+    end = rally("first", r)
+    ev("point1", end)
+    ev("cheer", end + 0.3)
 
-    # ---- more levels, into the night
-    t = ev("zoomCode4", E["cheer"] + 1.4)
-    t = typing("typeLvl2", t + 0.5, CODE["typeLvl2"], "lvl2")
-    sfx("ripple", "lvl2")
-    ev("clock1", t + 1.2)
+    # ---- into the night: an unbeatable opponent
+    ev("zoomCode2", E["cheer"] + 2.0)
+    t = typing("c10", E["zoomCode2"] + 0.6)
+    ev("grin", t + 0.6)
+    ev("clock1", E["grin"] + 1.4)
     sfx("tick", "clock1")
-    t = typing("typeLvl3", E["clock1"] + 1.4, CODE["typeLvl3"], "lvl3")
-    sfx("ripple", "lvl3")
-    ev("grin", t + 1.2)
-    ev("clock2", E["grin"] + 1.2)
-    sfx("tick", "clock2")
-    play3 = ev("play3", E["clock2"] + 1.2)
-    sfx("click", "play3", gain=0.5)
-    ev("jump3m", play3 + (-392 - -480) / P["run"] + 0.3)
-    sfx("jump8", "jump3m")
-    pit = land_time(ground, P["jump"], P["spikesTop"] - pel)
-    ev("die1", E["jump3m"] + pit)
-    sfx("hurt", "die1")
-    ev("gameOverMini", E["die1"] + 0.6)
+    play2 = ev("play2", E["clock1"] + 1.6)
+    r = pong.find(play2 + 0.3, +1, 0, [("serve", -14), ("hit", 30), ("hit", -20), ("hit", 25), ("hit", -38), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("lose", r)
+    ev("gameOverMini", end + 0.3)
     sfx("gameover", "gameOverMini", gain=0.7)
-    ev("laugh", E["gameOverMini"] + 0.6)
+    ev("laugh", end + 0.9)
     ev("yawn", E["laugh"] + 1.8)
     ev("droop", E["yawn"] + 1.8)
     ev("pull", E["droop"] + 1.2)
     sfx("riser", "pull", length=1.2, gain=0.6)
     ev("suck", E["pull"] + 1.2)
     sfx("whoosh", "suck")
-    fall_in = math.sqrt(2 * (ground - -500) / P["g"])
-    ev("inside", E["suck"] + 0.9 + 0.1 + fall_in)
+    ev("inside", E["suck"] + 1.4)
     sfx("thud", "inside")
 
-    # ---- inside: level 1
-    ev("lookHands", E["inside"] + 1.2)
+    # ---- inside the game: Spark is the left paddle
+    ev("lookHands", E["inside"] + 1.0)
     ev("lookBack", E["lookHands"] + 1.2)
-    ev("point", E["lookBack"] + 1.8)
-    go1 = ev("go1", E["point"] + 1.2)
-    ev("jumpL1", go1 + (-150 - -480) / P["run"])
-    sfx("jump8", "jumpL1")
-    ev("landL1", E["jumpL1"] + flat)
-    sfx("thud", "landL1", gain=0.3)
-    ev("flagL1", E["landL1"] + (300 - 150) / P["run"])
-    sfx("fanfare", "flagL1")
-    ev("wipe1", E["flagL1"] + 1.2)
+    ev("seeDoor", E["lookBack"] + 1.8)
+    # Level 1: a slow opponent. One point wins it.
+    l1 = ev("l1", E["seeDoor"] + 1.6)
+    r = pong.find(l1 + 0.6, -1, 0, [("serve", -10), ("hit", 15), ("hit", 34), ("miss", 0)], speeds=(pong.REACH, 70))
+    end = rally("l1", r)
+    ev("clear1", end + 0.2)
+    sfx("fanfare", "clear1")
+    ev("wipe1", E["clear1"] + 1.4)
     sfx("whoosh", "wipe1", gain=0.5)
-
-    # ---- level 2: the ball, the spring
-    l2 = ev("l2start", E["wipe1"] + 0.6)
-    ev("ball", l2 + 0.6)
-    sfx("roll", "ball", length=3.0, gain=0.5)
-    ev("jumpBall", E["ball"] + 1.8)
-    sfx("jump8", "jumpBall")
-    ev("landBall", E["jumpBall"] + flat)
-    sfx("thud", "landBall", gain=0.3)
-    ev("spring1", E["landBall"] + (60 - 50) / P["run"] + 0.2)
-    sfx("boing", "spring1")
-    up2 = land_time(P["springTop2"] - pel, P["spring2"], P["ledge"] - pel)
-    ev("landLedge", E["spring1"] + up2)
-    sfx("thud", "landLedge", gain=0.5)
-    ev("flagL2", E["landLedge"] + (425 - 320) / P["run"] + 0.2)
-    sfx("fanfare", "flagL2")
-    ev("wipe2", E["flagL2"] + 1.2)
+    # Level 2: faster. One point.
+    l2 = ev("l2", E["wipe1"] + 0.6)
+    r = pong.find(l2 + 0.8, +1, 40, [("serve", 16), ("hit", -26), ("hit", 20), ("hit", -36), ("miss", 0)], speeds=(pong.REACH, 130))
+    end = rally("l2", r)
+    ev("clear2", end + 0.2)
+    sfx("fanfare", "clear2")
+    ev("wipe2", E["clear2"] + 1.4)
     sfx("whoosh", "wipe2", gain=0.5)
-
-    # ---- level 3: the door home
-    l3 = ev("l3start", E["wipe2"] + 0.6)
-    ev("seeDoor", l3 + 1.2)
-    ev("gulp", E["seeDoor"] + 1.4)
-    # try 1
-    try1 = ev("try1", E["gulp"] + 1.2)
-    ev("jump1", try1 + 0.5 + (-392 - -480) / P["run"] + 0.2)
-    sfx("jump8", "jump1")
-    ev("hurt1", E["jump1"] + pit)
-    sfx("hurt", "hurt1")
-    ev("respawn1", E["hurt1"] + 1.2)
-    sfx("blip", "respawn1", gain=0.4)
-    ev("react1", E["respawn1"] + 0.6)
-    # try 2: onto the platform, ride it down (slow motion), see the spring
-    try2 = ev("try2", E["react1"] + 1.2)
-    ev("jump2", try2 + (-392 - -480) / P["run"] + 0.5)
-    sfx("jump8", "jump2")
-    ev("land2", E["jump2"] + land_time(ground, P["jump"], P["platformTop"] - pel))
-    sfx("thud", "land2", gain=0.4)
-    ev("shake2", E["land2"] + 0.6)
-    sfx("rattle", "shake2")
-    ev("drop2", E["shake2"] + 0.6)
-    sfx("fall8", "drop2")
-    ride = math.sqrt(2 * (P["spikesTop"] - P["platformTop"]) / P["g"]) / P["slowmo"]
-    ev("seeSpring", E["drop2"] + ride * 0.45)
-    sfx("ding", "seeSpring", gain=0.35)
-    ev("hurt2", E["drop2"] + ride)
-    sfx("hurt", "hurt2")
-    ev("respawn2", E["hurt2"] + 1.2)
-    sfx("blip", "respawn2", gain=0.4)
-    ev("think", E["respawn2"] + 0.6)
-    # try 3: a longer, faster run-up; still the pit
-    try3 = ev("try3", E["think"] + 1.4)
-    ev("jump3", try3 + 0.55 + (-392 - -540) / 400 + 0.3)
-    sfx("jump8", "jump3")
-    ev("hurt3", E["jump3"] + pit)
-    sfx("hurt", "hurt3")
-    ev("gameOver", E["hurt3"] + 0.6)
+    # Level 3: the unbeatable paddle (cpu.speed = 99). First to three.
+    l3 = ev("l3", E["wipe2"] + 0.6)
+    ev("gulp", l3 + 1.0)
+    p1 = ev("p1", E["gulp"] + 1.4)
+    r = pong.find(p1 + 0.3, +1, 0, [("serve", 18), ("hit", -20), ("hit", 25), ("hit", -15), ("hit", 40), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("p1", r)
+    ev("react1", end + 0.6)
+    p2 = ev("p2", E["react1"] + 1.4)
+    r = pong.find(p2 + 0.3, +1, -60, [("serve", -16), ("hit", 22), ("hit", -25), ("hit", 18), ("hit", -42), ("miss", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("p2", r)
+    ev("react2", end + 0.6)
+    p3 = ev("p3", E["react2"] + 1.6)
+    # Spark reaches every ball this time... and the fast one goes straight through.
+    r = pong.find(p3 + 0.3, +1, 0, [("serve", 20), ("hit", -25), ("hit", 30), ("hit", -20), ("hit", 15), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("p3", r)
+    ev("gameOver", end + 0.4)
     sfx("gameover", "gameOver")
-    ev("slumpGO", E["gameOver"] + 1.2)
+    ev("stare", E["gameOver"] + 0.8)
+    ev("slumpGO", E["stare"] + 1.6)
     ev("count3", E["slumpGO"] + 2.4)
     ev("count2", E["count3"] + 1.2)
     ev("memory", E["count2"] + 0.3)
     ev("count1", E["count2"] + 1.2)
     for k in ["count3", "count2", "count1"]:
         sfx("tick", k, gain=0.9)
-    sfx("ding", "memory", gain=0.5)
-    # The punch: a full jump, the fist meets the sign at the top (0.5 s).
-    ev("jumpPunch", E["count1"] + 0.3)
-    sfx("jump8", "jumpPunch")
-    ev("punch", E["jumpPunch"] + flat / 2)
-    sfx("oneup", "punch")
-    ev("heart1", E["punch"] + 0.6)
-    sfx("blip", "heart1", gain=0.5)
-    # try 4: the plan
-    try4 = ev("try4", E["heart1"] + 1.2)
-    ev("jump4", try4 + (-392 - -470) / P["run"] + 0.3)
-    sfx("jump8", "jump4")
-    ev("land4", E["jump4"] + land_time(ground, P["jump"], P["platformTop"] - pel))
-    sfx("thud", "land4", gain=0.4)
-    ev("shake4", E["land4"] + 0.6)
-    sfx("rattle", "shake4")
-    ev("drop4", E["shake4"] + 0.6)
-    sfx("fall8", "drop4")
-    # Leap off the falling platform after 0.15 s; its downward speed adds to the jump.
-    lead = 0.15
-    plat_y = P["platformTop"] - pel + 0.5 * P["g"] * lead**2
-    vy = P["jump"] + P["g"] * lead
-    ev("leap4", E["drop4"] + lead)
-    sfx("jump8", "leap4")
-    ev("boing4", E["leap4"] + land_time(plat_y, vy, P["springTop3"] - pel))
-    sfx("boing", "boing4", gain=1.2)
-    ev("soar", E["boing4"] + 0.3)
-    ev("landExit", E["boing4"] + land_time(P["springTop3"] - pel, P["spring3"], ground))
-    sfx("thud", "landExit", gain=0.6)
-    ev("door", E["landExit"] + (470 - 440) / P["run"] + 0.8)
+    sfx("glitch", "memory", gain=0.6)
+    ev("press", E["count1"] + 0.6)
+    sfx("oneup", "press")
+    # The plan: Spark serves, so the fifth, fastest hit is Spark's.
+    p4 = ev("p4", E["press"] + 1.6)
+    r = pong.find(p4 + 0.6, -1, 0, [("serve", -20), ("hit", 25), ("hit", -30), ("hit", 20), ("hit", -10), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("p4", r)
+    ev("door", end + 0.1)
     sfx("fanfare", "door", gain=1.1)
 
     # ---- the dream breaks
-    ev("crack", E["door"] + 1.2)
+    ev("crack", E["door"] + 1.4)
     ev("crack2", E["crack"] + 0.6)
     ev("shatter", E["crack2"] + 0.6)
     for k in ["crack", "crack2"]:
@@ -290,7 +244,7 @@ def main() -> None:
     sfx("shatter", "shatter")
     sfx("boom", "shatter", gain=0.6)
 
-    # ---- awake
+    # ---- awake: the same plan, on the real screen
     ev("wake", E["shatter"] + 2.4)
     sfx("thud", "wake", gain=0.6)
     ev("clock3", E["wake"] + 1.2)
@@ -299,37 +253,26 @@ def main() -> None:
     ev("grinKnow", E["lookScreen"] + 1.2)
     ev("grab", E["grinKnow"] + 1.2)
     sfx("click", "grab", gain=0.5)
-    # The same plan, tiny, on the screen: same physics, same durations.
-    m = ev("m_run", E["grab"] + 1.2)
-    sfx("click", "m_run", gain=0.5)
-    ev("m_jump", m + (-392 - -480) / P["run"] + 0.3)
-    sfx("jump8", "m_jump", gain=0.6)
-    ev("m_land", E["m_jump"] + (E["land4"] - E["jump4"]))
-    sfx("thud", "m_land", gain=0.3)
-    ev("m_drop", E["m_land"] + 1.2)
-    sfx("fall8", "m_drop", gain=0.6)
-    ev("m_leap", E["m_drop"] + lead)
-    sfx("jump8", "m_leap", gain=0.6)
-    ev("m_boing", E["m_leap"] + (E["boing4"] - E["leap4"]))
-    sfx("boing", "m_boing", gain=0.8)
-    ev("m_land2", E["m_boing"] + (E["landExit"] - E["boing4"]))
-    sfx("thud", "m_land2", gain=0.3)
-    ev("m_win", E["m_land2"] + (E["door"] - E["landExit"]))
-    sfx("fanfare", "m_win")
-    ev("leapChair", E["m_win"] + 0.6)
+    m = ev("final", E["grab"] + 1.2)
+    r = pong.find(m + 0.6, -1, 0, [("serve", -20), ("hit", 25), ("hit", -30), ("hit", 20), ("hit", -10), ("tunnel", 0)], speeds=(pong.REACH, 99 * 60))
+    end = rally("final", r, 0.8)
+    ev("win", end + 0.1)
+    sfx("fanfare", "win")
+    ev("leapChair", E["win"] + 0.6)
     sfx("thud", "leapChair", gain=0.5)
     ev("cheer2", E["leapChair"] + 1.2)
     ev("end", E["cheer2"] + 3.0)
     duration = round(E["end"] + 1.6, 1)
 
     M = [
-        {"section": "night", "from": 0, "to": E["zoomCode1"]},
-        {"section": "code", "from": E["zoomCode1"], "to": E["pull"]},
-        {"section": "chip", "from": E["inside"], "to": E["l3start"]},
-        {"section": "chipTense", "from": E["l3start"], "to": E["gameOver"]},
-        {"section": "chipFinal", "from": E["heart1"], "to": E["crack"]},
+        {"section": "night", "from": 0, "to": E["zoomCode"]},
+        {"section": "code", "from": E["zoomCode"], "to": E["pull"]},
+        {"section": "chip", "from": E["inside"], "to": E["l3"]},
+        {"section": "chipTense", "from": E["l3"], "to": E["gameOver"]},
+        {"section": "chipFinal", "from": E["press"], "to": E["crack"]},
         {"section": "morning", "from": E["wake"], "to": duration},
     ]
+    impacts = ["press1", "press2", "press3", "idea", "c1Run", "c2Run", "c5Run", "c8Run", "paddleHit", "box_", "paddle_", "glitch_", "first_", "lose_", "l1_", "l2_", "p1_", "p2_", "p3_", "p4_", "final_", "clear", "gameOver", "suck", "inside", "count", "memory", "press", "door", "crack", "shatter", "wake", "grab", "win", "leapChair", "clock"]
     story = {
         "title": "First Game",
         "bpm": 100,
@@ -341,16 +284,17 @@ def main() -> None:
         "sfx": S,
         "music": M,
         "silences": [{"from": E["gameOver"] + 0.6, "to": E["count3"]}, {"from": E["shatter"] + 0.2, "to": E["wake"]}],
-        "physics": PHYS,
+        "physics": {"wall": pong.WALL, "ballR": pong.BALL_R, "paddleX": pong.PADDLE_X, "paddleHalfW": pong.PADDLE_HALF_W, "paddleHalfH": pong.PADDLE_HALF_H, "goalX": pong.GOAL_X, "fps": pong.FPS, "reach": pong.REACH},
         "code": CODE,
+        "rallies": R,
         "audit": {
-            "impacts": ["press", "idea", "floor", "hero", "fallBug", "fix", "jumpBug", "jumpOk", "landOk", "flag", "hop", "clear1", "lvl", "clock", "die1", "gameOver", "suck", "inside", "jumpL1", "landL1", "flagL", "jumpBall", "landBall", "spring1", "landLedge", "jump", "hurt", "respawn", "land2", "shake", "drop", "seeSpring", "count", "memory", "punch", "heart1", "land4", "leap4", "boing4", "landExit", "door", "crack", "shatter", "wake", "grab", "m_", "leapChair", "editTypo"],
-            "holds": ["title", "slump", "lookKeys", "cheer", "grin", "laugh", "yawn", "droop", "lookHands", "lookBack", "point", "seeDoor", "gulp", "react1", "think", "slumpGO", "soar", "grinKnow", "cheer2", "end", "lookUp", "facepalm", "zoomOut1", "zoomOut2", "zoomOut3"],
+            "impacts": impacts,
+            "holds": ["title", "slump", "lookKeys", "smile", "whereGone", "hypno", "nod", "doubleTake", "laughG", "ahHa", "cheer", "grin", "laugh", "yawn", "droop", "lookHands", "lookBack", "seeDoor", "gulp", "react1", "react2", "stare", "slumpGO", "grinKnow", "cheer2", "end", "zoomOut", "point1", "l1", "l2", "l3"],
             "declared": [[0, 2.0, "fade in on the dark room"], [E["shatter"], E["wake"], "the dream breaks: white"]],
         },
     }
     (ROOT / "audio/first_game/story.json").write_text(json.dumps(story, indent=1) + "\n")
-    print(f"{len(E)} events, {len(S)} sounds, {duration} s; inside fall {fall_in:.2f} s, pit jump {pit:.3f} s, ride {ride:.2f} s")
+    print(f"{len(E)} events, {len(S)} sounds, {len(R)} rallies, {duration} s")
 
 
 if __name__ == "__main__":

@@ -444,6 +444,33 @@ def sfx_enter(length: float = 0.12) -> np.ndarray:
     return (spectral_filter(RNG.normal(0, 1, n), 600, 5000) * np.exp(-t * 120) + np.sin(2 * np.pi * 900 * t) * np.exp(-t * 90) * 0.4) * 0.5
 
 
+def sfx_pong(length: float = 0.09) -> np.ndarray:
+    """Ball on paddle: a short square blip."""
+    n = int(length * SR)
+    return square(523.25, n, 0.5) * env_adsr(n, 0.002, 0.02, 0.8, 0.03) * 0.13
+
+
+def sfx_wallbeep(length: float = 0.07) -> np.ndarray:
+    """Ball on wall: the same blip an octave lower."""
+    n = int(length * SR)
+    return square(261.6, n, 0.5) * env_adsr(n, 0.002, 0.02, 0.8, 0.03) * 0.11
+
+
+def sfx_score(length: float = 0.5) -> np.ndarray:
+    n = int(length * SR)
+    return sweep(500, 160, length, 0.5) * env_adsr(n, 0.005, 0.1, 0.7, 0.1) * 0.12
+
+
+def sfx_glitch(length: float = 0.45) -> np.ndarray:
+    """The ball skipping through a paddle: a stuttering, bit-crushed zip."""
+    n = int(length * SR)
+    t = np.arange(n) / SR
+    tone = sweep(1400, 2800, length, 0.5)
+    gate = (np.floor(t * 40) % 2).astype(float)
+    crush = np.round(spectral_filter(RNG.normal(0, 1, n), 2000, 9000) * 4) / 4
+    return (tone * gate * 0.1 + crush * 0.08) * env_adsr(n, 0.005, 0.1, 0.8, 0.1)
+
+
 def sfx_beep(length: float = 0.18) -> np.ndarray:
     n = int(length * SR)
     return square(880, n, 0.25) * env_adsr(n, 0.005, 0.05, 0.7, 0.04) * 0.12
@@ -559,6 +586,10 @@ SFX = {
     "copy": lambda e: sfx_copy(),
     "key": lambda e: sfx_key(),
     "enter": lambda e: sfx_enter(),
+    "pong": lambda e: sfx_pong(),
+    "wallbeep": lambda e: sfx_wallbeep(),
+    "score": lambda e: sfx_score(),
+    "glitch": lambda e: sfx_glitch(),
     "beep": lambda e: sfx_beep(),
     "jump8": lambda e: sfx_jump8(),
     "fall8": lambda e: sfx_fall8(),
@@ -854,7 +885,7 @@ def main() -> None:
         "events": events,
     }
     # Episode data the scene needs verbatim (the code typed on screen, physics).
-    for key in ("code", "physics"):
+    for key in ("code", "physics", "rallies"):
         if key in story:
             cues[key] = story[key]
     (DIR / "cues.json").write_text(json.dumps(cues, indent=2) + "\n")

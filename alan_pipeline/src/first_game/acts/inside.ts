@@ -1,303 +1,205 @@
 import {Circle, Line, Node, Rect} from '@motion-canvas/2d';
-import {all, createSignal, easeInCubic, easeInOutCubic, easeInOutSine, easeInQuad, easeOutBack, easeOutCubic, linear, ThreadGenerator, useTime, Vector2, waitFor} from '@motion-canvas/core';
+import {all, createSignal, easeInCubic, easeInOutCubic, easeInOutSine, easeOutBack, easeOutCubic, ThreadGenerator, useTime, Vector2, waitFor} from '@motion-canvas/core';
 import {Pose} from '../../components/StickFigure';
 import {withAlpha} from '../../figureSpec';
 import {STAND} from '../../first_light/acts/dark';
 import {sparkBurst} from '../../first_light/components/Fx';
 import {Stage, worldOf} from '../../first_light/stage';
-import {buildLevel, G, GAME_COLORS, heart, Level, PELVIS, roomPicture} from '../components/Game';
+import {CodeView} from '../components/CodeView';
+import {roomPicture} from '../components/Game';
+import {Court, playRally, PONG, PONG_COLORS} from '../components/Pong';
 import {gameText} from '../components/Room';
-import {at, Cue, syncTo} from '../cues';
-import {flight, hurt, jumpTo, LAND, leap, on, respawn, runTo, runUp, SOAR, FLAIL, TUCK} from '../moves';
-import {ballistic, landTime} from '../physics';
-import {physics} from '../cues';
-import {confetti} from './room';
+import {at, code, Cue, rallies, syncTo} from '../cues';
+import {SPEED} from './room';
 
-/** The CONTINUE sign: where the fist is at the top of a full jump from the start. */
-const SIGN = new Vector2(-480 + 6, G.ground - physics.pelvis - (physics.jump * physics.jump) / (2 * physics.g) - 160);
-
-/** Where the game world sits in world space while Spark is inside it. */
+/** Where the dream court sits in world space; inside, it spans the frame's width. */
 export const GAME_AT = new Vector2(6000, 0);
-/** Inside, the 1280 x 720 level fills the 1920 x 1080 frame exactly. */
-export const INSIDE_ZOOM = 1.5;
-/** Platform fall: 150 px in 1.2 s (the game's gentle gravity). */
-const P = physics;
-const GROUND = G.ground - P.pelvis;
-const ON_PLATFORM = P.platformTop - P.pelvis;
+export const INSIDE_ZOOM = 1.25;
+/** Spark rides the left paddle: small, standing on a step at its foot, gripping it. */
+const RIDER_SCALE = 0.32;
+const RIDER_X = -PONG.paddleX - 30;
+const GRIP: Pose = {...STAND, torso: 6, head: -6, leftShoulder: -70, leftElbow: -40, rightShoulder: -60, rightElbow: -50};
 
-export interface Inside {
-  hud: Node;
-  hearts: number;
-}
-
-/** Screen-space HUD while inside: the monitor's bezel around the frame, hearts, the level counter. */
-function buildHud(s: Stage, lives: () => number, label: () => string): {hud: Node; center: Node; wipe: Rect; dim: Rect} {
+function buildHud(s: Stage, label: () => string): {hud: Node; center: Node; wipe: Rect; dim: Rect; memory: Node} {
   const hud = new Node({opacity: 0});
   const dim = new Rect({width: 1920, height: 1080, fill: '#000000', opacity: 0});
-  // The bezel: we are inside the monitor.
-  const bezel = new Rect({width: 1920, height: 1080, stroke: '#2a2a33', lineWidth: 56, radius: 0});
+  const bezel = new Rect({width: 1920, height: 1080, stroke: '#2a2a33', lineWidth: 56});
   const inner = new Rect({width: 1920 - 56, height: 1080 - 56, radius: 26, stroke: '#8a8a96', lineWidth: 5});
-  const hearts = new Node({position: [-790, -455]});
-  for (let i = 0; i < 3; i++) hearts.add(heart({x: i * 46, scale: 1.3, full: () => (lives() > i ? 1 : 0)}));
-  const lbl = gameText('', 34, '#f2f2f2', {y: -455});
+  const lbl = gameText('', 40, '#f2f2f2', {y: -400});
   lbl.text(label);
-  const center = new Node({});
+  const names = new Node({y: 330});
+  names.add(gameText('SPARK', 30, PONG_COLORS.you, {x: -780}));
+  names.add(gameText('CPU', 30, PONG_COLORS.cpu, {x: 800}));
+  const center = new Node({y: -40});
   const wipe = new Rect({width: 1920, height: 1080, fill: '#05070d', x: -1920});
-  hud.add([dim, center, hearts, lbl, wipe, bezel, inner]);
+  // The memory: the line of code and the frame-skip it caused, recalled.
+  const memory = new Node({y: -300, opacity: 0});
+  const mem = new CodeView({width: 620, height: 70, time: () => s.time()});
+  mem.newLine(code['c6']);
+  mem.reveal();
+  mem.scale(1.6);
+  memory.add(new Rect({width: 1060, height: 150, radius: 14, fill: withAlpha('#0b0f18', 0.9), stroke: '#ffd166', lineWidth: 4}));
+  memory.add(mem);
+  hud.add([dim, names, lbl, center, memory, wipe, bezel, inner]);
   s.view.add(hud);
   s.hud.moveToTop();
-  return {hud, center, wipe, dim};
+  return {hud, center, wipe, dim, memory: Object.assign(memory, {code: mem})};
 }
 
 /**
- * 52.8 - 110.4 s. Inside the game. Spark sees the bezel and the room left
- * behind, then the goal: the flag. Levels 1 and 2 are cleared (the spring
- * is learned). Level 3 shows the way home: a door with Spark's room in it,
- * beyond a pit of spikes. Fail, fail, fail: GAME OVER. CONTINUE? Spark
- * remembers the spring seen while falling, wins, and the dream shatters.
+ * Inside the game. Spark lands as the left paddle, sees the room left behind
+ * the glass and the door home behind the computer's paddle. Levels 1 and 2
+ * are won. Level 3 is the unbeatable computer: 0-1, 0-2, and 0-3 when the
+ * fastest ball skips straight through Spark's paddle. GAME OVER. CONTINUE:
+ * Spark remembers the glitch, serves, so the fifth and fastest hit is Spark's,
+ * and that ball skips through the computer's paddle into the door. The dream
+ * breaks.
  */
 export function* insideAct(s: Stage): ThreadGenerator {
   const spark = s.spark.body;
-  let lives = 3;
-  let levelNo = 1;
-  const livesSig = () => lives;
-  const livesS = createSignal(3);
   const labelS = createSignal('LEVEL 1/3');
-  const {hud, center, wipe, dim} = buildHud(s, () => livesS(), () => labelS());
+  const {hud, center, wipe, dim, memory} = buildHud(s, () => labelS());
   const say = (text: string | null, color = '#f2f2f2', size = 96) => {
     center.removeChildren();
     if (text) center.add(gameText(text, size, color, {shadowColor: '#000', shadowBlur: 16}));
   };
-
-  // ---- Arrival.
-  let level = enter(s, 1);
-  s.cam(GAME_AT);
-  s.zoom(INSIDE_ZOOM);
-  s.room(0);
+  const court = new Court({position: GAME_AT, door: true});
+  s.props.add(court);
+  court.ball.opacity(0);
+  // Spark rides the paddle.
   spark.remove();
-  level.root.add(spark);
-  spark.scale([0.8, 0.8]);
+  court.add(spark);
+  spark.scale([RIDER_SCALE, RIDER_SCALE]);
   spark.rotation(0);
   spark.opacity(1);
   spark.face(1);
-  spark.setPose(FLAIL);
-  spark.position(new Vector2(level.start.x, -500));
+  const riderY = () => court.leftY() + PONG.paddleHalfH - 103 * (RIDER_SCALE / 0.8);
+  // The step Spark stands on, fixed to the paddle's foot.
+  court.add(new Line({points: () => [new Vector2(RIDER_X - 22, court.leftY() + PONG.paddleHalfH), new Vector2(-PONG.paddleX, court.leftY() + PONG.paddleHalfH)], stroke: PONG_COLORS.you, lineWidth: 5}));
+  s.cam(GAME_AT);
+  s.zoom(INSIDE_ZOOM);
+  s.room(0);
   hud.opacity(1);
-  s.spawn(s.whiteout.opacity(0, 0.5, easeOutCubic));
-  // Dropped in from above the frame: free fall, landing on the cue.
-  yield* syncTo(at('inside') - landTime(-500, 0, GROUND), 0);
-  yield* ballistic(spark, spark.position(), 0, level.start.x, GROUND, at('inside'));
-  spark.setPose(LAND);
-  s.spawn(shake(s, 8, 4));
-  yield* spark.pose(STAND, 0.25, easeOutCubic);
-  // Looks at its hands: something is different.
-  yield* syncTo('lookHands', 0.25);
-  yield* spark.pose({...STAND, head: 26, torso: 6, leftShoulder: -80, leftElbow: -60, rightShoulder: -70, rightElbow: -70}, 0.25, easeOutCubic);
-  // Looks back: the room it came from is behind glass, the chair empty.
-  yield* syncTo('lookBack', 0.2);
-  const glass = new Node({position: [-560, -60], opacity: 0});
-  glass.add(new Rect({width: 260, height: 300, radius: 10, fill: withAlpha('#8ecae6', 0.08), stroke: withAlpha('#8ecae6', 0.6), lineWidth: 4}));
-  glass.add(roomPicture({scale: 0.55, y: 20, opacity: 0.8}));
-  level.root.add(glass);
-  yield* all(spark.face(-1, 0.2), glass.opacity(1, 0.4), spark.pose({...STAND, head: -6}, 0.3));
-  yield* spark.pose({...STAND, rightShoulder: -90, rightElbow: -10, head: -4}, 0.4, easeOutCubic);
-  // Its hand meets glass: a ripple. No way back this way.
-  const ripple = new Circle({position: worldOfLevel(spark.bones.rightFist), size: 0, stroke: '#8ecae6', lineWidth: 4});
-  level.root.add(ripple);
-  yield* all(ripple.size(120, 0.4, easeOutCubic), ripple.opacity(0, 0.4));
-  yield* spark.pose(STAND, 0.3);
-  // The goal: Spark turns, sees the flag, points at it. LEVEL 1/3.
-  yield* syncTo('point', 0.2);
-  yield* all(spark.face(1, 0.2), glass.opacity(0, 0.4));
-  yield* spark.pose({...STAND, rightShoulder: -95, rightElbow: 0, head: -4, torso: -4}, 0.25, easeOutCubic);
 
-  // ---- Level 1: run, jump the gap, flag.
-  yield* syncTo('go1', 0);
-  s.spawn(spark.pose(STAND, 0.2));
-  yield* runUp(spark, -150, at('jumpL1'));
-  yield* leap(spark, P.jump, 150, GROUND, at('landL1'));
-  yield* runTo(spark, 300, at('flagL1'));
-  say('LEVEL 1 CLEAR', GAME_COLORS.flag, 72);
-  s.spawn(confetti(level.root, new Vector2(330, 60)));
-  yield* spark.pose({...STAND, leftShoulder: -160, rightShoulder: -160, leftElbow: -20, rightElbow: -20, head: -16}, 0.2, easeOutBack);
-  level = yield* wipeTo(s, wipe, 'wipe1', level, 2, () => {
+  // ---- Arrival: dropped in from above onto the paddle's step.
+  spark.setPose({...STAND, leftShoulder: -150, rightShoulder: -150});
+  spark.position(new Vector2(RIDER_X, -600));
+  s.spawn(s.whiteout.opacity(0, 0.5, easeOutCubic));
+  yield* spark.position(new Vector2(RIDER_X, riderY()), at('inside') - useTime(), easeInCubic);
+  spark.position(() => new Vector2(RIDER_X, riderY()));
+  spark.setPose(GRIP);
+  s.spawn(shake(s, 8, 4));
+  // Hands: gripping a paddle. Spark *is* the paddle now.
+  yield* syncTo('lookHands', 0);
+  yield* all(s.cam(GAME_AT.add([-470, 0]), 0.5, easeInOutCubic), s.zoom(3.6, 0.5, easeInOutCubic));
+  yield* spark.pose({...GRIP, head: 30, torso: 10}, 0.3, easeOutCubic);
+  // Behind: the glass, and the room with the empty chair. No way back.
+  yield* syncTo('lookBack', 0);
+  const glass = new Node({position: [-620, 0], opacity: 0});
+  glass.add(new Rect({width: 34, height: 2 * PONG.wall - 20, radius: 6, fill: withAlpha('#8ecae6', 0.12), stroke: withAlpha('#8ecae6', 0.7), lineWidth: 3}));
+  glass.add(roomPicture({scale: 0.08, y: 0}));
+  court.add(glass);
+  yield* all(spark.face(-1, 0.2), glass.opacity(1, 0.4));
+  yield* waitFor(0.6);
+  yield* spark.face(1, 0.2);
+  // Ahead: the door, with the room in it, behind the computer's paddle.
+  yield* syncTo('seeDoor', 0);
+  yield* all(s.cam(GAME_AT.add([470, 0]), 0.5, easeInOutCubic), s.zoom(3.0, 0.5, easeInOutCubic), glass.opacity(0, 0.4));
+  yield* waitFor(0.3);
+  yield* all(s.cam(GAME_AT, 0.45, easeInOutCubic), s.zoom(INSIDE_ZOOM, 0.45, easeInOutCubic));
+  yield* spark.pose({...GRIP, rightShoulder: -95, rightElbow: 0}, 0.15, easeOutCubic);
+
+  // ---- Level 1: a slow computer.
+  yield* syncTo('l1', 0);
+  yield* spark.pose(GRIP, 0.2);
+  yield* rally(s, court, 'l1', at('clear1'), 70);
+  court.scoreL(1);
+  say('LEVEL 1 CLEAR', '#06d6a0', 80);
+  yield* wipeTo(s, wipe, 'wipe1', () => {
     say(null);
     labelS('LEVEL 2/3');
+    court.scoreL(0);
+    court.leftY(0);
+    court.rightY(0);
   });
-
-  // ---- Level 2: a rolling spike ball, then a spring up to the ledge.
-  const ball = level.ball!;
-  yield* syncTo('ball', 0);
-  // The ball rolls at a steady speed and passes under Spark at the top of the jump.
-  const v = (700 - -100) / (at('jumpBall') + 0.5 - at('ball'));
-  ball.position(() => new Vector2(700 - v * (s.time() - at('ball')), G.ground - 28));
-  ball.rotation(() => (-(700 - v * (s.time() - at('ball'))) / 28) * (180 / Math.PI));
-  yield* runUp(spark, -250, at('jumpBall'));
-  yield* leap(spark, P.jump, 50, GROUND, at('landBall'));
-  yield* runTo(spark, 60, at('spring1'));
-  const sp = level.spring!;
-  // The spring: it squashes and fires on the same frame Spark lands on it.
-  s.spawn(sp.squash(1, 0.04).to(0, 0.12, easeOutBack));
-  spark.position(new Vector2(60, P.springTop2 - P.pelvis));
-  yield* leap(spark, P.spring2, 320, P.ledge - P.pelvis, at('landLedge'), {...SOAR, leftShoulder: -60, rightShoulder: -40, head: -20}, false);
-  spark.setPose(LAND);
-  s.spawn(shake(s, 6, 4));
-  yield* spark.pose(STAND, 0.2);
-  yield* runTo(spark, 425, at('flagL2'));
-  say('LEVEL 2 CLEAR', GAME_COLORS.flag, 72);
-  s.spawn(confetti(level.root, new Vector2(450, -150)));
-  ball.position(ball.position());
-  level = yield* wipeTo(s, wipe, 'wipe2', level, 3, () => {
+  // ---- Level 2: faster.
+  yield* syncTo('l2', 0);
+  yield* rally(s, court, 'l2', at('clear2'), 130);
+  court.scoreL(1);
+  say('LEVEL 2 CLEAR', '#06d6a0', 80);
+  yield* wipeTo(s, wipe, 'wipe2', () => {
     say(null);
-    labelS('LEVEL 3/3');
+    labelS('LEVEL 3/3  -  FIRST TO 3');
+    court.scoreL(0);
+    court.leftY(0);
+    court.rightY(0);
   });
-
-  // ---- Level 3: the door home, beyond the pit.
-  const plat = level.platform!;
-  const spring = level.spring!;
-  const door = level.door!;
-  s.spawn(pulseDoor(door));
-  yield* syncTo('seeDoor', 0.2);
-  yield* spark.pose({...STAND, head: -8, torso: -4}, 0.2);
-  // A slow push in on the door: that is the way home.
-  yield* all(s.cam(GAME_AT.add([70, 0]), 0.5, easeInOutCubic), s.zoom(1.7, 0.5, easeInOutCubic));
-  s.spawn(all(s.cam(GAME_AT, 0.4, easeInOutCubic), s.zoom(INSIDE_ZOOM, 0.4, easeInOutCubic)));
-  // Walk to the edge and look down: spikes. Gulp.
-  yield* syncTo('gulp', 0.3);
-  yield* runTo(spark, -410, at('gulp'));
-  yield* spark.pose({...STAND, head: 40, torso: 18, leftShoulder: -20, rightShoulder: -10}, 0.2, easeOutCubic);
-  yield* waitFor(0.4);
-  yield* spark.pose({...STAND, head: 10, torso: -10, leftShoulder: -60, leftElbow: -80}, 0.25, easeOutCubic);
-
-  // Try 1: a running jump. Short.
-  yield* syncTo('try1', 0);
-  s.spawn(spark.pose(STAND, 0.15));
-  yield* spark.walkTo(-480, {mode: 'backward', arriveAt: at('try1') + 0.5, steps: 2, settle: false});
-  yield* runUp(spark, -392, at('jump1'));
-  yield* leap(spark, P.jump, -392 + P.run * (at('hurt1') - at('jump1')), P.spikesTop - P.pelvis, at('hurt1'), FLAIL, false);
-  lives = 2;
-  livesS(2);
-  yield* hurt(spark);
-  yield* syncTo('respawn1', 0);
-  yield* respawn(spark, on(level.start.x, G.ground));
-  yield* syncTo('react1', 0);
-  yield* spark.pose({...STAND, head: 10, torso: 6, leftShoulder: -30, leftElbow: -120, rightShoulder: -30, rightElbow: -120}, 0.3, easeOutCubic);
-  for (let i = 0; i < 2; i++) yield* spark.joints.head(i % 2 ? 10 : -10, 0.15);
-
-  // Try 2: onto the platform. It shakes, it drops; falling, Spark sees the spring.
-  yield* syncTo('try2', 0);
-  s.spawn(spark.pose(STAND, 0.15));
-  yield* runUp(spark, -392, at('jump2'));
-  const platTop = () => plat.y() - 11;
-  yield* leap(spark, P.jump, -160, ON_PLATFORM, at('land2'));
-  spark.position(() => on(-160, platTop()));
-  yield* spark.pose(STAND, 0.2);
-  yield* syncTo('shake2', 0);
-  yield* shakeNode(plat, 0.6);
-  yield* syncTo('drop2', 0);
-  // Slow motion while it falls: the same gravity, a quarter of the speed.
-  s.spawn(fall(plat, 170, P.g, at('hurt2'), P.slowmo, at('drop2')));
-  spark.setPose({...FLAIL, head: 30});
-  // While falling: the spring, right there beside the spikes. A glint.
-  yield* syncTo('seeSpring', 0);
-  s.spawn(glint(level.root, spring.top));
-  yield* spark.pose({...FLAIL, head: 46, torso: 20}, 0.2, easeOutCubic);
-  yield* syncTo('hurt2', 0);
-  lives = 1;
-  livesS(1);
-  spark.position(spark.position());
-  plat.opacity(0);
-  yield* hurt(spark);
-  yield* syncTo('respawn2', 0);
-  plat.position([-160, 170]);
-  plat.opacity(1);
-  yield* respawn(spark, on(level.start.x, G.ground));
-  // Thinking: a hand to the chin, looking into the pit.
-  yield* syncTo('think', 0);
-  yield* spark.pose({...STAND, head: 24, torso: 10, rightShoulder: -40, rightElbow: -150, leftShoulder: 10, leftElbow: -90}, 0.3, easeOutCubic);
-
-  // Try 3: a longer run-up, a bigger jump. Still short. GAME OVER.
-  yield* syncTo('try3', 0);
-  s.spawn(spark.pose(STAND, 0.15));
-  yield* spark.walkTo(-540, {mode: 'backward', arriveAt: at('try3') + 0.55, steps: 2, settle: false});
-  yield* runUp(spark, -392, at('jump3'));
-  // A faster run-up (400 units/s): further, but not far enough. Nothing could be.
-  yield* leap(spark, P.jump, -392 + 400 * (at('hurt3') - at('jump3')), P.spikesTop - P.pelvis, at('hurt3'), FLAIL, false);
-  lives = 0;
-  livesS(0);
-  s.spawn(hurt(spark));
+  // ---- Level 3: speed 99. Gulp.
+  yield* syncTo('gulp', 0);
+  yield* all(s.cam(GAME_AT.add([470, 0]), 0.4, easeInOutCubic), s.zoom(2.6, 0.4, easeInOutCubic));
+  yield* court.rightY(-60, 0.05).to(60, 0.05).to(0, 0.05);
+  yield* all(s.cam(GAME_AT, 0.4, easeInOutCubic), s.zoom(INSIDE_ZOOM, 0.4, easeInOutCubic));
+  // Point 1 and point 2: the computer's angled returns are out of reach.
+  for (const [k, react] of [
+    ['p1', 'react1'],
+    ['p2', 'react2'],
+  ] as const) {
+    yield* syncTo(k, 0);
+    yield* rally(s, court, k, at(react) - 0.6, SPEED.cpu99);
+    court.scoreR(court.scoreR() + 1);
+    yield* syncTo(react, 0);
+    yield* spark.pose({...GRIP, torso: 24, head: 30}, 0.3, easeOutCubic);
+    yield* waitFor(0.5);
+    yield* spark.pose(GRIP, 0.3);
+  }
+  // Point 3: Spark reaches everything, and the fastest ball goes straight through.
+  yield* syncTo('p3', 0);
+  yield* rally(s, court, 'p3', at('gameOver') - 0.4, SPEED.cpu99, true);
+  court.scoreR(3);
   yield* syncTo('gameOver', 0);
-  say('GAME OVER', GAME_COLORS.spike, 120);
-  yield* dim.opacity(0.6, 0.4);
-  // Defeat, held: Spark sits at the start, head down. Silence.
+  say('GAME OVER', PONG_COLORS.cpu, 120);
+  yield* dim.opacity(0.55, 0.4);
+  // It went *through*. Spark stares at the paddle, then sits.
+  yield* syncTo('stare', 0);
+  yield* all(s.cam(GAME_AT.add([-470, 0]), 0.5, easeInOutCubic), s.zoom(3.6, 0.5, easeInOutCubic));
+  yield* spark.pose({...GRIP, head: 36, torso: 12, rightShoulder: -20, rightElbow: -100}, 0.3, easeOutCubic);
   yield* syncTo('slumpGO', 0);
-  spark.position(on(level.start.x, G.ground).add([0, 52]));
-  spark.setPose({torso: 18, head: 40, leftHip: -84, leftKnee: 8, rightHip: -110, rightKnee: 96, leftShoulder: 10, leftElbow: -20, rightShoulder: 6, rightElbow: -20});
-  spark.opacity(1);
   say(null);
-
-  // CONTINUE? 3 - 2 - 1: a sign drops in above Spark.
-  const sign = new Node({position: [-420, -500]});
-  sign.add(new Rect({width: 300, height: 110, radius: 10, fill: '#1b1b22', stroke: GAME_COLORS.door, lineWidth: 6}));
-  sign.add(gameText('CONTINUE?', 34, GAME_COLORS.door, {y: -18}));
-  const num = gameText('3', 44, '#ffffff', {y: 26});
-  sign.add(num);
-  level.root.add(sign);
-  // Spark is drawn in front of the sign, so the punch reads.
-  spark.moveToTop();
+  yield* spark.pose({...GRIP, torso: 30, head: 40, leftShoulder: 0, rightShoulder: 0, leftElbow: -20, rightElbow: -20}, 0.6, easeInOutSine);
+  // CONTINUE? 3 - 2 - 1. At 2 Spark remembers the line of code and the skip.
   yield* syncTo('count3', 0);
-  yield* sign.position([SIGN.x, SIGN.y], 0.3, easeOutBack);
+  yield* all(s.cam(GAME_AT, 0.5, easeInOutCubic), s.zoom(INSIDE_ZOOM, 0.5, easeInOutCubic));
+  say('CONTINUE?  3', '#ffd166', 90);
   yield* syncTo('count2', 0);
-  num.text('2');
-  // The memory: Spark looks up... at the pit. The spring glints again.
+  say('CONTINUE?  2', '#ffd166', 90);
   yield* syncTo('memory', 0);
-  s.spawn(glint(level.root, spring.top, 1.6));
-  yield* spark.pose({head: 10, torso: 0}, 0.3, easeOutCubic);
+  memory.opacity(1);
+  memory.scale(0.8);
+  s.spawn(memory.scale(1, 0.2, easeOutBack));
+  s.spawn(skipDemo(memory));
+  yield* spark.pose({...GRIP, head: -24, torso: -6}, 0.3, easeOutCubic);
   yield* syncTo('count1', 0);
-  num.text('1');
-  // Up, and punch the sign: a full jump, the fist meets it at the top.
-  yield* all(spark.pose(STAND, 0.15), spark.position(new Vector2(level.start.x, GROUND), 0.15));
-  yield* syncTo('jumpPunch', 3 / 60);
-  yield* spark.pose({torso: 20, leftHip: -40, leftKnee: 60, rightHip: -30, rightKnee: 50}, 3 / 60, easeInCubic);
-  s.spawn(leap(spark, P.jump, level.start.x, GROUND, at('jumpPunch') + 2 * -P.jump / P.g, {...STAND, rightShoulder: -178, rightElbow: 0, leftShoulder: 20, torso: -4, head: -20}));
-  yield* syncTo('punch', 0);
-  s.spawn(sparkBurst(level.root, new Vector2(SIGN.x, SIGN.y), GAME_COLORS.door, 1.2, 12));
-  s.spawn(dim.opacity(0, 0.3));
-  sign.remove();
-  yield* syncTo('heart1', 0);
-  lives = 1;
-  livesS(1);
-  yield* spark.pose({...STAND, head: -8}, 0.2);
-
-  // Try 4: the platform, on purpose; leap off it onto the spring; BOING home.
-  yield* syncTo('try4', 0);
-  yield* runUp(spark, -392, at('jump4'));
-  yield* leap(spark, P.jump, -160, ON_PLATFORM, at('land4'));
-  spark.position(() => on(-160, platTop()));
-  yield* spark.pose({...STAND, head: 30}, 0.2);
-  yield* syncTo('shake4', 0);
-  yield* shakeNode(plat, 0.6);
-  yield* syncTo('drop4', 0);
-  s.spawn(fall(plat, 170, P.g, at('drop4') + 1.2, 1, at('drop4')));
-  yield* syncTo('leap4', 0);
-  // Leap off the falling platform: its downward speed adds to the jump.
-  const fallV = P.g * (at('leap4') - at('drop4'));
-  spark.position(spark.position());
-  yield* leap(spark, P.jump + fallV, -60, P.springTop3 - P.pelvis, at('boing4'), {...STAND, head: 20, leftHip: -20, rightHip: 10}, false);
-  s.spawn(spring.squash(1, 0.04).to(0, 0.14, easeOutBack));
-  s.spawn(syncThen('soar', spark.pose(SOAR, 0.3, easeOutCubic)));
-  yield* leap(spark, P.spring3, 440, GROUND, at('landExit'), SOAR, false);
-  spark.setPose(LAND);
-  s.spawn(shake(s, 10, 5));
-  yield* spark.pose(STAND, 0.25);
-  yield* runTo(spark, 470, at('door') - 0.1);
+  say('CONTINUE?  1', '#ffd166', 90);
+  // Press: Spark's turn to serve.
+  yield* syncTo('press', 0);
+  say('YOUR SERVE', '#2ec4b6', 90);
+  s.spawn(sparkBurst(s.fx, worldOf(s, spark.bones.head).add([0, -40]), '#ffd166', 0.6, 10));
+  yield* all(memory.opacity(0, 0.4), dim.opacity(0, 0.4), spark.pose({...GRIP, head: -10, torso: -4}, 0.3, easeOutBack));
+  court.leftY(0);
+  court.rightY(0);
+  // Point 4: the plan. Spark serves, so the fifth, fastest hit is Spark's.
+  yield* syncTo('p4', 0);
+  say(null);
+  yield* rally(s, court, 'p4', at('door') - 1 / 60, SPEED.cpu99, true);
+  // Through the computer's paddle, into the door. YOU WIN.
   yield* syncTo('door', 0);
-  say('YOU WIN', GAME_COLORS.door, 130);
-  s.spawn(confetti(level.root, new Vector2(480, -40)));
-  yield* spark.pose({...STAND, leftShoulder: -160, rightShoulder: -160, leftElbow: -20, rightElbow: -20, head: -20}, 0.25, easeOutBack);
+  court.scoreL(1);
+  say('YOU WIN', '#ffd166', 130);
+  s.spawn(sparkBurst(s.fx, GAME_AT.add([640, 0]), '#ffd166', 1.4, 16));
+  yield* spark.pose({...GRIP, leftShoulder: -160, rightShoulder: -160, leftElbow: -20, rightElbow: -20, head: -20}, 0.25, easeOutBack);
 
-  // ---- The dream breaks: cracks from the door, then the whole picture shatters.
-  const doorScreen = worldOf(s, door).sub(s.cam()).scale(s.zoom()).add(new Vector2(0, -160));
+  // ---- The dream breaks: cracks from the door, then the picture shatters.
+  const doorScreen = new Vector2(640 * INSIDE_ZOOM, 0);
   yield* syncTo('crack', 0);
   s.spawn(cracks(hud, doorScreen, 7, 0));
   yield* syncTo('crack2', 0);
@@ -305,65 +207,47 @@ export function* insideAct(s: Stage): ThreadGenerator {
   yield* syncTo('shatter', 0);
   s.whiteout.opacity(1);
   s.spawn(shatterShards(hud));
-  level.root.opacity(0);
+  court.opacity(0);
   hud.children().forEach(c => c.opacity(0));
   yield* waitFor(3 / 60);
-  void livesSig;
-  void levelNo;
+}
 
-  function enter(st: Stage, n: 1 | 2 | 3): Level {
-    const l = buildLevel(n, {position: GAME_AT});
-    st.props.add(l.root);
-    levelNo = n;
-    return l;
-  }
-  function worldOfLevel(node: Node): Vector2 {
-    return node.absolutePosition().transformAsPoint(level.root.worldToLocal());
-  }
-  function* wipeTo(st: Stage, w: Rect, cue: Cue, from: Level, n: 1 | 2 | 3, between: () => void) {
-    yield* syncTo(cue, 0.3);
-    yield* w.x(0, 0.3, easeInCubic);
-    from.root.remove();
-    spark.remove();
-    const next = enter(st, n);
-    next.root.add(spark);
-    spark.face(1);
-    spark.setPose(STAND);
-    spark.position(on(next.start.x, G.ground));
-    between();
-    yield* w.x(1920, 0.3, easeOutCubic);
-    w.x(-1920);
-    return next;
+/** A rally inside: Spark's arms pump on each of his hits; the frame trail shows on fast balls. */
+function* rally(s: Stage, court: Court, name: string, until: number, cpu: number, trail = false): ThreadGenerator {
+  const spark = s.spark.body;
+  const r = rallies[name];
+  s.spawn(
+    (function* () {
+      for (const e of r.events.filter(e => e.side === -1 && (e.kind === 'hit' || e.kind === 'serve'))) {
+        while (useTime() < e.t - 0.08) yield;
+        yield* spark.pose({...GRIP, torso: 14, leftShoulder: -90, rightShoulder: -80}, 0.08, easeInCubic);
+        yield* spark.pose(GRIP, 0.15, easeOutCubic);
+      }
+    })(),
+  );
+  yield* playRally(court, r, until, {left: SPEED.spark, right: cpu}, name, trail);
+  court.ball.opacity(0);
+}
+
+function* wipeTo(s: Stage, w: Rect, cue: Cue, between: () => void): ThreadGenerator {
+  yield* syncTo(cue, 0.3);
+  yield* w.x(0, 0.3, easeInCubic);
+  between();
+  yield* w.x(1920, 0.3, easeOutCubic);
+  w.x(-1920);
+}
+
+/** The memory panel's little demo: frame-dots that jump clean over a thin bar. */
+function* skipDemo(memory: Node): ThreadGenerator {
+  const bar = new Rect({x: 300, y: 0, width: 8, height: 70, fill: PONG_COLORS.you});
+  memory.add(bar);
+  for (let i = 0; i < 6; i++) {
+    const dot = new Circle({x: 140 + i * 50, y: 0, size: 14, fill: withAlpha(PONG_COLORS.ball, 0.3 + 0.12 * i)});
+    memory.add(dot);
+    yield* waitFor(0.08);
   }
 }
 
-function* syncThen(cue: Cue, task: ThreadGenerator): ThreadGenerator {
-  yield* syncTo(cue, 0);
-  yield* task;
-}
-
-/** Fall under the game's gravity from y0 until `until`. */
-/** A platform falling under gravity (optionally in slow motion) until it hits the spikes. */
-function* fall(n: Node, y0: number, g: number, until: number, scale = 1, t0 = useTime()): ThreadGenerator {
-  const bottom = physics.spikesTop + 11;
-  while (useTime() < until - 1e-6) {
-    const t = (useTime() - t0) * scale;
-    n.y(Math.min(bottom, y0 + 0.5 * g * t * t));
-    yield;
-  }
-  n.y(bottom);
-}
-
-function* shakeNode(n: Node, d: number): ThreadGenerator {
-  const x0 = n.x();
-  for (let t = 0, i = 0; t < d; t += 1 / 60, i++) {
-    n.x(x0 + (i % 4 < 2 ? 3 : -3));
-    yield;
-  }
-  n.x(x0);
-}
-
-/** Minor-tier camera shake (screen px). */
 function* shake(s: Stage, px: number, frames: number): ThreadGenerator {
   for (let i = 0; i < frames; i++) {
     const a = i * 2.4;
@@ -371,26 +255,6 @@ function* shake(s: Stage, px: number, frames: number): ThreadGenerator {
     yield;
   }
   s.shake(Vector2.zero);
-}
-
-/** A bright four-point glint, drawing the eye to a thing. */
-function* glint(parent: Node, at: Vector2, size = 1.2): ThreadGenerator {
-  const g = new Node({position: at.add([0, -6]), scale: 0});
-  g.add(new Line({points: [[-40, 0], [40, 0]], stroke: '#ffffff', lineWidth: 4}));
-  g.add(new Line({points: [[0, -40], [0, 40]], stroke: '#ffffff', lineWidth: 4}));
-  g.add(new Circle({size: 70, stroke: GAME_COLORS.spring, lineWidth: 4}));
-  parent.add(g);
-  yield* g.scale(size, 0.15, easeOutBack);
-  yield* g.rotation(45, 0.4, easeInOutSine);
-  yield* g.scale(0, 0.2, easeInCubic);
-  g.remove();
-}
-
-function* pulseDoor(door: Node): ThreadGenerator {
-  for (let i = 0; i < 40; i++) {
-    yield* door.scale(1.04, 0.5, easeInOutSine);
-    yield* door.scale(1, 0.5, easeInOutSine);
-  }
 }
 
 /** Cracks radiating from a screen point. */
@@ -419,7 +283,7 @@ function* shatterShards(hud: Node): ThreadGenerator {
   holder.moveToTop();
   for (let i = 0; i < 40; i++) {
     const c = new Vector2(((i % 8) - 3.5) * 240, (Math.floor(i / 8) - 2) * 216);
-    const sh = new Line({position: c, points: [[-130, -110], [120, -120], [10, 120]], closed: true, fill: '#0d1b2a', stroke: '#8ecae6', lineWidth: 3, rotation: (i * 47) % 360});
+    const sh = new Line({position: c, points: [[-130, -110], [120, -120], [10, 120]], closed: true, fill: '#07121f', stroke: '#8ecae6', lineWidth: 3, rotation: (i * 47) % 360});
     holder.add(sh);
     const dir = c.normalized.scale(900 + (i % 5) * 200);
     tasks.push(all(sh.position(c.add(dir), 0.9, easeInCubic), sh.rotation(sh.rotation() + 200, 0.9), sh.opacity(0, 0.9, easeInCubic)));
@@ -428,4 +292,4 @@ function* shatterShards(hud: Node): ThreadGenerator {
   holder.remove();
 }
 
-export {linear, easeInOutCubic, PELVIS};
+export {easeInOutCubic};
