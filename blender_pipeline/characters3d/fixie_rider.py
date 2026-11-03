@@ -34,12 +34,12 @@ def hx(c, a=1.0):
 
 
 COL = {
-    "skin": hx("#a96a47"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
+    "skin": hx("#bd7c54"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#1f1613"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
     "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
     "lace": hx("#f7f5f0"), "cap": hx("#c0582b"), "cap_seam": hx("#9a4220"),
-    "mouth_dark": hx("#3b1a17"), "liner": hx("#0e0a0a"), "blush_toon": hx("#e46a5c"), "lip_toon": hx("#d0675d"),
+    "mouth_dark": hx("#3b1a17"), "liner": hx("#0e0a0a"), "tongue": hx("#d06a66"), "blush_toon": hx("#e46a5c"), "lip_toon": hx("#d0675d"),
     "stubble": hx("#6e4a38"), "skin_toon": hx("#cf8f66"), "teeth": hx("#f6f2ea"), "sparkle_fx": hx("#ffffff"), "blush_fx": hx("#ff8f8f"), "sweat": hx("#cfe9ff"), "bag": hx("#1e1e21"), "strap": hx("#2d2d31"),
     "frame": hx("#2f4a6b"), "rim": hx("#151518"), "tire": hx("#1c1c1e"), "metal": hx("#b9bcc4"),
     "saddle": hx("#2a2320"), "tape": hx("#d9cfbf"), "chain": hx("#5d6068"),
@@ -507,6 +507,9 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
+    from mathutils.bvhtree import BVHTree
+    _HEAD_BVH[(round(hc.x, 4), round(hc.y, 4), round(hc.z, 4))] = BVHTree.FromPolygons(
+        [v.co.copy() for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
     if paint_cols:
         me.color_attributes.new("Paint", "FLOAT_COLOR", "POINT")
         me.attributes.new("Lip", "FLOAT", "POINT")
@@ -520,9 +523,20 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
     return ob
 
 
+_HEAD_BVH = {}
+
+
 def head_surface(hc, size, ux, uz, **kw):
-    """World point on the sculpted head's front at unit coords (ux, uz)."""
+    """World point on the sculpted head's front at unit coords (ux, uz):
+    a ray onto the real sculpted mesh when it exists, so features sit on
+    the face (not floating past the jaw)."""
     sx, sy, sz = size
+    bvh = _HEAD_BVH.get((round(hc.x, 4), round(hc.y, 4), round(hc.z, 4)))
+    if bvh is not None:
+        o = Vector((hc.x + ux * sx, hc.y - 1.0, hc.z + uz * sz))
+        hit = bvh.ray_cast(o, Vector((0, 1, 0)))
+        if hit[0] is not None:
+            return hit[0]
     y = -math.sqrt(max(0.0, 1 - ux * ux - uz * uz))
     f = (-y) ** 1.5
     d = -0.16 * sum(_g(ux, ex, 0.15) for ex in (0.37, -0.37)) * _g(uz, 0.1, 0.12) * f
@@ -571,7 +585,7 @@ def recenter(ob):
 
 MOUTHS = {  # mouth shape -> its parts (names without prefix)
     "SMIRK": ("Smile", "Dimple"),
-    "GRIN": ("MouthGrinDark", "MouthGrinTeeth", "MouthGrinLine"),
+    "GRIN": ("MouthGrinDark", "MouthGrinTeeth", "MouthGrinTongue", "MouthGrinLine"),
     "O": ("MouthORim", "MouthO"),
     "GASP": ("MouthGasp", "MouthGaspTeeth"),
     "FLAT": ("MouthFlat",),
@@ -587,13 +601,22 @@ def build_mouths(add, hc, size, lip_col, prefix):
 
     def at(ux, uz, fwd=0.0):
         return head_surface(hc, size, ux, uz) + Vector((0, -0.002 - fwd, 0))
-    grin = [at(ux, -0.53 + 0.16 * ux * ux) for ux in (-0.34, -0.17, 0.0, 0.17, 0.34)]
+    # A wide, open grin: the corners lift hard, the opening is a deep D below
+    # the line, a row of upper teeth along its top, a tongue at the bottom.
+    xs = (-0.36, -0.24, -0.12, 0.0, 0.12, 0.24, 0.36)
+    grin = [at(ux, -0.5 + 0.3 * ux * ux) for ux in xs]
     made = []
-    made.append(tube(f"{prefix}MouthGrinDark", [p + Vector((0, 0.001, -0.007)) for p in grin], [0.003, 0.009, 0.011, 0.009, 0.003],
-                     dark, side=Vector((0, 1, 0)), subdiv=1))
-    made.append(tube(f"{prefix}MouthGrinTeeth", [p + Vector((0, -0.001, -0.0035)) for p in grin[1:-1]], [0.005, 0.0058, 0.005],
-                     teeth, side=Vector((0, 1, 0)), subdiv=1))
-    made.append(tube(f"{prefix}MouthGrinLine", grin, [0.002, 0.0035, 0.004, 0.0035, 0.002], lip, side=Vector((0, 1, 0)), subdiv=1))
+    depth = [0.003, 0.012, 0.019, 0.022, 0.019, 0.012, 0.003]
+    # Flat against the face: thin front-to-back (first radius), tall top-to-bottom (second).
+    made.append(tube(f"{prefix}MouthGrinDark", [p + Vector((0, 0.0005, -dz * 0.85)) for p, dz in zip(grin, depth)],
+                     [(0.0022, dz * 0.85 + 0.001) for dz in depth], dark, side=Vector((0, 1, 0)), subdiv=1))
+    made.append(tube(f"{prefix}MouthGrinTeeth", [p + Vector((0, -0.0012, -0.006)) for p in grin[1:-1]],
+                     [(0.0018, 0.0045), (0.0018, 0.0058), (0.0018, 0.006), (0.0018, 0.0058), (0.0018, 0.0045)], teeth,
+                     side=Vector((0, 1, 0)), subdiv=1))
+    made.append(blob(f"{prefix}MouthGrinTongue", grin[3] + Vector((0, -0.0012, -0.026)), (0.016, 0.0018, 0.007),
+                     mat("tongue", 0.5), subdiv=1))
+    made.append(tube(f"{prefix}MouthGrinLine", grin, [0.0015, 0.0025, 0.003, 0.003, 0.003, 0.0025, 0.0015], lip,
+                     side=Vector((0, 1, 0)), subdiv=1))
     c = at(0.02, -0.53, 0.001)
     made.append(blob(f"{prefix}MouthORim", c + Vector((0, 0.002, 0)), (0.0165, 0.006, 0.021), lip, subdiv=1))
     made.append(blob(f"{prefix}MouthO", c, (0.012, 0.006, 0.016), dark, subdiv=1))
@@ -609,7 +632,7 @@ def build_mouths(add, hc, size, lip_col, prefix):
 
 
 def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, nose, chin, jaw, eye_r, lashes, smirk, lips,
-                    paint, brows):
+                    paint, brows, wing=1.0):
     """The feature-film face: soft forms, painted blush and lips, big
     almond eyes with winged liner, sharply arched brows."""
     skin_m = skin_paint_material(f"{prefix}SkinPaint", *paint) if paint else skin
@@ -620,10 +643,13 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
     skin_flat = skin
     for sx in (1, -1):
         surf = head_surface(hc, size, sx * 0.34, 0.05)
-        eye = surf + Vector((0, eye_r * 0.4, 0))
-        toon_eye(add, prefix, sx, eye, eye_r, skin_flat, iris_col, liner, lashes)
+        eye = surf + Vector((0, eye_r * 0.55, 0))
+        toon_eye(add, prefix, sx, eye, eye_r, skin_flat, iris_col, liner, lashes, wing)
         # Brows: thick tapered swoosh. 'arch' peaks two-thirds out; 'angry' dives to the nose.
-        if brows == "angry":
+        if brows == "lift":
+            spec = ((0.12, 0.29), (0.28, 0.36), (0.44, 0.385), (0.6, 0.32))
+            radii = [0.0065, 0.009, 0.008, 0.003]
+        elif brows == "angry":
             spec = ((0.12, 0.17), (0.28, 0.25), (0.44, 0.31), (0.6, 0.27))
             radii = [0.009, 0.01, 0.008, 0.003]
         else:
@@ -659,40 +685,41 @@ def build_face_extras(add, hc, size, prefix):
     sweat.scale = sweat.scale * 0.001
 
 
-def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes):
+def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes, wing=1.0):
     """Feature-film eye: a white eyeball, a big dark iris with a large pupil
     and two highlights, a lid that wraps it, a thick black liner along the
     upper lid that sweeps into a wing (it rides the lid), a fine lower line."""
-    add(blob(f"{prefix}Eye{sx}", eye, (r * 1.35, r, r * 0.95), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
+    add(blob(f"{prefix}Eye{sx}", eye, (r * 1.22, r, r * 1.0), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.94, 0))
-    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.05, 0, -r * 0.08)), (r * 0.6, r * 0.1, r * 0.64), mat(iris_col, 0.15),
+    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.05, 0, -r * 0.03)), (r * 0.66, r * 0.1, r * 0.7), mat(iris_col, 0.15),
              subdiv=1, segments=24), "Head")
-    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.05, -r * 0.05, -r * 0.08)), (r * 0.36, r * 0.06, r * 0.38),
+    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.05, -r * 0.05, -r * 0.03)), (r * 0.4, r * 0.06, r * 0.42),
              mat("iris", 0.1), subdiv=1), "Head")
     add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.3, -r * 0.12, r * 0.28)), (r * 0.17, r * 0.05, r * 0.17),
              mat("eye_white", 0.02), subdiv=1, segments=12), "Head")
     add(blob(f"{prefix}Glint2{sx}", front + Vector((sx * r * 0.22, -r * 0.11, -r * 0.3)), (r * 0.07, r * 0.03, r * 0.07),
              mat("eye_white", 0.02), subdiv=0, segments=8), "Head")
-    lid = lid_shell(f"{prefix}Lid{sx}", eye, r * 1.04, 22, True, skin, liner)   # covers the top of the iris
+    lid = lid_shell(f"{prefix}Lid{sx}", eye, r * 1.04, -28, True, skin, liner)  # open and bright at rest
     lid.modifiers["Thick"].thickness = r * 0.08          # thin: the liner, not the lid, carries the line
-    lid.scale = (1.3, 1.0, 1.0)                          # as wide as the almond eyeball
+    lid.scale = (1.2, 1.0, 1.0)                          # as wide as the eyeball
     add(lid, "Head")
-    low = lid_shell(f"{prefix}LidLow{sx}", eye, r * 1.03, 12, False, skin, skin)
-    low.scale = (1.3, 1.0, 1.0)
+    low = lid_shell(f"{prefix}LidLow{sx}", eye, r * 1.03, 30, False, skin, skin)
+    low.scale = (1.2, 1.0, 1.0)
     low.modifiers["Thick"].thickness = r * 0.05
     add(low, "Head")
     # Liner: from the inner corner over the top of the eye to a wing past the outer corner.
     def on_eye(ax, az, out=1.12):
-        return eye + Vector((sx * ax * r * out * 1.33, -math.sqrt(max(0.0, 1 - ax * ax - az * az)) * r * out, az * r * out))
-    # Along the upper lid's edge: low at the inner corner, a flat-ish top over the iris, out into the wing.
-    pts = [on_eye(-0.95, -0.12), on_eye(-0.6, 0.35), on_eye(-0.05, 0.5), on_eye(0.5, 0.46), on_eye(0.9, 0.18),
-           eye + Vector((sx * r * 1.75, -r * 0.45, r * 0.5))]
-    lo = tube(f"{prefix}LidLiner{sx}", pts, [r * 0.06, r * 0.12, r * 0.16, r * 0.17, r * 0.13, r * 0.015], liner, subdiv=1,
-              ring=10)
+        return eye + Vector((sx * ax * r * out * 1.2, -math.sqrt(max(0.0, 1 - ax * ax - az * az)) * r * out, az * r * out))
+    # Along the top of the eye: inner corner, over the iris, out into a small lifted flick.
+    tip = on_eye(0.92, 0.2).lerp(eye + Vector((sx * r * 1.5, -r * 0.42, r * 0.42)), wing)
+    pts = [on_eye(-0.93, -0.08), on_eye(-0.55, 0.62), on_eye(0.0, 0.84), on_eye(0.55, 0.66), on_eye(0.92, 0.2), tip]
+    th = 0.6 + 0.4 * wing
+    lo = tube(f"{prefix}LidLiner{sx}", pts, [r * 0.05, r * 0.1 * th, r * 0.14 * th, r * 0.15 * th, r * 0.11 * th, r * 0.015],
+              liner, subdiv=1, ring=10)
     lo.data.transform(Matrix.Translation(-eye))
     lo.location = eye                                     # pivot at the eye: it rotates with the lid
     add(lo, "Head")
-    low = [on_eye(-0.85, -0.3, 1.05), on_eye(0.0, -0.6, 1.05), on_eye(0.85, -0.25, 1.05)]
+    low = [on_eye(-0.8, -0.45, 1.05), on_eye(0.0, -0.72, 1.05), on_eye(0.8, -0.42, 1.05)]
     add(tube(f"{prefix}LowLiner{sx}", low, [r * 0.02, r * 0.045, r * 0.02], liner, subdiv=1, ring=8), "Head")
     if lashes:
         for k in range(4):
@@ -703,10 +730,11 @@ def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes):
 
 
 def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose=1.0, chin=1.0, cheek=1.0,
-               jaw=1.0, eye_r=0.022, lashes=False, smirk=1.0, style="planes", lips=1.0, paint=None, brows="cocky"):
+               jaw=1.0, eye_r=0.022, lashes=False, smirk=1.0, style="planes", lips=1.0, paint=None, brows="cocky",
+               wing=1.0):
     if style == "toon":
         return build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, nose, chin, jaw, eye_r, lashes, smirk,
-                               lips, paint, brows)
+                               lips, paint, brows, wing)
     """Head, sculpted features, eyeballs in their sockets with wrap-around
     lids, heavy shaped brows (one cocked higher) and an asymmetric mouth.
     Part names follow '<prefix>Eye1', '<prefix>Iris-1' ... for face rigs."""
@@ -1103,11 +1131,13 @@ def build_character(rig):
     add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
             rot=(0, 0, math.radians(-20))), "Pelvis")
     # Neck and head: a sculpted, planar face (see build_face).
-    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.043, 0.04], skin), "Neck")   # longer neck
+    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.57)], [0.052, 0.048], skin), "Neck")   # a sturdy young neck
     hc = Vector((0, -0.01, HEAD_Z))
-    build_face(add, hc, (0.112, 0.124, 0.15), skin, "iris", "hair", "lip_toon", nose=1.05, chin=0.8, cheek=1.0, jaw=0.85,
-               eye_r=0.031, smirk=1.0, style="toon", lips=0.85, paint=("skin", "blush_toon", "lip_toon", "stubble"),
-               brows="angry")
+    # Young and energetic: a rounder face with full cheeks and a short soft
+    # chin, big bright eyes, a small nose, lifted brows, healthy blush, no stubble.
+    build_face(add, hc, (0.122, 0.124, 0.138), skin, "iris", "hair", "lip_toon", nose=0.8, chin=0.45, cheek=1.0, jaw=0.5,
+               eye_r=0.034, smirk=0.6, style="toon", lips=0.7, paint=("skin", "blush_toon", "lip_toon", None),
+               brows="lift", wing=0.15)
     # Short twists peeking out under the cap.
     import random
     rnd = random.Random(3)
@@ -1140,7 +1170,7 @@ def build_character(rig):
 EXPRESSIONS = {
     # his
     "COOL":    dict(lid=0.85, lid_low=0.15, brow_l=0.0, brow_r=0.004, ang_l=0, ang_r=-8, mouth="SMIRK"),
-    "HAPPY":   dict(lid=1.0, lid_low=0.55, brow_l=0.003, brow_r=0.004, ang_l=-4, ang_r=4, mouth="GRIN"),
+    "HAPPY":   dict(lid=1.0, lid_low=0.35, brow_l=0.006, brow_r=0.007, ang_l=-6, ang_r=6, mouth="GRIN"),
     "NOTICE":  dict(lid=1.15, lid_low=0.0, brow_l=0.002, brow_r=0.007, ang_l=0, ang_r=-6, mouth="FLAT", gaze=(0.35, 0.0)),
     "SHOCK":   dict(lid=1.5, lid_low=0.0, brow_l=0.011, brow_r=0.011, ang_l=12, ang_r=-12, mouth="GASP", pupil=0.55,
                     sweat=1.0),
