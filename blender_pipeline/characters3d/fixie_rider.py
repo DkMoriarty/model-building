@@ -1214,6 +1214,183 @@ def strand_hair(add, hc, size, material, guides=120, per=70, seed=7, scalp=None)
     return ob
 
 
+def matte_hair_material(col):
+    """Matte vinyl hair: roughness 0.95, no specular, a little warm
+    subsurface so rim light glows through the thin tips, and a fine
+    clay grain (noise 600 -> bump 0.03)."""
+    m = bpy.data.materials.new("Matte_Hair_Clay")
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    b.inputs["Base Color"].default_value = col
+    b.inputs["Roughness"].default_value = 0.95
+    if "Specular IOR Level" in b.inputs:
+        b.inputs["Specular IOR Level"].default_value = 0.0
+    if "Subsurface Weight" in b.inputs:
+        b.inputs["Subsurface Weight"].default_value = 0.15
+        b.inputs["Subsurface Radius"].default_value = (1.0, 0.2, 0.1)
+        if "Subsurface Scale" in b.inputs:
+            b.inputs["Subsurface Scale"].default_value = 0.01
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    nz = nt.nodes.new("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value = 600.0
+    bump = nt.nodes.new("ShaderNodeBump")
+    bump.inputs["Strength"].default_value = 0.03
+    nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
+    nt.links.new(nz.outputs["Color"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], b.inputs["Normal"])
+    m.diffuse_color = col
+    return m
+
+
+def ribbon_hair(add, hc, size, material, seed=11):
+    """Hair from chunky Bezier ribbons, in three layers:
+      1. a bumpy dark helmet hugging the skull (no scalp shows, it is the shadow layer);
+      2. thick ribbon locks - flattened 'football' profile, fat in the middle,
+         pinched to a point, tilted so they overlap - swooping across the
+         crown, a fringe sweeping over the brows, sides sweeping back past
+         the ears, the back falling to the nape;
+      3. a few thin breakout ribbons looping off the head."""
+    import bmesh
+    import random as _r
+    rnd = _r.Random(seed)
+    sx, sy, sz = size
+    # Profile: a squashed football (wide and flat), used as every lock's bevel.
+    prof_data = bpy.data.curves.new("Hair_Profile", "CURVE")
+    sp = prof_data.splines.new("POLY")
+    pts = [(math.cos(a) * 0.013, math.sin(a) * 0.0032 * (1 - 0.35 * abs(math.cos(a))), 0) for a in
+           [2 * math.pi * k / 12 for k in range(12)]]
+    sp.points.add(len(pts) - 1)
+    for p_, q in zip(sp.points, pts):
+        p_.co = (*q, 1.0)
+    sp.use_cyclic_u = True
+    profile = _link(bpy.data.objects.new("Hair_Profile", prof_data))
+    profile.hide_render = True
+    profile.hide_viewport = True
+
+    # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
+    hair_front = LAYOUT["eye_uz"] + 0.42
+
+    def keep(v):
+        x, y, z = v.co
+        if y > 0.2:                                   # back: down to the nape
+            return z > -0.35
+        if abs(x) > 0.72:                             # sides: to the top of the ears
+            return z > -0.05
+        return z > hair_front + 0.08 * (abs(x) > 0.45)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
+    for v in bm.verts:
+        bump = 1.0 + 0.03 * math.sin(v.co.x * 9 + 1) * math.sin(v.co.y * 7 + 2) * math.sin(v.co.z * 8)
+        v.co = Vector((hc.x + v.co.x * sx * 1.05 * bump, hc.y + v.co.y * sy * 1.05 * bump, hc.z + v.co.z * sz * 1.04 * bump))
+    me = bpy.data.meshes.new("Hair_Helmet")
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material)
+    helmet = _link(bpy.data.objects.new("Hair_Helmet", me))
+    _smooth(helmet, 1)
+    add(helmet, "Head")
+
+    def shell(p, k):
+        """Put p on the ellipsoid shell k (unit = head size): locks lie on the head."""
+        q = Vector(((p.x - hc.x) / sx, (p.y - hc.y) / sy, (p.z - hc.z) / sz))
+        if q.length < 1e-6:
+            return p
+        q = q.normalized() * k
+        return Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz))
+
+    brow_z = hc.z + (LAYOUT["eye_uz"] + 0.17) * sz
+
+    def lock(name, root_n, aim, length, width, k=1.12, puff=0.08, curl=0.0, tilt=0.0, stop_brow=False,
+             n=8, free=False, lift=0.0, flick=0.25):
+        """One ribbon: from a root on the head, heading `aim` along the shell
+        (puffing out in the middle for volume), curling at the tip; fat
+        middle, sharp tip. free=True lets it leave the head (breakouts)."""
+        p = shell(Vector(root_n) * 0 + Vector((hc.x + root_n[0] * sx, hc.y + root_n[1] * sy, hc.z + root_n[2] * sz)), k)
+        d = Vector(aim).normalized()
+        pts = [p.copy()]
+        for i_ in range(1, n):
+            t = i_ / (n - 1)
+            here = Vector(((p.x - hc.x) / sx, (p.y - hc.y) / sy, (p.z - hc.z) / sz)).normalized()
+            d = (d - here * here.dot(d)).normalized() if not free else d
+            if curl and t > 0.5:
+                d = (d + here.cross(d) * curl * 0.45 * t).normalized()
+            if free:                                   # loop: keep turning about one axis
+                if i_ == 1:
+                    axis = here.cross(d).normalized()
+                d = (Matrix.Rotation(curl * 0.55, 3, axis) @ d + here * lift * (1 - t)).normalized()
+            p = p + d * length / (n - 1)
+            if not free:
+                p = shell(p, k + puff * math.sin(math.pi * t) + flick * max(0.0, t - 0.55) ** 2 * 5)
+            if stop_brow and p.z < brow_z:
+                p.z = brow_z
+                p = shell(p, k + 0.02) if not free else p
+            pts.append(p.copy())
+        cu = bpy.data.curves.new(name, "CURVE")
+        cu.dimensions = "3D"
+        cu.bevel_mode = "OBJECT"
+        cu.bevel_object = profile
+        cu.use_fill_caps = True
+        cu.resolution_u = 8
+        cu.twist_mode = "MINIMUM"
+        sp = cu.splines.new("BEZIER")
+        sp.bezier_points.add(len(pts) - 1)
+        prof = [0.5, 0.95, 1.12, 1.1, 0.9, 0.55, 0.06]
+        for i_, (bp, q) in enumerate(zip(sp.bezier_points, pts)):
+            bp.co = q
+            bp.handle_left_type = bp.handle_right_type = "AUTO"
+            bp.radius = width * prof[min(int(i_ * (len(prof) - 1) / max(1, len(pts) - 1) + 0.5), len(prof) - 1)]
+            bp.tilt = tilt + 0.3 * math.sin(i_ * 1.3)
+        cu.materials.append(material)
+        ob = _link(bpy.data.objects.new(name, cu))
+        add(ob, "Head")
+        return ob
+
+    from mathutils import Matrix
+    # 2a. Crown: big locks from a whorl at the back of the crown, swooping forward and out.
+    whorl = (0.1, 0.45, 0.88)
+    for i in range(18):
+        a = -math.pi * 0.92 + i * (math.pi * 1.84 / 17)
+        aim = (math.sin(a), -abs(math.cos(a)) - 0.2, -0.1)
+        lock(f"HairCrown{i}", (whorl[0] + rnd.uniform(-0.12, 0.12), whorl[1] + rnd.uniform(-0.1, 0.1), whorl[2]), aim,
+             rnd.uniform(0.17, 0.24), rnd.uniform(1.6, 2.1), k=rnd.uniform(1.12, 1.22), puff=rnd.uniform(0.1, 0.22), flick=0.3,
+             curl=rnd.uniform(-1.0, 1.0), tilt=rnd.uniform(-0.5, 0.5))
+    # 2b. Fringe: chunky locks sweeping down and across the forehead, over the brows.
+    for i in range(12):
+        x0 = -0.75 + i * 0.135
+        side = 1.0 if x0 > -0.35 else -0.6                         # main sweep to his left, a few the other way
+        aim = (side * (0.5 + rnd.uniform(-0.2, 0.2)), -0.3, -1.0)
+        lock(f"HairFringe{i}", (x0, -0.4, 0.82), aim, rnd.uniform(0.12, 0.16), rnd.uniform(1.4, 1.9),
+             k=1.07 + 0.025 * (i % 3), puff=rnd.uniform(0.06, 0.12), curl=side * rnd.uniform(0.6, 1.3),
+             tilt=rnd.uniform(-0.4, 0.4), stop_brow=True, flick=0.12)
+    # 2b'. Temples: short locks closing the gap between fringe and sides.
+    for sgn in (1, -1):
+        for i in range(3):
+            lock(f"HairTemple{sgn}_{i}", (sgn * (0.62 + 0.08 * i), -0.55 + 0.12 * i, 0.55 - 0.05 * i), (sgn * 0.2, -0.1, -1.0),
+                 rnd.uniform(0.09, 0.12), rnd.uniform(1.3, 1.6), k=1.08, puff=0.08, flick=0.2,
+                 curl=sgn * rnd.uniform(0.4, 0.9), tilt=sgn * 0.4, stop_brow=True)
+    # 2c. Sides: sweeping back and down past the ears, flicking out.
+    for sgn in (1, -1):
+        for i in range(7):
+            zz = 0.7 - i * 0.12
+            aim = (sgn * 0.15, 0.6, -1.0)
+            lock(f"HairSide{sgn}_{i}", (sgn * 0.75, -0.25 + i * 0.08, zz), aim, rnd.uniform(0.1, 0.15), rnd.uniform(1.3, 1.8),
+                 k=rnd.uniform(1.1, 1.18), puff=0.12, flick=0.45, curl=sgn * rnd.uniform(0.5, 1.2), tilt=sgn * rnd.uniform(0.2, 0.6))
+    # 2d. Back: falling to the nape, flicking out at the tips.
+    for i in range(12):
+        a = -1.3 + i * (2.6 / 11)
+        lock(f"HairBack{i}", (math.sin(a) * 0.7, 0.8, 0.5 + 0.1 * math.cos(a * 2)), (math.sin(a) * 0.3, 0.25, -1.0),
+             rnd.uniform(0.16, 0.22), rnd.uniform(1.5, 2.0), k=rnd.uniform(1.1, 1.18), puff=0.14, flick=0.4,
+             curl=rnd.uniform(-1.0, 1.0), tilt=rnd.uniform(-0.4, 0.4))
+    # 3. Breakouts: thin ribbons looping off the head.
+    for i, (n_, aim) in enumerate((((-0.3, 0.1, 0.95), (-0.7, -0.3, 0.7)), ((0.3, 0.3, 0.95), (0.7, 0.2, 0.8)),
+                                   ((0.7, -0.1, 0.7), (1.0, -0.3, 0.2)), ((-0.75, 0.2, 0.6), (-1.0, 0.3, 0.3)),
+                                   ((0.0, 0.6, 0.8), (0.1, 0.8, 0.6)))):
+        lock(f"HairBreak{i}", n_, aim, rnd.uniform(0.1, 0.14), 0.75, k=1.15, curl=rnd.choice((-1.0, 1.0)), free=True, lift=0.3)
+
+
 def hair_material(col_root, col_tip):
     """Hair shading: dark at the root, a touch warmer at the tips, soft sheen."""
     m = bpy.data.materials.new("HairStrandMat")
@@ -1428,6 +1605,9 @@ def build_character(rig):
                brows="straight", wing=0.2, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
     if HAIR == "messy":
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
+        return parts
+    if HAIR == "ribbons":
+        ribbon_hair(add, hc, (0.108, 0.118, 0.15), matte_hair_material(hx("#151116")))
         return parts
     if HAIR == "strands":
         strand_hair(add, hc, (0.108, 0.118, 0.15), hair_material(hx("#060508"), hx("#1d1716")),
