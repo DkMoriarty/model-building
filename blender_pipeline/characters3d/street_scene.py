@@ -152,7 +152,7 @@ def build_girl():
     # chin, wide-set dark almond eyes with a light liner, thin high arched
     # brows, a small upturned rosy nose, small parted lips, strong blush.
     fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=1.0, chin=0.5, cheek=1.0,
-                  jaw=0.75, eye_r=0.04, lashes=True, smirk=0.25, style="toon", lips=0.4,
+                  jaw=0.75, eye_r=0.04, lashes=True, smirk=0.0, style="toon", lips=0.4,
                   paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
     silver = mat("silver", 0.2, metallic=1.0)

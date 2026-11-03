@@ -797,8 +797,9 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         add(tube(f"{prefix}Smile", pts, [0.0007, 0.0012, 0.0013, 0.0012, 0.0008], mat("mouth_dark", 0.5),
                  side=Vector((0, 1, 0)), subdiv=1, ring=8), "Head")
         c = pts[-1]
-        add(tube(f"{prefix}Dimple", [c, c + Vector((0.0025, -0.0005, 0.0018)), c + Vector((0.0045, -0.0008, 0.0055))],
-                 [0.0011, 0.0008, 0.0002], mat("mouth_dark", 0.5), subdiv=0, ring=6), "Head")
+        if smirk > 0.05:                            # a symmetric (smirk 0) mouth has no corner crease
+            add(tube(f"{prefix}Dimple", [c, c + Vector((0.0025, -0.0005, 0.0018)), c + Vector((0.0045, -0.0008, 0.0055))],
+                     [0.0011, 0.0008, 0.0002], mat("mouth_dark", 0.5), subdiv=0, ring=6), "Head")
     else:
         add(tube(f"{prefix}Smile", pts, [0.001, 0.002, 0.0022, 0.002, 0.001], mat("mouth_dark", 0.5), side=Vector((0, 1, 0)),
                  subdiv=1), "Head")
@@ -1442,6 +1443,24 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     profile.hide_render = True
     profile.hide_viewport = True
 
+    head_bvh = _HEAD_BVH.get((round(hc.x, 4), round(hc.y, 4), round(hc.z, 4)))
+
+    def conform(p, k):
+        """Keep p outside the REAL sculpted head (not just the ellipsoid): along
+        the ray from the head centre, at least k x the surface distance. A
+        widened or tapered head never pokes through the hair."""
+        if head_bvh is None:
+            return p
+        d = p - hc
+        if d.length < 1e-6:
+            return p
+        d.normalize()
+        hit = head_bvh.ray_cast(hc + d * 0.5, -d)
+        if hit[0] is None:
+            return p
+        rs = (hit[0] - hc).length * k
+        return hc + d * max(rs, (p - hc).length)
+
     # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
@@ -1449,6 +1468,14 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
 
     def keep(v):
         x, y, z = v.co
+        if style == "ponytail":                       # pulled back: covers behind the ears down to the nape
+            if y > 0.1:                               # back of the skull, down to the nape
+                return z > -0.88
+            if y > -0.15:                             # behind the ears
+                return z > -0.55
+            if abs(x) > 0.72:
+                return z > 0.1
+            return z > hair_front - 0.3 * x * x
         if y > 0.2:                                   # back: down to the nape
             return z > -0.35
         if abs(x) > 0.72:                             # sides: to the top of the ears
@@ -1459,7 +1486,8 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
     for v in bm.verts:
         bump = 1.0 + 0.03 * math.sin(v.co.x * 9 + 1) * math.sin(v.co.y * 7 + 2) * math.sin(v.co.z * 8)
-        v.co = Vector((hc.x + v.co.x * sx * 1.05 * bump, hc.y + v.co.y * sy * 1.05 * bump, hc.z + v.co.z * sz * 1.04 * bump))
+        v.co = conform(Vector((hc.x + v.co.x * sx * 1.05 * bump, hc.y + v.co.y * sy * 1.05 * bump,
+                               hc.z + v.co.z * sz * 1.04 * bump)), 1.03 * bump)
     me = bpy.data.meshes.new("Hair_Helmet")
     bm.to_mesh(me)
     bm.free()
@@ -1474,7 +1502,7 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         if q.length < 1e-6:
             return p
         q = q.normalized() * k
-        return Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz))
+        return conform(Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz)), 1.0 + (k - 1.0) * 0.7)
 
     brow_z = hc.z + (LAYOUT["eye_uz"] + 0.17) * sz
 
@@ -1539,13 +1567,13 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         # Centre part; hair combed from the part down both sides and back to a low
         # tie at the nape; a ponytail hanging from it; loose strands from the part
         # falling past the cheeks; a few flyaways on top.
-        for sgn in (1, -1):
-            for i in range(11):
-                t = i / 10
+        for i in range(11):                               # the two sides mirror each other exactly
+            t = i / 10
+            ln, wd, cu = rnd.uniform(0.24, 0.29), rnd.uniform(1.7, 2.1), rnd.uniform(0.2, 0.5)
+            for sgn in (1, -1):
                 root = (sgn * 0.04, -0.62 + 1.2 * t, math.sqrt(max(0.0, 1 - 0.0016 - (-0.62 + 1.2 * t) ** 2)))
-                lock(f"HairComb{sgn}_{i}", root, (sgn * 1.0, 0.55 + 0.4 * t, -0.45), rnd.uniform(0.24, 0.29),
-                     rnd.uniform(1.7, 2.1), k=1.06 + 0.012 * (i % 3), puff=0.05, flick=0.0, curl=sgn * rnd.uniform(0.2, 0.5),
-                     tilt=sgn * 0.5)
+                lock(f"HairComb{sgn}_{i}", root, (sgn * 1.0, 0.55 + 0.4 * t, -0.45), ln, wd,
+                     k=1.06 + 0.012 * (i % 3), puff=0.05, flick=0.0, curl=sgn * cu, tilt=sgn * 0.5)
         tie = Vector((hc.x, hc.y + 0.95 * sy, hc.z - 0.4 * sz))
         add(torus(prefix + "HairTie", tie, 0.016, 0.007, material, axis="Y"), "Head")
         for i in range(9):
@@ -1560,7 +1588,7 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
                 upts = [(sgn * x0, -0.85, hair_front + 0.12), (sgn * (x0 + 0.25), -0.85, hair_front - 0.05),
                         (sgn * (wide - 0.05), -0.62, LAYOUT["eye_uz"] + 0.1), (sgn * wide, -0.45, LAYOUT["eye_uz"] - 0.25),
                         (sgn * (wide - 0.05), -0.35, low + 0.25), (sgn * (wide + 0.04), -0.3, low)]
-                unit_path(f"HairFrame{sgn}_{j}", upts, rnd.uniform(0.55, 0.85), tilt=sgn * 0.4, k=1.06)
+                unit_path(f"HairFrame{sgn}_{j}", upts, 0.55 + 0.06 * j, tilt=sgn * 0.4, k=1.06)
         for i, (n_, aim) in enumerate((((-0.75, -0.2, 0.5), (-0.6, 0.3, -0.7)), ((0.8, 0.0, 0.45), (0.5, 0.4, -0.8)))):
             lock(f"HairFly{i}", n_, aim, rnd.uniform(0.07, 0.09), 0.2, k=1.12, curl=rnd.choice((-0.6, 0.6)), free=True, lift=0.1)
         return
