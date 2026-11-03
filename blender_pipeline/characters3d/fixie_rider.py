@@ -1146,8 +1146,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HER_LAYOUT = dict(eye_ux=0.42, eye_uz=-0.08, nose_z=-0.4, mouth_z=-0.63, chin_z=-0.95, ear_uz=-0.14, ear_h=0.78,
-                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.65, iris=1.2, oval=0.7, soft=1.0, brow_drop=0.05)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
+HER_LAYOUT = dict(eye_ux=0.42, eye_uz=-0.15, nose_z=-0.43, mouth_z=-0.62, chin_z=-0.9, ear_uz=-0.18, ear_h=0.74,
+                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.65, iris=1.2, oval=0.45, soft=1.0, brow_drop=0.03)   # youthful: big cranium, features low, round cheeks   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 

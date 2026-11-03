@@ -146,13 +146,13 @@ def build_girl():
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
     add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.034, 0.031], skin), "Neck")
     hc = Vector((0, -0.005, 1.678))
-    size = (0.114, 0.116, 0.148)        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
+    size = (0.116, 0.12, 0.142)        # young: a rounder, shorter face        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
     # Face measured from the reference: a long narrow oval with a small rounded
     # chin, wide-set dark almond eyes with a light liner, thin high arched
     # brows, a small upturned rosy nose, small parted lips, strong blush.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.6, chin=0.8, cheek=1.2,
-                  jaw=0.75, eye_r=0.026, lashes=True, smirk=0.25, style="toon", lips=0.4,
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.45, chin=0.55, cheek=1.6,
+                  jaw=0.75, eye_r=0.028, lashes=True, smirk=0.25, style="toon", lips=0.4,
                   paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
     silver = mat("silver", 0.2, metallic=1.0)
