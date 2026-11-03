@@ -38,7 +38,7 @@ COL = {
     "hair": hx("#1f1613"), "eye_white": hx("#f3efe9"), "iris": hx("#2a1b14"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
     "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
-    "lace": hx("#f7f5f0"), "cap": hx("#c0582b"), "bag": hx("#1e1e21"), "strap": hx("#2d2d31"),
+    "lace": hx("#f7f5f0"), "cap": hx("#c0582b"), "cap_seam": hx("#9a4220"), "bag": hx("#1e1e21"), "strap": hx("#2d2d31"),
     "frame": hx("#2f4a6b"), "rim": hx("#151518"), "tire": hx("#1c1c1e"), "metal": hx("#b9bcc4"),
     "saddle": hx("#2a2320"), "tape": hx("#d9cfbf"), "chain": hx("#5d6068"),
     "floor": hx("#d9d6d1"), "bg": hx("#e2dfda"),
@@ -103,7 +103,7 @@ def _link(ob):
 
 
 def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0)), subdiv=2, crease=0.0, facet=0.0,
-         seed=0):
+         seed=0, profile=None, p_exp=5.0, carve=None, rows=None):
     """Loft a closed tube along `path` (list of 3D points). radii: a list of
     r or (r_side, r_front) per path point - elliptical rings for boxy clothes.
     Smooth-shaded with Subdivision Surface.
@@ -115,6 +115,24 @@ def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0))
     import random as _r
     rj = _r.Random(seed + len(name))
     pts = [Vector(p) for p in path]
+    if rows and rows > len(pts):          # resample densely so creases can be carved
+        def lerp_r(r0, r1, t):
+            if isinstance(r0, (tuple, list)):
+                return tuple(a + (b - a) * t for a, b in zip(r0, r1))
+            return r0 + (r1 - r0) * t
+        seglen = [(pts[i + 1] - pts[i]).length for i in range(len(pts) - 1)]
+        total = sum(seglen)
+        new_p, new_r = [], []
+        for k in range(rows):
+            d = total * k / (rows - 1)
+            i = 0
+            while i < len(seglen) - 1 and d > seglen[i]:
+                d -= seglen[i]
+                i += 1
+            t = min(1.0, d / seglen[i]) if seglen[i] else 0.0
+            new_p.append(pts[i].lerp(pts[i + 1], t))
+            new_r.append(lerp_r(radii[i], radii[i + 1], t))
+        pts, radii = new_p, new_r
     verts, faces = [], []
     n = len(pts)
     for i, p in enumerate(pts):
@@ -129,11 +147,18 @@ def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0))
         for k in range(ring):
             a = 2 * math.pi * k / ring + (math.pi / ring if crease else 0.0)
             j = 1 + (rj.uniform(-facet, facet) if facet else 0.0)
-            if crease:  # push towards a rounded box: corners out, mid-panels flatter
+            ca, sa = math.cos(a), math.sin(a)
+            if profile == "box":   # superellipse: flat panels, tight corners (a carved block, not a balloon)
+                ca = math.copysign(abs(ca) ** (2 / p_exp), ca)
+                sa = math.copysign(abs(sa) ** (2 / p_exp), sa)
+            elif crease:           # push towards a rounded box: corners out, mid-panels flatter
                 sq = 1 + 0.18 * abs(math.sin(2 * a))
-                verts.append(p + u * (ru * j * sq * math.cos(a)) + v * (rv * j * sq * math.sin(a)))
-            else:
-                verts.append(p + u * (ru * j * math.cos(a)) + v * (rv * j * math.sin(a)))
+                ca, sa = ca * sq, sa * sq
+            off = u * (ru * j * ca) + v * (rv * j * sa)
+            if carve:
+                L = off.length or 1e-6
+                off = off * ((L + carve(i / max(1, n - 1), a)) / L)
+            verts.append(p + off)
     for i in range(n - 1):
         for k in range(ring):
             a, b = i * ring + k, i * ring + (k + 1) % ring
@@ -153,6 +178,32 @@ def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0))
     ob = _link(bpy.data.objects.new(name, me))
     _smooth(ob, subdiv)
     return ob
+
+
+def folds(specs, length, radius):
+    """Carving brush for `tube(carve=...)`: each spec (u0, a0, u1, a1, depth,
+    width) is a fold line in (along-tube 0..1, angle) space. Points near a
+    line are cut into a sharp V-groove (Draw Sharp, inverted) and the lips
+    either side are pinched up into ridges (Pinch), so folds have crisp
+    apexes and deep shadowed valleys instead of soft bumps."""
+    def wrap(x):
+        return (x + math.pi) % (2 * math.pi) - math.pi
+
+    def fn(u, a):
+        out = 0.0
+        for u0, a0, u1, a1, depth, width in specs:
+            am = (a0 + a1) / 2
+            aa = am + wrap(a - am)
+            P = Vector((u * length, aa * radius))
+            A, B = Vector((u0 * length, a0 * radius)), Vector((u1 * length, a1 * radius))
+            ab = B - A
+            t = max(0.0, min(1.0, (P - A).dot(ab) / ab.length_squared)) if ab.length_squared else 0.0
+            d = (A + ab * t - P).length
+            taper = math.sin(math.pi * t) ** 0.5               # folds fade out at their ends
+            out -= depth * taper * max(0.0, 1 - d / width)                                  # sharp valley
+            out += depth * 0.45 * taper * max(0.0, 1 - abs(d - 1.15 * width) / (0.45 * width))  # pinched ridge
+        return out
+    return fn
 
 
 def _crease(me, ring, n, value):
@@ -264,13 +315,21 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
     for v in bm.verts:
         x, y, z = v.co
         f = max(0.0, -y) ** 1.5                     # frontness (the face looks along -Y)
-        if z < 0:                                   # jaw narrows toward the chin
-            k = 1 - 0.32 * jaw * (-z) ** 1.7
-            x *= k
-            y = y * (1 - 0.08 * (-z)) if y > 0 else y
+        # Scrape/flatten: shave the sides of the skull into flat planes from the
+        # temples down past the cheeks, leaving a crisp cheekbone ridge where the
+        # front of the face turns into the side.
+        plane = 0.74
+        if abs(x) > plane and -0.7 < z < 0.75:
+            x = math.copysign(plane + (abs(x) - plane) * 0.22, x)
+        if y < -0.82 and z > 0.15:                  # flat forehead plane
+            y = -0.82 + (y + 0.82) * 0.35
+        if z < 0:                                   # a hard V jaw tapering to a triangular chin
+            k = 1 - 0.5 * jaw * (-z) ** 1.15
+            x *= max(0.12, k)
+            y = y * (1 - 0.1 * (-z)) if y > 0 else y
         d = 0.0                                     # forward displacement (toward -Y)
         for ex in (0.37, -0.37):
-            d -= 0.11 * _g(x, ex, 0.15) * _g(z, 0.1, 0.12) * f                    # eye sockets
+            d -= 0.16 * _g(x, ex, 0.15) * _g(z, 0.1, 0.12) * f                    # deep eye sockets
             d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, -0.14, 0.14) * f    # cheekbones
             d += 0.05 * nose * _g(x, ex * 0.32, 0.05) * _g(z, -0.32, 0.05) * f     # nostril wings
         d += 0.07 * _g(z, 0.31, 0.07) * (_g(x, 0.34, 0.22) + _g(x, -0.34, 0.22)) * f  # brow ridge
@@ -279,7 +338,7 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         d += 0.035 * _g(x, 0, 0.24) * _g(z, -0.46, 0.045) * f                      # upper lip
         d -= 0.03 * _g(x, 0, 0.3) * _g(z, -0.52, 0.025) * f                        # mouth line
         d += 0.04 * _g(x, 0, 0.2) * _g(z, -0.58, 0.05) * f                         # lower lip
-        d += 0.1 * chin * _g(x, 0, 0.16) * _g(z, -0.82, 0.11) * f                  # chin point
+        d += 0.12 * chin * _g(x, 0, 0.12) * _g(z, -0.85, 0.1) * f                  # crisp chin point
         y -= d
         v.co = Vector((hc.x + x * sx, hc.y + y * sy, hc.z + z * sz))
     me = bpy.data.meshes.new(name)
@@ -296,7 +355,7 @@ def head_surface(hc, size, ux, uz, **kw):
     sx, sy, sz = size
     y = -math.sqrt(max(0.0, 1 - ux * ux - uz * uz))
     f = (-y) ** 1.5
-    d = -0.11 * sum(_g(ux, ex, 0.15) for ex in (0.37, -0.37)) * _g(uz, 0.1, 0.12) * f
+    d = -0.16 * sum(_g(ux, ex, 0.15) for ex in (0.37, -0.37)) * _g(uz, 0.1, 0.12) * f
     return Vector((hc.x + ux * sx, hc.y + (y - d) * sy, hc.z + uz * sz))
 
 
@@ -324,7 +383,8 @@ def lid_shell(name, center, r, open_deg, upper, skin, lash, rot_z=0.0):
     ob.location = center
     ob.rotation_euler = (math.radians(open_deg if upper else -open_deg), 0, rot_z)
     m = ob.modifiers.new("Thick", "SOLIDIFY")
-    m.thickness = r * 0.12
+    m.thickness = r * (0.38 if upper else 0.2)   # a chunky shelf that shadows the eyeball
+    m.offset = 1.0
     return ob
 
 
@@ -348,6 +408,10 @@ def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose
                  (eye_r * 0.14, eye_r * 0.05, eye_r * 0.14), mat("eye_white", 0.05), subdiv=0, segments=8), "Head")
         add(lid_shell(f"{prefix}Lid{sx}", eye, eye_r * 1.12, 8, True, skin, lash), "Head")
         add(lid_shell(f"{prefix}LidLow{sx}", eye, eye_r * 1.08, 14, False, skin, mat(lip_col, 0.6)), "Head")
+        # Blocky lash wing at the outer corner (geometry, not a flat strip).
+        wing0 = eye + Vector((sx * eye_r * 0.85, -eye_r * 0.55, eye_r * 0.45))
+        add(tube(f"{prefix}LashWing{sx}", [wing0, wing0 + Vector((sx * eye_r * 0.55, -eye_r * 0.1, eye_r * 0.32))],
+                 [eye_r * 0.2, eye_r * 0.05], lash, subdiv=1, ring=8), "Head")
         if lashes:
             for k in range(3):
                 base = eye + Vector((sx * eye_r * (0.6 + 0.2 * k), -eye_r * 0.6, eye_r * (0.75 - 0.2 * k)))
@@ -359,7 +423,7 @@ def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose
         b1 = head_surface(hc, size, sx * 0.36, 0.3) + Vector((0, -0.007, cock))
         b2 = head_surface(hc, size, sx * 0.57, 0.26) + Vector((0, -0.003, cock * 0.6))
         add(tube(f"{prefix}Brow{sx}", [b0, b1, b2], [0.0095, 0.0085, 0.004], mat(brow_col, 0.7), subdiv=1), "Head")
-        add(blob(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 1.0, 0.012, -size[2] * 0.08)),
+        add(blob(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 0.8, 0.012, -size[2] * 0.08)),
                  (size[0] * 0.2, size[1] * 0.22, size[2] * 0.27), skin), "Head")
     # Mouth: a crooked line that rises into one cheek, with a dimple.
     pts = []
@@ -535,6 +599,62 @@ def bind(ob, rig, bone):
 # The character
 # ---------------------------------------------------------------------------
 
+HEAD_Z = 1.67   # head centre (raised on a longer neck)
+
+
+def cap_crown(name, center, size, material):
+    """Cloth crown that collapses against the head: a half-dome slouched at
+    the back, slightly asymmetric, with a soft pinch at the front panels."""
+    import bmesh
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=20, radius=1.0)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -0.12], context="VERTS")
+    for v in bm.verts:
+        x, y, z = v.co
+        z -= 0.22 * max(0.0, y) * max(0.0, z)                 # slouch at the back
+        x *= 1 + 0.06 * max(0.0, y) * (1 if x > 0 else 0.4)   # asymmetric sag
+        z += 0.05 * _g(x, 0.3, 0.25) * _g(y, -0.4, 0.3)       # a lump in one front panel
+        z -= 0.03 * _g(x, 0, 0.08) * max(0.0, -y)             # front centre seam dip
+        v.co = Vector((center.x + x * size[0], center.y + y * size[1], center.z + z * size[2]))
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material)
+    ob = _link(bpy.data.objects.new(name, me))
+    m = ob.modifiers.new("Thick", "SOLIDIFY")
+    m.thickness = 0.006
+    _smooth(ob, 1)
+    return ob
+
+
+def cap_brim(name, center, r_in, depth, material):
+    """Brim: a front half-annulus that bends down at its sides, wrapping
+    around the eyes (the 'spunky' curve), tip dipping slightly."""
+    verts, faces = [], []
+    na, nr = 24, 5
+    for i in range(na + 1):
+        th = math.radians(-100 + 200 * i / na)               # 0 = straight ahead (-Y)
+        for j in range(nr + 1):
+            w = j / nr
+            reach = depth * (0.25 + 0.75 * math.cos(math.radians(-100 + 200 * i / na) * 0.8) ** 2)
+            r = r_in * 0.98 + reach * w
+            x, y = r * math.sin(th), -r * math.cos(th)
+            z = -0.045 * (th / math.radians(100)) ** 2 * w - 0.012 * w * w
+            verts.append((center.x + x, center.y + y, center.z + z))
+    for i in range(na):
+        for j in range(nr):
+            a = i * (nr + 1) + j
+            faces.append((a, a + 1, a + nr + 2, a + nr + 1))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.materials.append(material)
+    ob = _link(bpy.data.objects.new(name, me))
+    m = ob.modifiers.new("Thick", "SOLIDIFY")
+    m.thickness = 0.009
+    _smooth(ob, 1)
+    return ob
+
+
 def build_character(rig):
     parts = []
 
@@ -585,18 +705,32 @@ def build_character(rig):
     for s in "LR":
         hip, knee = jp(f"hip_{s}"), jp(f"knee_{s}")
         hem = hip.lerp(knee, 0.62)
-        add(tube(f"ShortLeg_{s}", arc(hip + Vector((0, 0, 0.03)), hem, n=4), [(0.1, 0.1), (0.105, 0.1), (0.108, 0.098),
-                                                                             (0.104, 0.094)], sh, caps=False, subdiv=2,
-                 ring=16, crease=0.8, facet=0.03, seed=3),
+        F = -math.pi / 2
+        sh_folds = folds([(0.78, F - 0.9, 0.74, F + 0.9, 0.01, 0.012), (0.3, F + 0.4, 0.62, F + 1.2, 0.009, 0.012),
+                          (0.88, -F - 0.8, 0.84, -F + 0.8, 0.008, 0.011)], length=0.3, radius=0.1)
+        add(tube(f"ShortLeg_{s}", arc(hip + Vector((0, 0, 0.03)), hem, n=4), [(0.104, 0.1), (0.108, 0.1), (0.11, 0.098),
+                                                                             (0.108, 0.095)], sh, caps=False, subdiv=1,
+                 ring=40, rows=14, profile="box", p_exp=4.0, carve=sh_folds),
             f"Thigh_{s}")
         add(tube(f"ShortHem_{s}", [hem + Vector((0, 0, -0.01)), hem + Vector((0, 0, 0.02))], [(0.107, 0.097), (0.107, 0.097)],
                  mat("strap", 0.85), caps=False, subdiv=1), f"Thigh_{s}")
-    # Boxy oversized work shirt: wide dropped shoulders, short wide sleeves, a collar.
+    # Boxy oversized work shirt, carved like architecture: a rigid block whose
+    # shoulder line runs flat from the collar out to the sleeves, flat panels,
+    # and sharp folds - drags from the armpits, stacked folds at the hem.
     shirt = mat("shirt", 0.8, sheen=0.3)
-    body = [(0, 0.01, 0.9), (0, 0.01, 1.0), (0, 0.0, 1.15), (0, 0.0, 1.3), (0, 0.0, 1.4), (0, 0.0, 1.45)]
-    add(tube("Shirt", body, [(0.22, 0.155), (0.235, 0.16), (0.235, 0.155), (0.235, 0.15), (0.21, 0.13), (0.1, 0.08)],
-             shirt, ring=16, crease=0.85, facet=0.03, seed=1), "Spine")
-    add(tube("ShirtHem", [(0, 0.01, 0.885), (0, 0.01, 0.905)], [(0.226, 0.16), (0.226, 0.16)], shirt, subdiv=1), "Pelvis")
+    F = -math.pi / 2                      # angle of the front (-Y) on a vertical tube
+    body = [(0, 0.01, 0.88), (0, 0.01, 1.0), (0, 0.0, 1.15), (0, 0.0, 1.3), (0, 0.0, 1.39), (0, 0.0, 1.44), (0, 0.0, 1.465)]
+    shirt_folds = folds([
+        (0.86, F + 1.0, 0.42, F + 0.35, 0.024, 0.02), (0.86, F - 1.0, 0.42, F - 0.35, 0.024, 0.02),     # armpit drags
+        (0.72, F + 0.65, 0.52, F + 0.12, 0.016, 0.014), (0.72, F - 0.65, 0.52, F - 0.12, 0.016, 0.014),
+        (0.13, F - 1.3, 0.1, F + 1.3, 0.016, 0.015), (0.22, F - 0.9, 0.24, F + 0.95, 0.012, 0.012),      # hem stack
+        (0.86, -F - 0.7, 0.55, -F + 0.1, 0.012, 0.015),                                                   # back drag
+    ], length=0.58, radius=0.2)
+    add(tube("Shirt", body, [(0.235, 0.165), (0.245, 0.17), (0.248, 0.168), (0.255, 0.165), (0.27, 0.155),
+                             (0.2, 0.12), (0.08, 0.07)], shirt, ring=48, rows=26, profile="box", p_exp=5.0,
+             carve=shirt_folds, subdiv=1), "Spine")
+    add(tube("ShirtHem", [(0, 0.01, 0.872), (0, 0.01, 0.89)], [(0.238, 0.168), (0.238, 0.168)], shirt, ring=48,
+             profile="box", p_exp=5.0, subdiv=1), "Pelvis")
     add(tube("Collar", [(0, 0.0, 1.43), (0, 0.005, 1.475)], [(0.075, 0.065), (0.07, 0.06)], mat("shirt_seam", 0.8),
              caps=False, subdiv=1), "Spine")
     add(tube("Placket", [(0, -0.155, 0.92), (0, -0.152, 1.42)], [0.012, 0.012], mat("shirt_seam", 0.8), subdiv=1), "Spine")
@@ -612,13 +746,24 @@ def build_character(rig):
     for s, sx in (("L", 1), ("R", -1)):
         sho, elb = jp(f"sho_{s}"), jp(f"elb_{s}")
         end = sho.lerp(elb, 0.75)
-        add(tube(f"Sleeve_{s}", arc(sho + Vector((-sx * 0.04, 0, 0.0)), end, n=4), [(0.11, 0.1), (0.115, 0.105),
-                                                                                    (0.112, 0.102), (0.105, 0.098)],
-                 shirt, caps=False, ring=16, crease=0.8, facet=0.04, seed=2), f"UpperArm_{s}")
-        # Rolled sleeve cuff.
-        d = (end - sho).normalized()
-        add(tube(f"Cuff_{s}", [end - d * 0.01, end + d * 0.025], [(0.112, 0.104), (0.11, 0.102)], mat("shirt_seam", 0.8),
-                 caps=False, subdiv=1), f"UpperArm_{s}")
+        # Sleeve: grows out of the flat shoulder line, then drops as a heavy block.
+        # Hang from the shoulder line: the sleeve's top face continues the torso's.
+        root = Vector((sx * 0.13, 0.0, 1.3))
+        top = Vector((sx * 0.27, 0.0, 1.285))
+        drop = Vector((sx * 0.3, 0.01, 1.19))
+        cuff_c = Vector((sx * 0.31, 0.01, 1.1))
+        inner = math.pi if sx > 0 else 0.0               # the side facing the body
+        sl_folds = folds([
+            (0.35, inner - 0.7, 0.62, inner + 0.25, 0.02, 0.016), (0.5, inner - 0.9, 0.78, inner + 0.1, 0.016, 0.014),
+            (0.45, -inner + 0.5, 0.85, -inner - 0.3, 0.012, 0.014),
+        ], length=0.42, radius=0.11)
+        add(tube(f"Sleeve_{s}", [root, top, drop, cuff_c], [(0.1, 0.105), (0.115, 0.11), (0.122, 0.112), (0.118, 0.108)],
+                 shirt, caps=False, ring=40, rows=20, profile="box", p_exp=4.5, carve=sl_folds, subdiv=1,
+                 side=Vector((0, 1, 0))), f"UpperArm_{s}")
+        # Rolled, blocky cuff.
+        d = (cuff_c - drop).normalized()
+        add(tube(f"Cuff_{s}", [cuff_c - d * 0.012, cuff_c + d * 0.022], [(0.124, 0.114), (0.122, 0.112)], mat("shirt_seam", 0.8),
+                 caps=False, ring=40, profile="box", p_exp=4.5, subdiv=1, side=Vector((0, 1, 0))), f"UpperArm_{s}")
         # Thin arms, mitten hands with a thumb.
         wri, hand = jp(f"wri_{s}"), jp(f"hand_{s}")
         armpts = arc(sho.lerp(elb, 0.3), elb, n=3)[:-1] + [elb] + arc(elb, wri, n=4)[1:]
@@ -637,8 +782,8 @@ def build_character(rig):
     add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
             rot=(0, 0, math.radians(-20))), "Pelvis")
     # Neck and head: a sculpted, planar face (see build_face).
-    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.53)], [0.045, 0.043], skin), "Neck")
-    hc = Vector((0, -0.01, 1.64))
+    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.036, 0.033], skin), "Neck")   # longer, thinner neck
+    hc = Vector((0, -0.01, HEAD_Z))
     build_face(add, hc, (0.112, 0.124, 0.15), skin, "iris", "hair", "lip", nose=1.15, chin=1.0, cheek=1.1, jaw=1.0,
                eye_r=0.023, smirk=1.0)
     # Short twists peeking out under the cap.
@@ -651,13 +796,18 @@ def build_character(rig):
         tip = base + Vector((0.55 * (base.x - hc.x), 0.55 * (base.y - hc.y), -0.05 - rnd.uniform(0, 0.02)))
         add(tube(f"Twist{i}", [base, base.lerp(tip, 0.5), tip], [0.016, 0.014, 0.008], mat("hair", 0.7), subdiv=1),
             "Head")
-    # Rust cap: crown and a curved brim.
-    add(blob("CapCrown", hc + Vector((0, 0.005, 0.072)), (0.128, 0.134, 0.09), mat("cap", 0.75, sheen=0.3)), "Head")
-    add(box("CapBand", hc + Vector((0, 0.005, 0.06)), (0.25, 0.26, 0.03), mat("cap", 0.75, sheen=0.3), bevel=0.012),
-        "Head").hide_render = True
-    add(blob("CapBrim", hc + Vector((0, -0.16, 0.05)), (0.1, 0.07, 0.012), mat("cap", 0.75, sheen=0.3),
-             rot=(math.radians(-8), 0, 0)), "Head")
-    add(blob("CapButton", hc + Vector((0, 0.005, 0.162)), (0.012, 0.012, 0.008), mat("cap", 0.75), subdiv=1), "Head")
+    # Rust cap: a slouched, seamed crown and a brim bent down around the eyes.
+    capm = mat("cap", 0.75, sheen=0.3)
+    add(cap_crown("CapCrown", hc + Vector((0, 0.005, 0.06)), (0.13, 0.136, 0.1), capm), "Head")
+    add(box("CapBand", hc + Vector((0, 0.005, 0.06)), (0.25, 0.26, 0.03), capm, bevel=0.012), "Head").hide_render = True
+    add(cap_brim("CapBrim", hc + Vector((0, 0.0, 0.062)), 0.128, 0.075, capm), "Head")
+    add(blob("CapButton", hc + Vector((0, 0.012, 0.158)), (0.012, 0.012, 0.008), capm, subdiv=1), "Head")
+    for k in range(6):   # panel seams from the button down the crown
+        a = math.radians(-90 + k * 60)
+        seam = [hc + Vector((0, 0.012, 0.155)) + Vector((math.cos(a) * r * 0.13, math.sin(a) * r * 0.136, -0.1 * r * r))
+                for r in (0.15, 0.5, 0.85, 1.0)]
+        add(tube(f"CapSeam{k}", seam, [0.0018] * 4, mat("shirt_seam", 0.7) if False else mat("cap_seam", 0.7), subdiv=0,
+                 ring=6), "Head")
     return parts
 
 

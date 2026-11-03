@@ -146,8 +146,8 @@ def build_girl():
     add(tube("G_BagFlap", [(0.24, -0.1, 1.07), (0.24, 0.04, 1.07)], [0.006, 0.006], mat("gold", 0.3, metallic=0.8),
              subdiv=1), "Pelvis")
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
-    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.53)], [0.038, 0.036], skin), "Neck")
-    hc = Vector((0, -0.005, 1.64))
+    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.032, 0.03], skin), "Neck")
+    hc = Vector((0, -0.005, 1.67))
     size = (0.1, 0.11, 0.136)
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
     fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "g_lip", prefix="G_", nose=0.7, chin=1.15, cheek=0.9,
@@ -406,7 +406,7 @@ class Face:
         for o in bpy.data.objects:
             if o.parent == rig and o.parent_bone == "Head":
                 self.base[o.name] = (o.location.copy(), o.scale.copy(), o.rotation_euler.copy())
-        hc = Vector((0, -0.01, 1.64))
+        hc = Vector((0, -0.01, 1.67))
         size = (0.112, 0.124, 0.15)
         self.extra = {}
         # Hidden until the awe: sparkles in the eyes, blush, an open mouth, hearts.
