@@ -41,3 +41,8 @@ add secondary motion, and verify the rig stays on-model.
 
 ## Never
 Never change a key pose's timing or silhouette without sending it back to `key-animator`.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§5) and use the
+tested helpers in `blender_pipeline/toonkit.py`: set_interpolation, camera_move(ease=...); Graph Editor handles for spacing.

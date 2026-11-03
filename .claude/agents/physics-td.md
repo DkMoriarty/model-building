@@ -35,3 +35,8 @@ the planner, show the asserted numbers in your hand-off, then rebuild the audio.
 
 ## Never
 Never tune a motion by eye in the scene. Change the planner, then rebuild.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§5) and use the
+tested helpers in `blender_pipeline/toonkit.py`: compute motion in Python and key it with key_offsets / key_swings; never eyeball a trajectory.

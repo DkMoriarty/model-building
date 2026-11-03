@@ -40,3 +40,8 @@ block at the top of the file, and a still per set.
 ## Never
 - Never use another creator's signature colours or sets.
 - Never put a BG prop on a travel lane at the same height as a silhouette (tangent).
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§3) and use the
+tested helpers in `blender_pipeline/toonkit.py`: build_multiplane, add_painting, flat_material (unlit painted cards), gp_material.

@@ -39,3 +39,8 @@ driven from cue data.
 
 ## Never
 Never add narration to fill silence. Voice is for a cold open and dialogue only.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§4) and use the
+tested helpers in `blender_pipeline/toonkit.py`: setup_mouth_library, key_visemes (constant, 1-frame lead), rhubarb_cues.

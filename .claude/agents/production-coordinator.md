@@ -63,3 +63,8 @@ Steps 3a/3b can run in parallel. So can 2 and 4.
 - Never let animation start on an unlocked timeline.
 - Never mark a shot `final` without the `qc-reviewer` gate output in hand.
 - Never edit approved shots, `cues.json` by hand, or commit `master.wav` / `output_renders/`.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§8-9) and use the
+tested helpers in `blender_pipeline/toonkit.py`: make_studio_tree, setup_project, draft_viewport, new_shot, assemble_master, mark_character_asset, register_asset_library, link_character.

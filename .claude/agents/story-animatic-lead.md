@@ -49,3 +49,8 @@ The user's storyline or script. Existing episodes are worked examples:
 ## Never
 - Never drop or reorder a beat the user named.
 - Never change a locked timeline without listing the shots it moves.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§1) and use the
+tested helpers in `blender_pipeline/toonkit.py`: setup_project (frame_end = last dialogue frame); lock audio in the Video Sequencer before any animation.

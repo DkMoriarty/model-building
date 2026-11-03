@@ -42,3 +42,8 @@ and a list of effect events with their tiers for sound.
 ## Never
 Never use more than one major shake per act. Never let a translucent fill panel
 form from a swept smear.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§7) and use the
+tested helpers in `blender_pipeline/toonkit.py`: line_art, add_key_light, light_layers, drop_shadow_fx, glow_fx, contact_shadow, setup_compositor.

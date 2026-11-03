@@ -58,6 +58,12 @@ input files, the output files and the gate command (template in `references/hand
 - Final: `npm run render:<x>` (strict) and `python tools/frame_audit.py --episode <ep>`
   exit 0 with 0 hard flags.
 
+## Blender track
+For a show built in Blender 4.3+ (Grease Pencil v3), each department uses
+`blender_pipeline/toonkit.py` and `blender_pipeline/docs/BLENDER_GUIDE.md`. That
+guide also lists where common tutorials no longer match Blender. The gate is
+`blender -b -P blender_pipeline/build_demo.py`, which must report all checks passed.
+
 ## Lessons
 Department lessons go in `alan_pipeline/docs/LEARNING_LOG.md`. When a rule
 becomes permanent, promote it into the owning agent's file.

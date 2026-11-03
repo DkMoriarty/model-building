@@ -48,3 +48,8 @@ and the stage helpers in `src/first_light/stage.ts`.
 ## Never
 - No loose pixel lengths in character code.
 - Never copy another creator's character. Designs are original; references teach technique only.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§2) and use the
+tested helpers in `blender_pipeline/toonkit.py`: build_biped_armature, add_leg_ik, solve_pole_angle, draw_stick_character, bind_layers_to_bones.

@@ -36,3 +36,8 @@ onto the existing render instead of re-rendering.
 ## Never
 Never hand-edit `cues.json`, commit `master.wav`, or use music or samples you
 don't own. Everything is synthesized.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§1, §8) and use the
+tested helpers in `blender_pipeline/toonkit.py`: audio strips in the Master_Edit scene (assemble_master(sound=...)); same sync rules.

@@ -51,3 +51,8 @@ staging in the act files, before the animators pose anything.
 - Never leave a spawned camera tween running into the next act (the 7-second
   frozen-camera bug).
 - Never crop the subject outside the safe margin without a declared exemption.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§3, §6) and use the
+tested helpers in `blender_pipeline/toonkit.py`: setup_camera, build_multiplane, view_size_at, depth_of_field, camera_move, handheld, impact_shake.

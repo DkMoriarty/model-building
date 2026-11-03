@@ -34,3 +34,8 @@ lines, then `git push -u origin <working branch>`.
 ## Never
 Never commit `output_renders/` or `audio/*/master.wav`. Never deliver without
 the QC verdict `APPROVED` in `notes.md`.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§8) and use the
+tested helpers in `blender_pipeline/toonkit.py`: set_output('preview' | 'phone' | 'final' | 'exr'); headless `blender -b file.blend -S Master_Edit -a`.

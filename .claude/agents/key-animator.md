@@ -45,3 +45,8 @@ plan data, and a list of shots ready for in-betweening.
 ## Never
 Never `yield task` bare (use `s.spawn`). Never move a cue to fix a late key.
 Never let a second action compete during the key action (C7).
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (§5) and use the
+tested helpers in `blender_pipeline/toonkit.py`: walk_cycle, key_offsets (armature-space moves), key_swings (picture-plane rotations); animate IK targets, not thighs.

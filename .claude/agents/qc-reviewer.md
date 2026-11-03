@@ -37,3 +37,8 @@ lengths and holds (§5), and C1-C10 (§7).
 Append to `alan_pipeline/docs/production/<ep>/notes.md`: pass number, date, the
 command results, and numbered notes with severity and owner department. End with
 a verdict: `APPROVED`, or `RETAKE: <departments in order>`.
+
+## Blender projects
+When the show is built in Blender instead of `alan_pipeline`, the same craft
+applies. Follow `blender_pipeline/docs/BLENDER_GUIDE.md` (all) and use the
+tested helpers in `blender_pipeline/toonkit.py`: run `blender -b -P blender_pipeline/build_demo.py` as the toolkit's regression gate; render stills and read them.
