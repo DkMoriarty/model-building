@@ -111,18 +111,18 @@ def build_girl():
              subdiv=1), "Pelvis")
     # A chunky blue cable-knit crewneck over a white collared shirt, a fine silver chain.
     card = mat("cardigan", 0.95, sheen=0.6)
-    add(tube("Sweater", [(0, 0.0, 0.93), (0, 0.0, 1.15), (0, 0.0, 1.35), (0, 0.0, 1.46)],
-             [(0.2, 0.15), (0.19, 0.14), (0.2, 0.135), (0.085, 0.07)], card, ring=20, crease=0.3, facet=0.03, seed=8), "Spine")
+    add(tube("Sweater", [(0, 0.0, 0.93), (0, 0.0, 1.15), (0, 0.0, 1.33), (0, 0.0, 1.41)],
+             [(0.2, 0.15), (0.19, 0.14), (0.2, 0.135), (0.13, 0.085)], card, ring=20, crease=0.3, facet=0.03, seed=8), "Spine")
     for k in range(5):                                   # knit cables running down the front
         x = -0.1 + 0.05 * k
         add(tube(f"Cable{k}", [(x, -0.14, 0.98), (x, -0.146, 1.15), (x, -0.13, 1.33)], [0.008, 0.009, 0.008], card,
                  subdiv=1, ring=8), "Spine")
-    add(fr.torus("SweaterNeck", Vector((0, 0.0, 1.455)), 0.052, 0.012, mat("cardigan_rib", 0.95), axis="Z"), "Spine")
+    add(fr.torus("SweaterNeck", Vector((0, 0.0, 1.405)), 0.085, 0.012, mat("cardigan_rib", 0.95), axis="Z"), "Spine")
     shirt = mat("tee", 0.7)
     for sx in (1, -1):                                   # white shirt collar points over the crewneck
-        add(tube(f"Collar{sx}", [(sx * 0.01, -0.045, 1.49), (sx * 0.045, -0.06, 1.46), (sx * 0.08, -0.075, 1.41)],
-                 [(0.004, 0.026), (0.004, 0.03), (0.003, 0.012)], shirt, side=Vector((0, 1, 0)), subdiv=1), "Spine")
-    chain = [Vector((0.03 * math.sin(a_) * 1.2, -0.035 - 0.012 * math.cos(a_), 1.5 - 0.04 * math.cos(a_ / 2) ** 0.5))
+        add(tube(f"Collar{sx}", [(sx * 0.03, -0.055, 1.44), (sx * 0.08, -0.075, 1.415), (sx * 0.14, -0.07, 1.37)],
+                 [(0.004, 0.03), (0.004, 0.034), (0.003, 0.014)], shirt, side=Vector((0, 1, 0)), subdiv=1), "Spine")
+    chain = [Vector((0.03 * math.sin(a_) * 1.0, -0.024 - 0.01 * math.cos(a_), 1.47 - 0.035 * math.cos(a_ / 2) ** 0.5))
              for a_ in [-math.pi / 2 + math.pi * i / 10 for i in range(11)]]
     add(tube("Necklace", chain, [0.0014] * len(chain), mat("silver", 0.2, metallic=1.0), subdiv=0, ring=6), "Neck")
     for s, sx in (("L", 1), ("R", -1)):
@@ -144,15 +144,15 @@ def build_girl():
     add(tube("G_BagFlap", [(0.24, -0.1, 1.07), (0.24, 0.04, 1.07)], [0.006, 0.006], mat("gold", 0.3, metallic=0.8),
              subdiv=1), "Pelvis")
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
-    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.034, 0.031], skin), "Neck")
-    hc = Vector((0, -0.005, 1.678))
-    size = (0.112, 0.118, 0.15)         # young: a rounder, shorter face        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
+    add(tube("G_Neck", [(0, 0.01, 1.38), (0, 0.0, 1.6)], [0.025, 0.022], skin), "Neck")   # long, thin, elegant
+    hc = Vector((0, -0.005, 1.70))
+    size = (0.118, 0.118, 0.15)         # young: a rounder, shorter face        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
     # Face measured from the reference: a long narrow oval with a small rounded
     # chin, wide-set dark almond eyes with a light liner, thin high arched
     # brows, a small upturned rosy nose, small parted lips, strong blush.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.45, chin=0.9, cheek=1.6,
-                  jaw=0.75, eye_r=0.031, lashes=True, smirk=0.25, style="toon", lips=0.4,
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=1.0, chin=0.5, cheek=1.0,
+                  jaw=0.75, eye_r=0.04, lashes=True, smirk=0.25, style="toon", lips=0.4,
                   paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
     silver = mat("silver", 0.2, metallic=1.0)

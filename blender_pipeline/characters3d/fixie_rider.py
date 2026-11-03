@@ -494,6 +494,25 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             x = math.copysign(plane + (abs(x) - plane) * (0.5 if not toon else 0.7), x)
         if y < -0.82 and z > 0.15:                  # flat forehead plane
             y = -0.82 + (y + 0.82) * 0.35
+        shield = LAYOUT.get("shield", 0.0) if toon else 0.0
+        if shield:
+            # Shield head: a wide, flat upper face (forehead + cheekbones pulled
+            # out sideways, front flattened) tapering in straight lines to a tiny
+            # pointed chin pulled down.
+            top = LAYOUT["eye_uz"] - 0.1
+            if z > top:
+                x *= 1 + 0.1 * shield
+            else:
+                t = min(1.0, (top - z) / (top + 1.0))
+                # Outline set directly: full cheeks held down past the mouth, then a
+                # convex (U) jaw line closing into a small chin (~30% of cheek width).
+                sw = max(0.3, math.sqrt(max(0.0, 1 - z * z)))
+                wt = (1 + 0.1 * shield) * math.sqrt(max(0.0, 1 - top * top))
+                x *= (wt * (1 - 0.75 * shield * t ** 2.2)) / sw
+                z -= 0.03 * shield * t * t
+            if y < -0.55:                                     # flat face front, easing out below the cheeks
+                fz = max(0.0, min(1.0, (z + 0.75) / 0.4))
+                y = -0.55 + (y + 0.55) * (1 - 0.45 * shield * fz)
         oval = LAYOUT.get("oval", 0.0) if toon else 0.0
         jref = LAYOUT.get("jaw_ref", 0.0) if toon else 0.0
         if z < 0 and jref:
@@ -507,14 +526,14 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                 z = -0.8 - (zz - 0.8) * 0.6
             y = y * (1 - 0.15 * zz) if y > 0 else y
             z = z * (1 + 0.12 * zz)                             # long lower face
-        elif z < 0 and oval:
+        elif z < 0 and oval and not shield:
             # Perfect elongated oval: the lower face is a stretched half-ellipse -
             # no jaw corner, no flat planes, a softly rounded chin at the bottom.
             zz = -z
             x *= math.sqrt(max(0.0, 1 - 0.55 * oval * zz ** 2)) / math.sqrt(max(1e-6, 1 - 0.0 * zz))
             y = y * (1 - 0.12 * zz) if y > 0 else y
             z = z * (1 + 0.16 * oval * zz)                # elongate the jaw downward, more toward the chin
-        elif z < 0:                                 # jaw tapering to the chin (angular when jaw is low)
+        elif z < 0 and not shield:                                 # jaw tapering to the chin (angular when jaw is low)
             k = 1 - 0.4 * jaw * (-z) ** 1.2
             if jaw < 0.6:                           # keep a squarer jaw corner, then narrow hard to the chin
                 k = 1 - 0.18 * (-z) - 0.55 * max(0.0, -z - 0.55) ** 1.1
@@ -1176,9 +1195,12 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 # Mapped from the reference (front crop, 1 unit = half face width horizontally,
 # skull-top-to-centre vertically): eyes 0.37 below brows, wide-set; nose tip and
 # mouth low; small rounded chin; hairline high; ears level with the eyes.
-HER_LAYOUT = dict(eye_ux=0.41, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
-                  mouth_w=0.23, almond_h=0.7, liner=1.0, pout=0.65, iris=0.78, oval=0.3, soft=1.0, brow_drop=-0.07,
-                  hairline=0.74, chin_w=0.12, eye_k=(0.8, 1.1, 0.36), eye_sink=0.4, iris_x=0.12)
+# Ink-style girl, mapped from the reference: a wide flat shield-shaped upper
+# face tapering to a tiny pointed chin; huge almond eyes slanting up to the
+# temples; a long narrow wedge nose; a wide flat slit mouth.
+HER_LAYOUT = dict(eye_ux=0.47, eye_uz=-0.08, nose_z=-0.47, mouth_z=-0.66, chin_z=-1.0, ear_uz=0.0, ear_h=0.6,
+                  mouth_w=0.24, almond_h=0.66, liner=1.2, iris=0.78, soft=1.0, brow_drop=-0.04, hairline=0.74,
+                  eye_k=(0.8, 1.05, 0.55), eye_sink=0.4, iris_x=0.12, shield=1.0, slit=1.0, pout=0.55)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
@@ -2349,7 +2371,7 @@ def golden_hour(scene, cam, subject, focus=None, fstop=1.8, set_dressing=True):
         o.location = loc
         o.rotation_euler = (subject - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         return o
-    light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 520, (1.0, 0.52, 0.26), size=2.0)
+    light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 520, (1.0, 0.52, 0.26), size=0.6)
     light("GH_Rim", "AREA", subject + side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.1)), 2600, (1.0, 0.95, 0.85), size=0.5)
     light("GH_RimHair", "AREA", subject - side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.55)), 900, (1.0, 0.9, 0.75), size=0.4)
     light("GH_Fill", "AREA", subject - side * 2.0 + to_cam * 1.2, 70, (0.7, 0.68, 0.92), size=3.0)
