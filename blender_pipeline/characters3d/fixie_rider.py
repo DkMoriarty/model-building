@@ -830,26 +830,49 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     heavy black upper line hugging the top contour into a short flick, a
     fine lower line. Openness is the eyeball's height (see FaceRig)."""
     W, H = 1.3 * r, (ah or ALMOND_H) * r
-    add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
+    eyeball = add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.95, 0))
-    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
+    iris_ob = add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, (r * 0.6 * LAYOUT.get("iris", 1.0)) if "eye_k" in LAYOUT else H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
              subdiv=1, segments=24), "Head")
     pk = 1.0 + 0.4 * LAYOUT.get("soft", 0.0)        # bigger, softer pupils
-    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, H * 0.58 * pk), mat("iris", 0.1),
+    pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, (r * 0.3 * pk) if "eye_k" in LAYOUT else H * 0.58 * pk), mat("iris", 0.1),
              subdiv=1), "Head")
     soft = LAYOUT.get("soft", 0.0)                 # warm, friendly eyes: big catch-lights
-    gl = r * (0.12 + 0.08 * soft)
-    add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.25, -r * 0.1, H * 0.35)), (gl, r * 0.04, gl),
+    gl = r * (0.12 + 0.08 * soft) * (0.6 if "eye_k" in LAYOUT else 1.0)
+    gz = H * 0.35 if "eye_k" not in LAYOUT else H * 0.2
+    add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.1 + r * 0.18, -r * 0.12, gz)), (gl, r * 0.04, gl),
              mat("eye_white", 0.02), subdiv=1, segments=12), "Head")
-    if soft:
+    if soft and "eye_k" not in LAYOUT:
         add(blob(f"{prefix}Glint2{sx}", front + Vector((sx * r * 0.2, -r * 0.1, -H * 0.3)), (r * 0.07, r * 0.03, r * 0.07),
                  mat("eye_white", 0.02), subdiv=0, segments=8), "Head")
 
+    # Eye shape (mapped faces): a flatter upper lid line, a rounder lower edge and
+    # an outer corner lifted by `tl` - the eyeball, iris and pupil are reshaped
+    # to it (the iris tucks under the upper lid) and both liners follow it.
+    tk, bk, tl = LAYOUT.get("eye_k", (1.0, 1.0, 0.0))
+    if (tk, bk, tl) != (1.0, 1.0, 0.0):
+        for v in eyeball.data.vertices:
+            ux, uy, uz = v.co
+            v.co.z = uz * (tk if uz > 0 else bk) + tl * sx * ux
+        for ob_ in (iris_ob, pupil_ob):
+            for v in ob_.data.vertices:              # sit the iris a little high: the upper lid cuts its top
+                v.co.z += 0.2 * H / ob_.matrix_world.to_scale().z
+            ox = ob_.matrix_world.translation.x - eye.x        # world placement (the part is bone-parented now)
+            sc = ob_.matrix_world.to_scale()
+            sX, sZ = sc.x, sc.z
+            for v in ob_.data.vertices:
+                x = ox + v.co.x * sX
+                q = math.sqrt(max(0.0, 1 - (x / W) ** 2))
+                z = v.co.z * sZ + H * tl * sx * x / W
+                z = min(z, H * (tk * q * 0.94 + tl * sx * x / W))
+                z = max(z, H * (-bk * q * 0.98 + tl * sx * x / W)) if bk < 1.0 else z
+                v.co.z = z / sZ
+
     def contour(t, k=0.93):          # t in [-1, 1] along the top edge, inner -> outer
         x = t * W * 0.98
-        z = H * k * math.sqrt(max(0.0, 1 - (x / W) ** 2))
-        y = -r * math.sqrt(max(0.0, 1 - (x / W) ** 2 - (z / H) ** 2)) - r * 0.06
-        return eye + Vector((sx * x, y, z))
+        z0 = H * k * math.sqrt(max(0.0, 1 - (x / W) ** 2))
+        y = -r * math.sqrt(max(0.0, 1 - (x / W) ** 2 - (z0 / H) ** 2)) - r * 0.06
+        return eye + Vector((sx * x, y, z0 * tk + H * tl * x / W))
     pts = [contour(t) for t in (-1.0, -0.6, -0.15, 0.3, 0.75, 1.0)]
     inner = pts[0] + Vector((-sx * r * 0.22, -r * 0.02, -r * 0.16))       # sharp inner point dipping toward the nose
     tip = pts[-1] + Vector((sx * r * 0.45 * wing, -r * 0.05, r * 0.3 * wing))
@@ -875,7 +898,8 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     lo.data.transform(Matrix.Translation(-eye))
     lo.location = eye
     add(lo, "Head")
-    low = [eye + Vector((sx * x * W * 0.9, -r * math.sqrt(max(0.0, 1 - x * x * 0.81 - 0.5)) - r * 0.08, -H * 0.72 * math.sqrt(max(0, 1 - x * x))))
+    low = [eye + Vector((sx * x * W * 0.9, -r * math.sqrt(max(0.0, 1 - x * x * 0.81 - 0.5)) - r * 0.08,
+                         -H * 0.72 * bk * math.sqrt(max(0, 1 - x * x)) + H * tl * x * 0.9))
            for x in (-0.6, -0.1, 0.4, 0.85)] + [pts[-1] + Vector((sx * r * 0.05, 0, -r * 0.05))]   # meets the top line: a closed almond point
     add(tube(f"{prefix}LowLiner{sx}", low, [r * 0.012, r * 0.03, r * 0.04, r * 0.035, r * 0.01], liner, subdiv=1, ring=8), "Head")
 
@@ -888,7 +912,7 @@ def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes, wing=1.0):
     front = eye + Vector((0, -r * 0.94, 0))
     add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.05, 0, -r * 0.03)), (r * 0.66, r * 0.1, r * 0.7), mat(iris_col, 0.15),
              subdiv=1, segments=24), "Head")
-    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.05, -r * 0.05, -r * 0.03)), (r * 0.4, r * 0.06, r * 0.42),
+    pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.05, -r * 0.05, -r * 0.03)), (r * 0.4, r * 0.06, r * 0.42),
              mat("iris", 0.1), subdiv=1), "Head")
     add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.3, -r * 0.12, r * 0.28)), (r * 0.17, r * 0.05, r * 0.17),
              mat("eye_white", 0.02), subdiv=1, segments=12), "Head")
@@ -942,7 +966,7 @@ def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose
         front = eye + Vector((0, -eye_r * 0.93, 0))
         add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * 0.002, 0, -0.001)), (eye_r * 0.62, eye_r * 0.12, eye_r * 0.66),
                  mat(iris_col, 0.2), subdiv=1), "Head")
-        add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * 0.002, -eye_r * 0.06, -0.001)), (eye_r * 0.3, eye_r * 0.08, eye_r * 0.32),
+        pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * 0.002, -eye_r * 0.06, -0.001)), (eye_r * 0.3, eye_r * 0.08, eye_r * 0.32),
                  mat("iris", 0.15), subdiv=1), "Head")
         add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * eye_r * 0.25, -eye_r * 0.14, eye_r * 0.3)),
                  (eye_r * 0.14, eye_r * 0.05, eye_r * 0.14), mat("eye_white", 0.05), subdiv=0, segments=8), "Head")
@@ -1151,9 +1175,9 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 # Mapped from the reference (front crop, 1 unit = half face width horizontally,
 # skull-top-to-centre vertically): eyes 0.37 below brows, wide-set; nose tip and
 # mouth low; small rounded chin; hairline high; ears level with the eyes.
-HER_LAYOUT = dict(eye_ux=0.5, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
-                  mouth_w=0.23, almond_h=0.75, liner=1.4, pout=0.65, iris=1.2, oval=0.3, soft=1.0, brow_drop=-0.07,
-                  hairline=0.74, chin_w=0.12)
+HER_LAYOUT = dict(eye_ux=0.46, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
+                  mouth_w=0.23, almond_h=0.82, liner=1.0, pout=0.65, iris=1.08, oval=0.3, soft=1.0, brow_drop=-0.07,
+                  hairline=0.74, chin_w=0.12, eye_k=(0.8, 1.1, 0.12))
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 

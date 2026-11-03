@@ -42,7 +42,7 @@ hx = fr.hx
 
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
-    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#1f120b"),
+    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2c180e"),
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#4b66ab"), "cardigan_rib": hx("#425b9c"), "silver": hx("#d9dbe0"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
