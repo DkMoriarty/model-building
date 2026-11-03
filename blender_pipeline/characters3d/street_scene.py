@@ -42,7 +42,7 @@ hx = fr.hx
 
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
-    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2c180e"),
+    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#150b07"),
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#4b66ab"), "cardigan_rib": hx("#425b9c"), "silver": hx("#d9dbe0"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
@@ -151,14 +151,18 @@ def build_girl():
     # Face measured from the reference: a long narrow oval with a small rounded
     # chin, wide-set dark almond eyes with a light liner, thin high arched
     # brows, a small upturned rosy nose, small parted lips, strong blush.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=1.0, chin=0.5, cheek=1.0,
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=1.35, chin=0.5, cheek=1.0,
                   jaw=0.75, eye_r=0.04, lashes=True, smirk=0.0, style="toon", lips=0.4,
                   paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
     silver = mat("silver", 0.2, metallic=1.0)
     for sx in (1, -1):   # round silver hoops hanging from the lobes
-        c = hc + Vector((sx * size[0] * 1.02, 0.004, size[2] * (fr.HER_LAYOUT["ear_uz"] - 0.5)))
-        add(fr.torus(f"G_Earring{sx}", c, 0.016, 0.0024, silver, axis="X"), "Head")
+        L = fr.HER_LAYOUT                 # hang from the lobe (ear_shell: lobe at -0.47 ear heights)
+        lobe_z = L["ear_uz"] - 0.47 * L["ear_h"]
+        c = hc + Vector((sx * size[0] * (L.get("ear_x", 0.88) + 0.06), 0.004, size[2] * lobe_z - 0.022))
+        hoop = fr.torus(f"G_Earring{sx}", c, 0.022, 0.0028, silver, axis="X")
+        hoop.rotation_euler.z = math.radians(-sx * 40)          # turned toward camera: reads as a ring
+        add(hoop, "Head")
     # Black hair parted in the centre, pulled back into a low ponytail, loose strands framing the face.
     fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.hx("#07060a")), seed=5, style="ponytail", prefix="G_")
     rig.scale = (0.95, 0.95, 0.95)

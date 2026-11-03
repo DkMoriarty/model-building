@@ -22,6 +22,8 @@ import sys
 import bpy
 from mathutils import Matrix, Vector
 
+_SPEC = "Specular IOR Level" if bpy.app.version >= (4, 0, 0) else "Specular"   # Principled input renamed in 4.0
+
 # ---------------------------------------------------------------------------
 # Palette (sRGB hex -> linear)
 # ---------------------------------------------------------------------------
@@ -69,8 +71,8 @@ def mat(name, roughness=0.6, sheen=0.0, metallic=0.0, sss=0.0):
     glossy = metallic > 0 or roughness < 0.4
     if VINYL and not glossy:
         roughness = 0.95
-        if "Specular IOR Level" in bsdf.inputs:
-            bsdf.inputs["Specular IOR Level"].default_value = 0.0
+        if _SPEC in bsdf.inputs:
+            bsdf.inputs[_SPEC].default_value = 0.0
         bsdf.inputs["IOR"].default_value = 1.1
         tc = nt.nodes.new("ShaderNodeTexCoord")
         nz = nt.nodes.new("ShaderNodeTexNoise")
@@ -445,22 +447,24 @@ def skin_paint_material(name, skin, blush, lip, stubble=None):
         bsdf.inputs["Subsurface Radius"].default_value = (0.8, 0.4, 0.25)
         if "Subsurface Scale" in bsdf.inputs:
             bsdf.inputs["Subsurface Scale"].default_value = 0.012
-    if "Specular IOR Level" in bsdf.inputs:
-        bsdf.inputs["Specular IOR Level"].default_value = 0.15
+    if _SPEC in bsdf.inputs:
+        bsdf.inputs[_SPEC].default_value = 0.15
     m.diffuse_color = COL[skin]
     return m
 
 
-def ear_shell(name, center, h, sx, material):
+def ear_shell(name, center, h, sx, material, soft=0.0):
     """An architectural ear: a flat ribbon rim (helix) running round in a C,
-    a recessed bowl, a lobe and a tragus."""
+    a recessed bowl, a lobe and a tragus. soft (0-1) rounds the rim's profile
+    and the outline (wider at the top, tapering to the lobe)."""
     parts = []
     path = []
     for i in range(14):
         a = math.radians(70 + 280 * i / 13)                 # open C toward the face
-        path.append(center + Vector((0, -math.cos(a) * h * 0.32, math.sin(a) * h * 0.5)))
+        wz = 1 + 0.18 * soft * math.sin(a)                  # fuller top, narrower toward the lobe
+        path.append(center + Vector((0, -math.cos(a) * h * 0.32 * wz, math.sin(a) * h * 0.5)))
     rim = tube(f"{name}Rim", path, [(h * 0.12, h * 0.07)] * 14, material, side=Vector((1, 0, 0)), profile="box",
-               p_exp=6.0, ring=16, subdiv=1)
+               p_exp=6.0 - 3.5 * soft, ring=16, subdiv=1)
     parts.append(rim)
     bowl = blob(f"{name}Bowl", center + Vector((-sx * h * 0.06, 0.0, 0.0)), (h * 0.07, h * 0.22, h * 0.36), material)
     parts.append(bowl)
@@ -508,7 +512,7 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                 # convex (U) jaw line closing into a small chin (~30% of cheek width).
                 sw = max(0.3, math.sqrt(max(0.0, 1 - z * z)))
                 wt = (1 + 0.1 * shield) * math.sqrt(max(0.0, 1 - top * top))
-                x *= (wt * (1 - 0.75 * shield * t ** 2.2)) / sw
+                x *= (wt * (1 - 0.8 * shield * t ** 1.6)) / sw       # straighter taper to a small soft point (ref 09)
                 z -= 0.03 * shield * t * t
             if y < -0.55:                                     # flat face front, easing out below the cheeks
                 fz = max(0.0, min(1.0, (z + 0.75) / 0.4))
@@ -578,7 +582,7 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             fr_ = max(0.0, -y)
             bw = (sum(_g(x, e, 0.22) for e in (0.5, -0.5)) * _g(z, LAYOUT["eye_uz"] - 0.25, 0.2) * 1.0
                   + 1.1 * _g(x, 0, 0.12) * _g(z, LAYOUT["nose_z"], 0.1)) * fr_
-            c = skin_c.lerp(Vector(blush_c), min(0.9, bw * 1.35))
+            c = skin_c.lerp(Vector(blush_c), min(0.9, bw * 1.35 * LAYOUT.get("blush", 1.0)))
             if stub_c is not None and z < -0.28 and abs(x) < 0.82 and lipw < 0.2:
                 sw = min(1.0, (-0.28 - z) / 0.15) * (0.55 + 0.45 * rs.random()) * (1 if rs.random() < 0.55 else 0.3)
                 c = c.lerp(Vector(stub_c), 0.45 * sw)
@@ -786,8 +790,11 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         dz = L["eye_uz"] - 0.05 - L.get("brow_drop", 0.0)   # brows ride with the eye line
         pts = [head_surface(hc, size, sx * ux, uz + dz) + Vector((0, -0.006, 0)) for ux, uz in spec]
         add(recenter(tube(f"{prefix}Brow{sx}", pts, radii, mat(brow_col, 0.6), subdiv=1)), "Head")
-        for part in ear_shell(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 0.88, 0.015, size[2] * L["ear_uz"])),
-                              size[2] * L["ear_h"], sx, skin_flat):
+        ec = hc + Vector((sx * size[0] * L.get("ear_x", 0.88), 0.015, size[2] * L["ear_uz"]))
+        # ear_flare: swing the back edge out from the skull (degrees) so the ear stands proud
+        flare = Matrix.Translation(ec) @ Matrix.Rotation(math.radians(sx * L.get("ear_flare", 0.0)), 4, "Z") @ Matrix.Translation(-ec)
+        for part in ear_shell(f"{prefix}Ear{sx}", ec, size[2] * L["ear_h"], sx, skin_flat, soft=L.get("ear_soft", 0.0)):
+            part.matrix_world = flare @ part.matrix_world
             add(part, "Head")
     pts = [head_surface(hc, size, ux, smirk_line(ux, smirk * 0.5)) + Vector((0, -0.003, 0))
            for ux in [u * L.get("mouth_w", 0.28) / 0.28 for u in (-0.27, -0.13, 0.0, 0.14, 0.28)]]
@@ -810,17 +817,18 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         # sitting proud of the face, parted by a short dark line.
         lipm = mat("lip_pout", 0.35)
         pw = L["pout"]
+        lt = L.get("lip_t", 1.0)                          # lip thickness
         mz = smirk_line(0.0, smirk * 0.5)
         up = head_surface(hc, size, 0.0, mz + 0.045) + Vector((0, -0.004, 0))
         lo = head_surface(hc, size, 0.0, mz - 0.055) + Vector((0, -0.005, 0))
         add(tube(f"{prefix}PoutUp", [up + Vector((-0.021 * pw, 0.004, -0.004)), up + Vector((-0.008 * pw, 0, 0.0015)),
                                      up + Vector((0, 0.0005, -0.0005)), up + Vector((0.008 * pw, 0, 0.0015)),
                                      up + Vector((0.021 * pw, 0.004, -0.004))],
-                 [(0.002, 0.002), (0.0055, 0.005), (0.006, 0.0048), (0.0055, 0.005), (0.002, 0.002)], lipm,
+                 [(0.002, 0.002), (0.0055 * lt, 0.005 * lt), (0.006 * lt, 0.0048 * lt), (0.0055 * lt, 0.005 * lt), (0.002, 0.002)], lipm,
                  side=Vector((0, 1, 0)), subdiv=2, ring=12), "Head")
         add(tube(f"{prefix}PoutLow", [lo + Vector((-0.017 * pw, 0.004, 0.003)), lo + Vector((-0.007 * pw, 0, 0)),
                                       lo + Vector((0.007 * pw, 0, 0)), lo + Vector((0.017 * pw, 0.004, 0.003))],
-                 [(0.002, 0.002), (0.007, 0.0065), (0.007, 0.0065), (0.002, 0.002)], lipm, side=Vector((0, 1, 0)),
+                 [(0.002, 0.002), (0.007 * lt, 0.0065 * lt), (0.007 * lt, 0.0065 * lt), (0.002, 0.002)], lipm, side=Vector((0, 1, 0)),
                  subdiv=2, ring=12), "Head")
     build_mouths(add, hc, size, lip_col, prefix, grin=grin)
     build_face_extras(add, hc, size, prefix)
@@ -1169,7 +1177,11 @@ def skin_chain(ob, rig, bones, blend=0.05):
                 g.add([v.index], wi, "REPLACE")
     m = ob.modifiers.new("Rig", "ARMATURE")
     m.object = rig
-    ob.modifiers.move(len(ob.modifiers) - 1, 0)
+    if hasattr(ob.modifiers, "move"):
+        ob.modifiers.move(len(ob.modifiers) - 1, 0)
+    else:                                                   # Blender < 3.5: no modifiers.move
+        with bpy.context.temp_override(object=ob, active_object=ob):
+            bpy.ops.object.modifier_move_to_index(modifier=m.name, index=0)
     ob.parent = rig
     return ob
 
@@ -1199,9 +1211,9 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 # Ink-style girl, mapped from the reference: a wide flat shield-shaped upper
 # face tapering to a tiny pointed chin; huge almond eyes slanting up to the
 # temples; a long narrow wedge nose; a wide flat slit mouth.
-HER_LAYOUT = dict(eye_ux=0.47, eye_uz=-0.08, nose_z=-0.47, mouth_z=-0.66, chin_z=-1.0, ear_uz=0.0, ear_h=0.6,
-                  mouth_w=0.24, almond_h=0.66, liner=1.2, iris=0.78, soft=1.0, brow_drop=-0.04, hairline=0.74,
-                  eye_k=(0.8, 1.05, 0.55), eye_sink=0.4, iris_x=0.12, shield=1.0, slit=1.0, pout=0.55)
+HER_LAYOUT = dict(eye_ux=0.47, eye_uz=-0.08, nose_z=-0.47, mouth_z=-0.66, chin_z=-1.0, ear_uz=-0.02, ear_h=0.85,
+                  ear_x=1.02, ear_flare=25, ear_soft=1.0, lip_t=1.35, blush=1.5, mouth_w=0.24, almond_h=0.66, liner=1.2, iris=1.0, soft=1.0, brow_drop=0.06, hairline=0.64,
+                  eye_k=(0.8, 1.05, 0.55), eye_sink=0.4, iris_x=0.12, shield=1.0, slit=1.0, pout=0.8)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # tennis reference: straight long jawline to a broad forward chin
 
@@ -1395,8 +1407,8 @@ def matte_hair_material(col):
     b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     b.inputs["Base Color"].default_value = col
     b.inputs["Roughness"].default_value = 0.95
-    if "Specular IOR Level" in b.inputs:
-        b.inputs["Specular IOR Level"].default_value = 0.0
+    if _SPEC in b.inputs:
+        b.inputs[_SPEC].default_value = 0.0
     if "Subsurface Weight" in b.inputs:
         b.inputs["Subsurface Weight"].default_value = 0.03          # near-black, not brown, in warm light
         b.inputs["Subsurface Radius"].default_value = (0.6, 0.5, 0.5)
@@ -1473,9 +1485,9 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
                 return z > -0.88
             if y > -0.15:                             # behind the ears
                 return z > -0.55
-            if abs(x) > 0.72:
-                return z > 0.1
-            return z > hair_front - 0.3 * x * x
+            # one smooth hairline from the forehead down the temples to the ear tops (no ledge)
+            # sides come down over the temples to below the ear tops: no scalp/skin above the ears
+            return z > max(-0.12, hair_front - 0.55 * x * x - 1.7 * max(0.0, abs(x) - 0.55))
         if y > 0.2:                                   # back: down to the nape
             return z > -0.35
         if abs(x) > 0.72:                             # sides: to the top of the ears
@@ -1485,7 +1497,8 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         return z > hair_front + 0.08 * (abs(x) > 0.45)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
     for v in bm.verts:
-        bump = 1.0 + 0.03 * math.sin(v.co.x * 9 + 1) * math.sin(v.co.y * 7 + 2) * math.sin(v.co.z * 8)
+        bx = abs(v.co.x) if style == "ponytail" else v.co.x   # her cap mirrors across the part (turntable symmetry)
+        bump = 1.0 + 0.03 * math.sin(bx * 9 + 1) * math.sin(v.co.y * 7 + 2) * math.sin(v.co.z * 8)
         v.co = conform(Vector((hc.x + v.co.x * sx * 1.05 * bump, hc.y + v.co.y * sy * 1.05 * bump,
                                hc.z + v.co.z * sz * 1.04 * bump)), 1.03 * bump)
     me = bpy.data.meshes.new("Hair_Helmet")
@@ -1567,13 +1580,34 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         # Centre part; hair combed from the part down both sides and back to a low
         # tie at the nape; a ponytail hanging from it; loose strands from the part
         # falling past the cheeks; a few flyaways on top.
-        for i in range(11):                               # the two sides mirror each other exactly
-            t = i / 10
+        for i in range(16):                               # the two sides mirror each other exactly
+            t = i / 15
             ln, wd, cu = rnd.uniform(0.24, 0.29), rnd.uniform(1.7, 2.1), rnd.uniform(0.2, 0.5)
-            for sgn in (1, -1):
-                root = (sgn * 0.04, -0.62 + 1.2 * t, math.sqrt(max(0.0, 1 - 0.0016 - (-0.62 + 1.2 * t) ** 2)))
+            pf = 0.05 + 0.09 * (1 - t)                    # front combs puff over the temples (ref 09 side volume)
+            for sgn in (1, -1):                           # roots on the part line: hair meets in the middle, no scalp shows
+                root = (sgn * 0.02, -0.62 + 1.2 * t, math.sqrt(max(0.0, 1 - 0.0004 - (-0.62 + 1.2 * t) ** 2)))
                 lock(f"HairComb{sgn}_{i}", root, (sgn * 1.0, 0.55 + 0.4 * t, -0.45), ln, wd,
-                     k=1.06 + 0.012 * (i % 3), puff=0.05, flick=0.0, curl=sgn * cu, tilt=sgn * 0.5)
+                     k=1.05 + 0.012 * (i % 3), puff=pf, flick=0.0, curl=sgn * cu, tilt=sgn * 0.5)
+        for i in range(9):                                # loose thin strands lifting off the combs: breaks up the smooth shell
+            t = (i + 0.5) / 12                            # front and top only; none at the back near the tie
+            ln, cu, pf = rnd.uniform(0.2, 0.28), rnd.uniform(0.3, 0.7), rnd.uniform(0.12, 0.2)
+            for sgn in (1, -1):
+                root = (sgn * 0.07, -0.55 + 1.05 * t, math.sqrt(max(0.0, 1 - 0.0049 - (-0.55 + 1.05 * t) ** 2)))
+                lock(f"HairLoose{sgn}_{i}", root, (sgn * 1.0, 0.5 + 0.45 * t, -0.35), ln, 0.55,
+                     k=1.1, puff=pf, flick=0.05, curl=sgn * cu, tilt=sgn * 0.7)
+        for i in range(4):                                # a few fine flyaways at the crown, mirrored
+            a, ln = 0.35 + 0.3 * i, rnd.uniform(0.05, 0.07)
+            for sgn in (1, -1):
+                lock(f"HairCrownFly{sgn}_{i}", (sgn * 0.12, -0.1 + 0.25 * i, 0.98), (sgn * math.cos(a), math.sin(a), -0.2),
+                     ln, 0.12, k=1.1, curl=sgn * 0.5, free=True, lift=0.03)
+        if LAYOUT.get("part_skin"):                       # the centre part: a thin line of scalp between the combs
+            ppts = []
+            for i in range(9):
+                yy = -0.62 + 1.0 * i / 8
+                ppts.append(Vector((0.0, yy, math.sqrt(max(0.0, 1 - yy * yy)))))
+            pts_w = [shell(Vector((hc.x, hc.y + q.y * sy, hc.z + q.z * sz)), 1.055) for q in ppts]
+            add(tube(prefix + "HairPart", pts_w, [0.0008, 0.0016, 0.0018, 0.0017, 0.0016, 0.0014, 0.0012, 0.0009, 0.0005],
+                     mat(LAYOUT["part_skin"], 0.6), side=Vector((0, 0, 1)), subdiv=1, ring=8), "Head")
         tie = Vector((hc.x, hc.y + 0.95 * sy, hc.z - 0.4 * sz))
         add(torus(prefix + "HairTie", tie, 0.016, 0.007, material, axis="Y"), "Head")
         for i in range(9):
@@ -1583,12 +1617,19 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
                    tie + off * 1.8 + Vector((0, 0.03, -0.2)), tie + off * 1.2 + Vector((0, 0.02, -0.26))]
             lock(f"HairTail{i}", (0, 0, 1), (0, 0, -1), 0, rnd.uniform(1.5, 1.9), tilt=a, path=pts)
         for sgn in (1, -1):                               # face-framing strands from the part
-            for j, (x0, wide, low) in enumerate(((0.1, 0.93, -0.8), (0.18, 0.98, -0.6), (0.26, 1.04, -1.0), (0.14, 0.9, -0.45),
-                                                 (0.3, 1.1, -0.85))):
+            # two thin strands lying forward on the cheeks, so the ears stay visible (ref 09)
+            for j, (x0, wide, low) in enumerate(((0.1, 0.8, -0.85), (0.2, 0.88, -0.7))):
                 upts = [(sgn * x0, -0.85, hair_front + 0.12), (sgn * (x0 + 0.25), -0.85, hair_front - 0.05),
-                        (sgn * (wide - 0.05), -0.62, LAYOUT["eye_uz"] + 0.1), (sgn * wide, -0.45, LAYOUT["eye_uz"] - 0.25),
-                        (sgn * (wide - 0.05), -0.35, low + 0.25), (sgn * (wide + 0.04), -0.3, low)]
+                        (sgn * (wide - 0.05), -0.72, LAYOUT["eye_uz"] + 0.1), (sgn * wide, -0.62, LAYOUT["eye_uz"] - 0.25),
+                        (sgn * (wide - 0.05), -0.55, low + 0.25), (sgn * (wide + 0.02), -0.5, low)]
                 unit_path(f"HairFrame{sgn}_{j}", upts, 0.55 + 0.06 * j, tilt=sgn * 0.4, k=1.06)
+            # curtain: strands from the part sweeping out along the hairline, over the
+            # forehead corners and temples, tucked behind the ears (closes the forehead gap)
+            for j, (dz, w) in enumerate(((0.06, 1.1), (0.0, 1.0), (-0.06, 0.9), (0.12, 1.0))):
+                hf = hair_front + dz
+                upts = [(sgn * 0.03, -0.75, hf + 0.15), (sgn * 0.3, -0.86, hf - 0.04), (sgn * 0.58, -0.72, hf - 0.22),
+                        (sgn * 0.8, -0.45, hf - 0.48), (sgn * 0.92, -0.1, 0.12 + dz), (sgn * 0.85, 0.25, -0.1)]
+                unit_path(f"HairCurtain{sgn}_{j}", upts, w, tilt=sgn * 0.6, k=1.07 + 0.012 * j)
         for i, (n_, aim) in enumerate((((-0.75, -0.2, 0.5), (-0.6, 0.3, -0.7)), ((0.8, 0.0, 0.45), (0.5, 0.4, -0.8)))):
             lock(f"HairFly{i}", n_, aim, rnd.uniform(0.07, 0.09), 0.2, k=1.12, curl=rnd.choice((-0.6, 0.6)), free=True, lift=0.1)
         return
@@ -1672,8 +1713,8 @@ def hair_material(col_root, col_tip):
     nt.links.new(info.outputs["Intercept"], ramp.inputs["Fac"])
     nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
     b.inputs["Roughness"].default_value = 0.5
-    if "Specular IOR Level" in b.inputs:
-        b.inputs["Specular IOR Level"].default_value = 0.28
+    if _SPEC in b.inputs:
+        b.inputs[_SPEC].default_value = 0.28
     return m
 
 
@@ -2317,14 +2358,19 @@ def project_face_image(rig, prefix, image_path, img_pts, ellipse, skin_rgb=None,
     uvn.uv_map = "RefUV"
     mask = nt.nodes.new("ShaderNodeAttribute")
     mask.attribute_name = "FaceMask"
-    mix = nt.nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
     col = hx("#%02x%02x%02x" % tuple(skin_rgb)) if skin_rgb else COL["skin"]
-    mix.inputs[6].default_value = col
+    if hasattr(bpy.types, "ShaderNodeMix"):
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        a_in, b_in, mix_out = mix.inputs[6], mix.inputs[7], mix.outputs[2]
+    else:                                                   # Blender < 3.4
+        mix = nt.nodes.new("ShaderNodeMixRGB")
+        a_in, b_in, mix_out = mix.inputs[1], mix.inputs[2], mix.outputs[0]
+    a_in.default_value = col
     nt.links.new(uvn.outputs["UV"], tex.inputs["Vector"])
     nt.links.new(mask.outputs["Fac"], mix.inputs[0])
-    nt.links.new(tex.outputs["Color"], mix.inputs[7])
-    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    nt.links.new(tex.outputs["Color"], b_in)
+    nt.links.new(mix_out, b.inputs["Base Color"])
     # The painting already carries its own light and shade: let part of it glow
     # through as-is (inside the oval) so the 3D lighting doesn't wash it out.
     em = nt.nodes.new("ShaderNodeEmission")
@@ -2341,8 +2387,8 @@ def project_face_image(rig, prefix, image_path, img_pts, ellipse, skin_rgb=None,
     nt.links.new(em.outputs[0], mixsh.inputs[2])
     nt.links.new(mixsh.outputs[0], out.inputs["Surface"])
     b.inputs["Roughness"].default_value = 0.8
-    if "Specular IOR Level" in b.inputs:
-        b.inputs["Specular IOR Level"].default_value = 0.1
+    if _SPEC in b.inputs:
+        b.inputs[_SPEC].default_value = 0.1
     me.materials.clear()
     me.materials.append(m)
     if skin_rgb:                                    # ears, neck, hands take the same fill colour
@@ -2400,7 +2446,9 @@ def golden_hour(scene, cam, subject, focus=None, fstop=1.8, set_dressing=True):
         o.rotation_euler = (subject - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         return o
     light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 520, (1.0, 0.52, 0.26), size=0.6)
-    light("GH_Rim", "AREA", subject + side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.1)), 2600, (1.0, 0.95, 0.85), size=0.5)
+    agx = "AgX" in [i.identifier for i in scene.view_settings.bl_rna.properties["view_transform"].enum_items]
+    rim = 2600 if agx else 1000                     # Filmic (pre-4.0) clips the rim to white on the jaw
+    light("GH_Rim", "AREA", subject + side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.1)), rim, (1.0, 0.95, 0.85), size=0.5)
     light("GH_RimHair", "AREA", subject - side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.55)), 900, (1.0, 0.9, 0.75), size=0.4)
     light("GH_Fill", "AREA", subject - side * 2.0 + to_cam * 1.2, 70, (0.7, 0.68, 0.92), size=3.0)
     if set_dressing:
@@ -2452,7 +2500,8 @@ def grade(scene):
     """AgX with a medium-high contrast look: rich colours, rims that roll
     off instead of clipping to white."""
     vs = scene.view_settings
-    vs.view_transform = "AgX"
+    views = [i.identifier for i in vs.bl_rna.properties["view_transform"].enum_items]
+    vs.view_transform = "AgX" if "AgX" in views else "Filmic"   # AgX is 4.0+
     looks = [i.identifier for i in vs.bl_rna.properties["look"].enum_items]
     for want in ("AgX - Medium High Contrast", "Medium High Contrast"):
         if want in looks:

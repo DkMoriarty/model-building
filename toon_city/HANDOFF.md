@@ -22,10 +22,10 @@ The user's order of work (they were firm about it):
 | | Status |
 |---|---|
 | **Him** (fixie rider) | Face rebuilt to the tennis-boy reference (08) by measured layout; user said **"Doable"** → treat as provisionally approved. Ribbon hair, wedge→bushy brows, tan skin, near-black matte hair, heavy lids. |
-| **Her** | Several reference switches; current target is reference **09** ("Thanks" girl). Latest: *shield* head (wide flat upper face → small chin), big up-slanted almond eyes, thin high brows, small lips, long thin neck, centre-part low ponytail, blue knit + white collar, silver hoops. Turntable symmetry fixed. **Not approved** — the user keeps saying it is not like her. |
+| **Her** | Several reference switches; current target is reference **09** ("Thanks" girl). Latest: *shield* head (wide flat upper face → small chin), big up-slanted almond eyes, thin high brows, small lips, long thin neck, centre-part low ponytail, blue knit + white collar, silver hoops. Turntable symmetry fixed. **Not approved** — the user keeps saying it is not like her. Local session 2026-11-03 (user's Blender 3.3.1, live via MCP): bigger irises (`iris=1.0`), near-black iris, big flared soft ears at eye level (`ear_x/ear_flare/ear_soft`), hoops hung from the lobes, fuller lips (`lip_t`, `pout=0.8`), narrower chin taper, lower brows, stronger nose and blush; hair: no scalp showing (user: "her scalp should not be visible", "hair can be more"), symmetric cap down over the temples to the ears, lower hairline, curtain strands framing the forehead, more combs and loose strands. User said "Closer"; still not final. |
 | Expressions | `FaceRig` + `EXPRESSIONS` exist for both (COOL, HAPPY, NOTICE, SHOCK, STRUCK, DAZED, SMUG, SIDEEYE / CALM, STARTLED, AMUSED) but were tuned on older faces — re-check on the new faces. |
 | CROSSWALK video | Fully coded (`street_scene.py`, 312 frames, 7 shots, physics, acting keys, audio). Not rendered at final quality — waiting on faces. |
-| User's Blender | **Older than 5.0** → our 5.0 `.blend` files fail ("not a blend file"). Use `blender/RUN_IN_BLENDER.py` to build inside their version. |
+| User's Blender | **3.3.1** → our 5.0 `.blend` files fail ("not a blend file"). Use `blender/RUN_IN_BLENDER.py` to build inside their version. It now runs on 3.3 (modifier move, MixRGB, Filmic fallback, `Specular` input name, softer rim without AgX). |
 
 ## Do this first (local agent)
 
