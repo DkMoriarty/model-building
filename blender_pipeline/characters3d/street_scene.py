@@ -42,7 +42,7 @@ hx = fr.hx
 
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
-    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2b1b15"),
+    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#3a2114"),
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#4b66ab"), "cardigan_rib": hx("#425b9c"), "silver": hx("#d9dbe0"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
@@ -152,7 +152,7 @@ def build_girl():
     # chin, wide-set dark almond eyes with a light liner, thin high arched
     # brows, a small upturned rosy nose, small parted lips, strong blush.
     fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.6, chin=0.8, cheek=1.2,
-                  jaw=0.75, eye_r=0.026, lashes=True, smirk=0.0, style="toon", lips=0.4,
+                  jaw=0.75, eye_r=0.026, lashes=True, smirk=0.25, style="toon", lips=0.4,
                   paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
     silver = mat("silver", 0.2, metallic=1.0)

@@ -762,7 +762,7 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         else:
             spec = ((0.13, 0.27), (0.29, 0.33), (0.45, 0.36), (0.62, 0.29))
             radii = [0.0045, 0.006, 0.0052, 0.0016]
-        dz = L["eye_uz"] - 0.05                       # brows ride with the eye line
+        dz = L["eye_uz"] - 0.05 - L.get("brow_drop", 0.0)   # brows ride with the eye line
         pts = [head_surface(hc, size, sx * ux, uz + dz) + Vector((0, -0.006, 0)) for ux, uz in spec]
         add(recenter(tube(f"{prefix}Brow{sx}", pts, radii, mat(brow_col, 0.6), subdiv=1)), "Head")
         for part in ear_shell(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 0.88, 0.015, size[2] * L["ear_uz"])),
@@ -830,12 +830,18 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     W, H = 1.3 * r, (ah or ALMOND_H) * r
     add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.95, 0))
-    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, H * 0.96), mat(iris_col, 0.15),
+    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
              subdiv=1, segments=24), "Head")
-    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3, r * 0.05, H * 0.58), mat("iris", 0.1),
+    pk = 1.0 + 0.4 * LAYOUT.get("soft", 0.0)        # bigger, softer pupils
+    add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, H * 0.58 * pk), mat("iris", 0.1),
              subdiv=1), "Head")
-    add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.25, -r * 0.1, H * 0.35)), (r * 0.12, r * 0.04, r * 0.12),
+    soft = LAYOUT.get("soft", 0.0)                 # warm, friendly eyes: big catch-lights
+    gl = r * (0.12 + 0.08 * soft)
+    add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.25, -r * 0.1, H * 0.35)), (gl, r * 0.04, gl),
              mat("eye_white", 0.02), subdiv=1, segments=12), "Head")
+    if soft:
+        add(blob(f"{prefix}Glint2{sx}", front + Vector((sx * r * 0.2, -r * 0.1, -H * 0.3)), (r * 0.07, r * 0.03, r * 0.07),
+                 mat("eye_white", 0.02), subdiv=0, segments=8), "Head")
 
     def contour(t, k=0.93):          # t in [-1, 1] along the top edge, inner -> outer
         x = t * W * 0.98
@@ -1141,7 +1147,7 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
 HER_LAYOUT = dict(eye_ux=0.42, eye_uz=-0.08, nose_z=-0.4, mouth_z=-0.63, chin_z=-0.95, ear_uz=-0.14, ear_h=0.78,
-                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.8, iris=1.25, oval=0.7)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
+                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.65, iris=1.2, oval=0.7, soft=1.0, brow_drop=0.05)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
@@ -1837,7 +1843,7 @@ EXPRESSIONS = {
                     gaze=(0.0, 0.05)),
     "SIDEEYE": dict(lid=0.5, lid_low=0.25, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
     # hers
-    "CALM":    dict(lid=0.88, lid_low=0.15, mouth="SMIRK"),
+    "CALM":    dict(lid=0.78, lid_low=0.3, mouth="SMIRK"),
     "STARTLED": dict(lid=1.4, lid_low=0.0, brow_l=0.009, brow_r=0.009, ang_l=10, ang_r=-10, mouth="O", pupil=0.75),
     "AMUSED":  dict(lid=0.8, lid_low=0.35, brow_l=0.007, brow_r=0.0, ang_l=-6, ang_r=0, mouth="SMIRK", blush=0.6,
                     gaze=(-0.3, 0.0)),
