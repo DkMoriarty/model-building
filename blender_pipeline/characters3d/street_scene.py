@@ -43,7 +43,7 @@ hx = fr.hx
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
     "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2b1b15"),
-    "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#d9a43a"), "cardigan_rib": hx("#c08f2c"),
+    "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#4b66ab"), "cardigan_rib": hx("#425b9c"), "silver": hx("#d9dbe0"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
     # Street.
@@ -109,24 +109,22 @@ def build_girl():
     add(blob("G_Hips", (0, 0.005, 0.99), (0.15, 0.11, 0.11), jeans), "Pelvis")
     add(tube("G_Belt", [(0, 0.0, 1.03), (0, 0.0, 1.055)], [(0.152, 0.112), (0.152, 0.112)], mat("g_bag", 0.5), caps=False,
              subdiv=1), "Pelvis")
-    # White tee tucked in, an oversized mustard cardigan open at the front.
-    add(tube("Tee", [(0, 0.0, 1.0), (0, 0.0, 1.2), (0, 0.0, 1.38), (0, 0.0, 1.44)], [(0.15, 0.105), (0.155, 0.105),
-                                                                                  (0.17, 0.11), (0.07, 0.06)],
-             mat("tee", 0.8)), "Spine")
-    card = mat("cardigan", 0.9, sheen=0.5)
-    for sx in (1, -1):  # two front panels and the back, leaving the tee showing
-        add(tube(f"CardiganPanel{sx}", [(sx * 0.1, -0.02, 0.95), (sx * 0.13, -0.02, 1.15), (sx * 0.12, -0.0, 1.35),
-                                        (sx * 0.07, 0.0, 1.44)],
-                 [(0.1, 0.13), (0.1, 0.135), (0.085, 0.125), (0.05, 0.07)], card, ring=16, crease=0.8, facet=0.04,
-                 seed=5), "Spine")
-        add(tube(f"CardiganEdge{sx}", [(sx * 0.03, -0.14, 0.95), (sx * 0.05, -0.15, 1.2), (sx * 0.05, -0.13, 1.42)],
-                 [0.014] * 3, mat("cardigan_rib", 0.9), subdiv=1), "Spine")
-        for k in range(3):
-            add(blob(f"CardButton{sx}{k}", (sx * 0.045, -0.165, 1.02 + 0.1 * k), (0.009, 0.005, 0.009), mat("gold", 0.3,
-                                                                                                         metallic=0.8),
-                     subdiv=1), "Spine")
-    add(tube("CardiganHem", [(0, 0.01, 0.93), (0, 0.01, 0.97)], [(0.205, 0.15), (0.205, 0.15)], mat("cardigan_rib", 0.9),
-             caps=False, subdiv=1), "Pelvis")
+    # A chunky blue cable-knit crewneck over a white collared shirt, a fine silver chain.
+    card = mat("cardigan", 0.95, sheen=0.6)
+    add(tube("Sweater", [(0, 0.0, 0.93), (0, 0.0, 1.15), (0, 0.0, 1.35), (0, 0.0, 1.46)],
+             [(0.2, 0.15), (0.19, 0.14), (0.2, 0.135), (0.085, 0.07)], card, ring=20, crease=0.3, facet=0.03, seed=8), "Spine")
+    for k in range(5):                                   # knit cables running down the front
+        x = -0.1 + 0.05 * k
+        add(tube(f"Cable{k}", [(x, -0.14, 0.98), (x, -0.146, 1.15), (x, -0.13, 1.33)], [0.008, 0.009, 0.008], card,
+                 subdiv=1, ring=8), "Spine")
+    add(fr.torus("SweaterNeck", Vector((0, 0.0, 1.455)), 0.052, 0.012, mat("cardigan_rib", 0.95), axis="Z"), "Spine")
+    shirt = mat("tee", 0.7)
+    for sx in (1, -1):                                   # white shirt collar points over the crewneck
+        add(tube(f"Collar{sx}", [(sx * 0.01, -0.045, 1.49), (sx * 0.045, -0.06, 1.46), (sx * 0.08, -0.075, 1.41)],
+                 [(0.004, 0.026), (0.004, 0.03), (0.003, 0.012)], shirt, side=Vector((0, 1, 0)), subdiv=1), "Spine")
+    chain = [Vector((0.03 * math.sin(a_) * 1.2, -0.035 - 0.012 * math.cos(a_), 1.5 - 0.04 * math.cos(a_ / 2) ** 0.5))
+             for a_ in [-math.pi / 2 + math.pi * i / 10 for i in range(11)]]
+    add(tube("Necklace", chain, [0.0014] * len(chain), mat("silver", 0.2, metallic=1.0), subdiv=0, ring=6), "Neck")
     for s, sx in (("L", 1), ("R", -1)):
         sho, elb, wri, hand = jp(f"sho_{s}"), jp(f"elb_{s}"), jp(f"wri_{s}"), jp(f"hand_{s}")
         # Long, slouchy sleeves to the wrist (bend with the elbow), ribbed cuffs.
@@ -146,27 +144,23 @@ def build_girl():
     add(tube("G_BagFlap", [(0.24, -0.1, 1.07), (0.24, 0.04, 1.07)], [0.006, 0.006], mat("gold", 0.3, metallic=0.8),
              subdiv=1), "Pelvis")
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
-    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.037, 0.034], skin), "Neck")
+    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.034, 0.031], skin), "Neck")
     hc = Vector((0, -0.005, 1.678))
-    size = (0.118, 0.12, 0.142)        # Ink proportions: a big head on a slender neck          # wide cheeks tapering to a small chin
+    size = (0.114, 0.116, 0.148)        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
-    # Ink-style face (measured from the reference): big wide-set eyes with a heavy
-    # winged liner, thin sharp brows low over them, a small straight nose, a
-    # small full coral mouth, a V chin, strong blush across cheeks and nose.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.8, chin=1.0, cheek=1.0,
-                  jaw=0.95, eye_r=0.03, lashes=True, smirk=0.1, style="toon", lips=0.4,
-                  paint=("g_skin", "blush_toon", "lip_toon", None), brows="sharp", wing=1.0, eye_shape="almond",
+    # Face measured from the reference: a long narrow oval with a small rounded
+    # chin, wide-set dark almond eyes with a light liner, thin high arched
+    # brows, a small upturned rosy nose, small parted lips, strong blush.
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.6, chin=0.8, cheek=1.2,
+                  jaw=0.75, eye_r=0.026, lashes=True, smirk=0.0, style="toon", lips=0.4,
+                  paint=("g_skin", "blush_toon", "lip_toon", None), brows="thin", wing=0.35, eye_shape="almond",
                   layout=fr.HER_LAYOUT)
-    gold = mat("gold", 0.25, metallic=0.9)
-    for sx in (1, -1):   # chunky square gold earrings hanging from the lobes
-        c = hc + Vector((sx * size[0] * 1.0, 0.004, size[2] * (fr.HER_LAYOUT["ear_uz"] - 0.42)))
-        w, h = 0.015, 0.017
-        sq = [c + Vector((0, -w, h)), c + Vector((0, w, h)), c + Vector((0, w, -h)), c + Vector((0, -w, -h)), c + Vector((0, -w, h))]
-        add(tube(f"G_Earring{sx}", sq, [0.0065] * 5, gold, ring=8, subdiv=1, profile="box", p_exp=3.0), "Head")
-        add(tube(f"G_EarHook{sx}", [c + Vector((0, 0, h)), c + Vector((0, 0, h + 0.012))], [0.0012, 0.0012], gold, subdiv=0,
-                 ring=6), "Head")
-    # Sleek black hair combed back, falling down the back, a few wisps by the face.
-    fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.hx("#07060a")), seed=5, style="sleek", prefix="G_")
+    silver = mat("silver", 0.2, metallic=1.0)
+    for sx in (1, -1):   # round silver hoops hanging from the lobes
+        c = hc + Vector((sx * size[0] * 1.02, 0.004, size[2] * (fr.HER_LAYOUT["ear_uz"] - 0.5)))
+        add(fr.torus(f"G_Earring{sx}", c, 0.016, 0.0024, silver, axis="X"), "Head")
+    # Black hair parted in the centre, pulled back into a low ponytail, loose strands framing the face.
+    fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.hx("#07060a")), seed=5, style="ponytail", prefix="G_")
     rig.scale = (0.95, 0.95, 0.95)
     return rig, parts
 

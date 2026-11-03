@@ -747,6 +747,9 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         elif brows == "angry":
             spec = ((0.1, 0.15), (0.25, 0.215), (0.42, 0.265), (0.62, 0.235))  # dive toward the nose, low over the eyes
             radii = [(0.006, 0.013), (0.006, 0.014), (0.005, 0.011), (0.003, 0.004)]
+        elif brows == "thin":      # thin, soft, high above the eyes, a gentle arch
+            spec = ((0.14, 0.29), (0.28, 0.34), (0.44, 0.36), (0.6, 0.33), (0.72, 0.27))
+            radii = [(0.0012, 0.0016), (0.0016, 0.0028), (0.0016, 0.0028), (0.0012, 0.002), (0.0003, 0.0004)]
         elif brows == "sharp":     # thin, dark, low; angled down at the inner end, peaking two-thirds out
             spec = ((0.12, 0.13), (0.26, 0.19), (0.42, 0.235), (0.56, 0.245), (0.7, 0.2))
             radii = [(0.0024, 0.0034), (0.0032, 0.006), (0.003, 0.0056), (0.0022, 0.004), (0.0005, 0.0007)]
@@ -827,7 +830,7 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     W, H = 1.3 * r, (ah or ALMOND_H) * r
     add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.95, 0))
-    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6, r * 0.08, H * 0.96), mat(iris_col, 0.15),
+    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, H * 0.96), mat(iris_col, 0.15),
              subdiv=1, segments=24), "Head")
     add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3, r * 0.05, H * 0.58), mat("iris", 0.1),
              subdiv=1), "Head")
@@ -1137,8 +1140,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HER_LAYOUT = dict(eye_ux=0.4, eye_uz=0.0, nose_z=-0.33, mouth_z=-0.6, chin_z=-0.93, ear_uz=-0.12, ear_h=0.7,
-                  mouth_w=0.14, almond_h=0.85, liner=1.8, pout=1.0)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
+HER_LAYOUT = dict(eye_ux=0.42, eye_uz=-0.08, nose_z=-0.4, mouth_z=-0.63, chin_z=-0.95, ear_uz=-0.14, ear_h=0.78,
+                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.8, iris=1.25, oval=0.7)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
@@ -1383,15 +1386,15 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
-    hair_front = LAYOUT["eye_uz"] + (0.62 if style == "sleek" else 0.42)
+    hair_front = LAYOUT["eye_uz"] + (0.62 if style in ("sleek", "ponytail") else 0.42)
 
     def keep(v):
         x, y, z = v.co
         if y > 0.2:                                   # back: down to the nape
             return z > -0.35
         if abs(x) > 0.72:                             # sides: to the top of the ears
-            return z > (0.1 if style == "sleek" else -0.05)
-        if style == "sleek":                          # a soft rounded hairline dipping at the temples
+            return z > (0.1 if style in ("sleek", "ponytail") else -0.05)
+        if style in ("sleek", "ponytail"):            # a soft rounded hairline dipping at the temples
             return z > hair_front - 0.3 * x * x
         return z > hair_front + 0.08 * (abs(x) > 0.45)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
@@ -1463,6 +1466,45 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         return ob
 
     from mathutils import Matrix
+    def unit_path(name, upts, width, tilt=0.0, k=1.07):
+        """A ribbon through points given in head units, pushed out onto shell k wherever they would sink into the head."""
+        pts = []
+        for u in upts:
+            q = Vector(u)
+            if q.length < k:
+                q = q.normalized() * k
+            pts.append(Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz)))
+        lock(name, (0, 0, 1), (0, 0, -1), 0, width, tilt=tilt, path=pts)
+
+    if style == "ponytail":
+        # Centre part; hair combed from the part down both sides and back to a low
+        # tie at the nape; a ponytail hanging from it; loose strands from the part
+        # falling past the cheeks; a few flyaways on top.
+        for sgn in (1, -1):
+            for i in range(11):
+                t = i / 10
+                root = (sgn * 0.04, -0.62 + 1.2 * t, math.sqrt(max(0.0, 1 - 0.0016 - (-0.62 + 1.2 * t) ** 2)))
+                lock(f"HairComb{sgn}_{i}", root, (sgn * 1.0, 0.55 + 0.4 * t, -0.45), rnd.uniform(0.24, 0.29),
+                     rnd.uniform(1.7, 2.1), k=1.06 + 0.012 * (i % 3), puff=0.05, flick=0.0, curl=sgn * rnd.uniform(0.2, 0.5),
+                     tilt=sgn * 0.5)
+        tie = Vector((hc.x, hc.y + 0.95 * sy, hc.z - 0.4 * sz))
+        add(torus(prefix + "HairTie", tie, 0.016, 0.007, material, axis="Y"), "Head")
+        for i in range(9):
+            a = i * 2 * math.pi / 9
+            off = Vector((math.cos(a) * 0.008, 0.012 + math.sin(a) * 0.006, 0))
+            pts = [tie + off, tie + off * 1.6 + Vector((0, 0.03, -0.06)), tie + off * 2.0 + Vector((0, 0.035, -0.13)),
+                   tie + off * 1.8 + Vector((0, 0.03, -0.2)), tie + off * 1.2 + Vector((0, 0.02, -0.26))]
+            lock(f"HairTail{i}", (0, 0, 1), (0, 0, -1), 0, rnd.uniform(1.5, 1.9), tilt=a, path=pts)
+        for sgn in (1, -1):                               # face-framing strands from the part
+            for j, (x0, wide, low) in enumerate(((0.1, 0.93, -0.8), (0.18, 0.98, -0.6), (0.26, 1.04, -1.0), (0.14, 0.9, -0.45),
+                                                 (0.3, 1.1, -0.85))):
+                upts = [(sgn * x0, -0.85, hair_front + 0.12), (sgn * (x0 + 0.25), -0.85, hair_front - 0.05),
+                        (sgn * (wide - 0.05), -0.62, LAYOUT["eye_uz"] + 0.1), (sgn * wide, -0.45, LAYOUT["eye_uz"] - 0.25),
+                        (sgn * (wide - 0.05), -0.35, low + 0.25), (sgn * (wide + 0.04), -0.3, low)]
+                unit_path(f"HairFrame{sgn}_{j}", upts, rnd.uniform(0.55, 0.85), tilt=sgn * 0.4, k=1.06)
+        for i, (n_, aim) in enumerate((((-0.75, -0.2, 0.5), (-0.6, 0.3, -0.7)), ((0.8, 0.0, 0.45), (0.5, 0.4, -0.8)))):
+            lock(f"HairFly{i}", n_, aim, rnd.uniform(0.07, 0.09), 0.2, k=1.12, curl=rnd.choice((-0.6, 0.6)), free=True, lift=0.1)
+        return
     if style == "sleek":
         # Sleek, pulled-back hair: ribbons combed from the hairline straight
         # back over the skull (lying flat, barely any puff), long locks falling
@@ -1795,7 +1837,7 @@ EXPRESSIONS = {
                     gaze=(0.0, 0.05)),
     "SIDEEYE": dict(lid=0.5, lid_low=0.25, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
     # hers
-    "CALM":    dict(lid=0.95, lid_low=0.1, mouth="SMIRK"),
+    "CALM":    dict(lid=0.88, lid_low=0.15, mouth="SMIRK"),
     "STARTLED": dict(lid=1.4, lid_low=0.0, brow_l=0.009, brow_r=0.009, ang_l=10, ang_r=-10, mouth="O", pupil=0.75),
     "AMUSED":  dict(lid=0.8, lid_low=0.35, brow_l=0.007, brow_r=0.0, ang_l=-6, ang_r=0, mouth="SMIRK", blush=0.6,
                     gaze=(-0.3, 0.0)),
