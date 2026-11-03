@@ -42,7 +42,7 @@ hx = fr.hx
 
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
-    "g_skin": hx("#e2b08c"), "g_hair": hx("#141216"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#4a3424"),
+    "g_skin": hx("#e6a883"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2b1b15"),
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#d9a43a"), "cardigan_rib": hx("#c08f2c"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
@@ -148,15 +148,15 @@ def build_girl():
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
     add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.032, 0.03], skin), "Neck")
     hc = Vector((0, -0.005, 1.67))
-    size = (0.1, 0.11, 0.136)
+    size = (0.108, 0.112, 0.13)          # wide cheeks tapering to a small chin
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "g_lip", prefix="G_", nose=0.7, chin=1.15, cheek=0.9,
-                  jaw=1.1, eye_r=0.024, lashes=True, smirk=0.35)
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.7, chin=1.1, cheek=0.9,
+                  jaw=1.25, eye_r=0.033, lashes=True, smirk=0.2, style="toon", lips=1.5,
+                  paint=("g_skin", "blush_toon", "lip_toon", None), brows="arch")
     for sx in (1, -1):
         add(fr.torus(f"G_Hoop{sx}", hc + Vector((sx * size[0] * 1.06, 0.006, -0.06)), 0.018, 0.003,
                      mat("gold", 0.25, metallic=0.9), axis="X"), "Head")
-        cheek = fr.head_surface(hc, size, sx * 0.55, -0.18)
-        add(blob(f"G_Blush{sx}", cheek + Vector((0, -0.004, 0)), (0.018, 0.004, 0.01), mat("g_blush", 0.6), subdiv=1), "Head")
+        pass   # blush is painted into the skin now
     # Black blunt bob: a cap of hair hugging the skull, straight bangs that end
     # above the brows, sides falling to the jaw.
     hair = mat("g_hair", 0.35, sheen=0.4)
