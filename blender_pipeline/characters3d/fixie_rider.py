@@ -34,6 +34,8 @@ def hx(c, a=1.0):
 
 
 COL = {
+    "fence": hx("#3b3a38"),
+    "foliage": hx("#6d7a3a"),
     "skin": hx("#bd7c54"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#141116"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
@@ -696,6 +698,9 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         elif brows == "angry":
             spec = ((0.1, 0.15), (0.25, 0.215), (0.42, 0.265), (0.62, 0.235))  # dive toward the nose, low over the eyes
             radii = [(0.006, 0.013), (0.006, 0.014), (0.005, 0.011), (0.003, 0.004)]
+        elif brows == "wedge":     # thin dark wedge: heavy hooked head low by the nose, tilting up and out to a needle tip
+            spec = ((0.08, 0.1), (0.13, 0.15), (0.24, 0.2), (0.39, 0.245), (0.54, 0.26), (0.68, 0.23))
+            radii = [(0.003, 0.004), (0.004, 0.0085), (0.0038, 0.0075), (0.003, 0.0058), (0.0022, 0.0035), (0.0004, 0.0005)]
         else:
             spec = ((0.13, 0.27), (0.29, 0.33), (0.45, 0.36), (0.62, 0.29))
             radii = [0.0045, 0.006, 0.0052, 0.0016]
@@ -754,15 +759,31 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing):
         y = -r * math.sqrt(max(0.0, 1 - (x / W) ** 2 - (z / H) ** 2)) - r * 0.06
         return eye + Vector((sx * x, y, z))
     pts = [contour(t) for t in (-1.0, -0.6, -0.15, 0.3, 0.75, 1.0)]
+    inner = pts[0] + Vector((-sx * r * 0.22, -r * 0.02, -r * 0.16))       # sharp inner point dipping toward the nose
     tip = pts[-1] + Vector((sx * r * 0.45 * wing, -r * 0.05, r * 0.3 * wing))
-    lo = tube(f"{prefix}LidLiner{sx}", pts + [tip], [r * 0.05, r * 0.11, r * 0.14, r * 0.15, r * 0.14, r * 0.1, r * 0.015],
-              liner, subdiv=1, ring=10)
+    lo = tube(f"{prefix}LidLiner{sx}", [inner] + pts + [tip],
+              [r * 0.01, r * 0.05, r * 0.11, r * 0.14, r * 0.16, r * 0.16, r * 0.12, r * 0.012], liner, subdiv=1, ring=10)
+    if wing > 0.4:                                  # a second, longer lash sweep off the outer corner
+        base = pts[-2]
+        spike = tube(f"{prefix}LashSweep{sx}", [base, pts[-1] + Vector((sx * r * 0.2, -r * 0.08, r * 0.12)),
+                                                pts[-1] + Vector((sx * r * 0.62 * wing, -r * 0.1, r * 0.06))],
+                     [r * 0.08, r * 0.06, r * 0.008], liner, subdiv=1, ring=8)
+        lo.data.transform(Matrix.Identity(4))
+        bpy.context.view_layer.update()
+        me = lo.data
+        import bmesh as _bm
+        bm = _bm.new()
+        bm.from_mesh(me)
+        bm.from_mesh(spike.data)
+        bm.to_mesh(me)
+        bm.free()
+        bpy.data.objects.remove(spike)
     lo.data.transform(Matrix.Translation(-eye))
     lo.location = eye
     add(lo, "Head")
     low = [eye + Vector((sx * x * W * 0.9, -r * math.sqrt(max(0.0, 1 - x * x * 0.81 - 0.5)) - r * 0.08, -H * 0.72 * math.sqrt(max(0, 1 - x * x))))
-           for x in (-0.85, -0.3, 0.3, 0.85)]
-    add(tube(f"{prefix}LowLiner{sx}", low, [r * 0.015, r * 0.035, r * 0.035, r * 0.015], liner, subdiv=1, ring=8), "Head")
+           for x in (-0.6, -0.1, 0.4, 0.85)] + [pts[-1] + Vector((sx * r * 0.05, 0, -r * 0.05))]   # meets the top line: a closed almond point
+    add(tube(f"{prefix}LowLiner{sx}", low, [r * 0.012, r * 0.03, r * 0.04, r * 0.035, r * 0.01], liner, subdiv=1, ring=8), "Head")
 
 
 def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes, wing=1.0):
@@ -1602,7 +1623,7 @@ def build_character(rig):
     # closed smirk, a long defined chin, big low ears.
     build_face(add, hc, (0.108, 0.118, 0.15), skin, "iris", "hair", "lip_toon", nose=1.2, chin=1.0, cheek=1.0, jaw=0.45,
                eye_r=0.024, smirk=0.4, style="toon", lips=0.45, paint=("skin", "blush_toon", "lip_toon", None),
-               brows="straight", wing=0.2, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
+               brows="wedge", wing=0.6, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
     if HAIR == "messy":
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
         return parts
@@ -1969,6 +1990,95 @@ def studio(scene, pct):
         for attr, val in (("use_shadows", True), ("taa_render_samples", 32), ("use_raytracing", False)):
             if hasattr(ev, attr):
                 setattr(ev, attr, val)
+
+
+def golden_hour(scene, cam, subject, focus=None, fstop=1.8, set_dressing=True):
+    """Low-sun 'golden hour' look (replaces the studio set):
+      - warm key: a big golden-peach area light off frame left;
+      - blinding rim: a hot cream sun behind his right shoulder, pointing
+        back at the lens, for the glowing halo on neck, jaw and hair;
+      - contrast fill: a dim, cool lavender light on the shadow side;
+      - a warm sky, a sun glow and (optionally) a fence grid and foliage
+        behind, melted by a shallow depth of field focused on `focus`."""
+    subject = Vector(subject)
+    for o in list(bpy.data.objects):
+        if o.name in ("Key", "Fill", "Rim", "Backdrop", "Cyc"):
+            o.hide_render = True
+    bg = next(n for n in scene.world.node_tree.nodes if n.type == "BACKGROUND")
+    # The camera sees a bright warm sky; the scene is lit only by a dim cool ambient (deep shadows, no grey wash).
+    nt = scene.world.node_tree
+    bg.inputs["Color"].default_value = (0.62, 0.6, 0.78, 1)
+    bg.inputs["Strength"].default_value = 0.18
+    sky = nt.nodes.new("ShaderNodeBackground")
+    sky.inputs["Color"].default_value = (1.0, 0.74, 0.5, 1)
+    sky.inputs["Strength"].default_value = 1.4
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_WORLD")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+    nt.links.new(bg.outputs[0], mix.inputs[1])
+    nt.links.new(sky.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    to_cam = (cam.location - subject).normalized()
+    side = to_cam.cross(Vector((0, 0, 1))).normalized()          # screen-right direction seen from the subject
+    def light(name, kind, loc, energy, col, size=1.0, angle=None):
+        d = bpy.data.lights.new(name, kind)
+        d.energy, d.color = energy, col
+        if kind == "AREA":
+            d.size = size
+        if angle is not None:
+            d.angle = math.radians(angle)
+        o = _link(bpy.data.objects.new(name, d))
+        o.location = loc
+        o.rotation_euler = (subject - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
+        return o
+    light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 900, (1.0, 0.56, 0.3), size=2.0)
+    light("GH_Rim", "AREA", subject + side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.1)), 2600, (1.0, 0.95, 0.85), size=0.5)
+    light("GH_RimHair", "AREA", subject - side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.55)), 900, (1.0, 0.9, 0.75), size=0.4)
+    light("GH_Fill", "AREA", subject - side * 2.0 + to_cam * 1.2, 70, (0.7, 0.68, 0.92), size=3.0)
+    if set_dressing:
+        back = subject - to_cam * 2.2
+        sun = blob("GH_SunGlow", subject - to_cam * 6 + side * 2.2 + Vector((0, 0, 0.9)), (0.9, 0.9, 0.9), emit_mat("sun_glow", (1.0, 0.9, 0.7), 20.0), subdiv=1)
+        sun.visible_shadow = False
+        # A chain-link fence: a lattice of thin bars on a plane facing the camera.
+        right = side
+        fence = []
+        for i in range(-14, 15):
+            for sgn in (1, -1):
+                p0 = back + right * (i * 0.22) + Vector((0, 0, -1.6))
+                p1 = p0 + right * sgn * 1.6 + Vector((0, 0, 3.2))
+                fence.append(tube(f"GH_Fence{i}_{sgn}", [p0, p1], [0.009, 0.009], mat("fence", 0.6), subdiv=0, ring=4, caps=False))
+        for o in fence:
+            o.visible_shadow = False
+        for k in range(22):                       # a hedge line low behind the fence
+            p = back - to_cam * 1.5 + right * (-4.0 + k * 0.38) + Vector((0, 0, -0.75 + 0.15 * math.sin(k * 1.7)))
+            blob(f"GH_Bush{k}", p, (0.4, 0.3, 0.32), mat("foliage", 0.9), subdiv=1).visible_shadow = False
+    d = cam.data
+    d.dof.use_dof = True
+    d.dof.aperture_fstop = fstop
+    if focus is not None:
+        d.dof.focus_object = focus
+    else:
+        d.dof.focus_distance = (cam.location - subject).length
+
+
+def emit_mat(name, col, strength):
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = bpy.data.materials.new(name)
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        if n.type == "BSDF_PRINCIPLED":
+            nt.nodes.remove(n)
+    e = nt.nodes.new("ShaderNodeEmission")
+    e.inputs["Color"].default_value = (*col, 1)
+    e.inputs["Strength"].default_value = strength
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    nt.links.new(e.outputs["Emission"], out.inputs["Surface"])
+    return m
 
 
 def grade(scene):
