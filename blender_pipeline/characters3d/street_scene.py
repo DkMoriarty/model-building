@@ -95,7 +95,8 @@ def build_girl():
         leg = arc(hip + Vector((0, 0, 0.04)), knee, n=4)[:-1] + [knee] + arc(knee, ank + Vector((0, 0, -0.03)), n=5)[1:]
         r = [(0.085, 0.082), (0.08, 0.078), (0.074, 0.072), (0.072, 0.07), (0.078, 0.074), (0.088, 0.082), (0.1, 0.09),
              (0.112, 0.098)]
-        parts.append(skin_chain(tube(f"Jeans_{s}", leg, r, jeans, caps=False), rig, [f"Thigh_{s}", f"Shin_{s}"], blend=0.07))
+        parts.append(skin_chain(tube(f"Jeans_{s}", leg, r, jeans, caps=False, ring=16, crease=0.7, facet=0.03, seed=6), rig,
+                                [f"Thigh_{s}", f"Shin_{s}"], blend=0.07))
         seam = [p + Vector((0.08 if s == "L" else -0.08, 0, 0)) for p in leg]
         # Chunky white platform sneakers.
         x = ank.x
@@ -116,7 +117,8 @@ def build_girl():
     for sx in (1, -1):  # two front panels and the back, leaving the tee showing
         add(tube(f"CardiganPanel{sx}", [(sx * 0.1, -0.02, 0.95), (sx * 0.13, -0.02, 1.15), (sx * 0.12, -0.0, 1.35),
                                         (sx * 0.07, 0.0, 1.44)],
-                 [(0.1, 0.13), (0.1, 0.135), (0.085, 0.125), (0.05, 0.07)], card), "Spine")
+                 [(0.1, 0.13), (0.1, 0.135), (0.085, 0.125), (0.05, 0.07)], card, ring=16, crease=0.8, facet=0.04,
+                 seed=5), "Spine")
         add(tube(f"CardiganEdge{sx}", [(sx * 0.03, -0.14, 0.95), (sx * 0.05, -0.15, 1.2), (sx * 0.05, -0.13, 1.42)],
                  [0.014] * 3, mat("cardigan_rib", 0.9), subdiv=1), "Spine")
         for k in range(3):
@@ -146,36 +148,15 @@ def build_girl():
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
     add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.53)], [0.038, 0.036], skin), "Neck")
     hc = Vector((0, -0.005, 1.64))
-    add(blob("G_Head", hc, (0.105, 0.112, 0.138), skin), "Head")
-    add(blob("G_Jaw", hc + Vector((0, -0.028, -0.07)), (0.074, 0.075, 0.064), skin), "Head")
+    size = (0.1, 0.11, 0.136)
+    # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "g_lip", prefix="G_", nose=0.7, chin=1.15, cheek=0.9,
+                  jaw=1.1, eye_r=0.021, lashes=True, smirk=0.35)
     for sx in (1, -1):
-        add(blob(f"G_Ear{sx}", hc + Vector((sx * 0.104, 0.01, -0.01)), (0.016, 0.022, 0.032), skin), "Head")
-        add(fr.torus(f"G_Hoop{sx}", hc + Vector((sx * 0.112, 0.004, -0.06)), 0.018, 0.003, mat("gold", 0.25, metallic=0.9),
-                     axis="X"), "Head")
-        eye = hc + Vector((sx * 0.046, -0.098, 0.0))
-        add(blob(f"G_Eye{sx}", eye, (0.03, 0.014, 0.027), mat("eye_white", 0.3), subdiv=1), "Head")
-        add(blob(f"G_Iris{sx}", eye + Vector((-sx * 0.002, -0.011, -0.002)), (0.018, 0.006, 0.02), mat("g_iris", 0.15),
-                 subdiv=1), "Head")
-        add(blob(f"G_Pupil{sx}", eye + Vector((-sx * 0.002, -0.0155, -0.002)), (0.008, 0.003, 0.009), mat("iris", 0.1),
-                 subdiv=1), "Head")
-        add(blob(f"G_Glint{sx}", eye + Vector((-sx * 0.008, -0.018, 0.008)), (0.005, 0.002, 0.005), mat("eye_white", 0.1),
-                 subdiv=0, segments=8), "Head")
-        add(tube(f"G_Lid{sx}", [eye + Vector((-sx * 0.032, -0.004, 0.004)), eye + Vector((0, -0.015, 0.029)),
-                                eye + Vector((sx * 0.036, -0.004, 0.012))], [0.004, 0.0055, 0.004], mat("g_hair", 0.5),
-                 subdiv=1), "Head")
-        for k in range(3):  # lashes flicking out at the outer corner
-            base = eye + Vector((sx * (0.018 + 0.008 * k), -0.008, 0.02 - 0.004 * k))
-            add(tube(f"G_Lash{sx}{k}", [base, base + Vector((sx * 0.012, -0.003, 0.008))], [0.0025, 0.001], mat("g_hair", 0.5),
-                     subdiv=0, ring=6), "Head")
-        add(tube(f"G_Brow{sx}", [eye + Vector((-sx * 0.022, -0.008, 0.046)), eye + Vector((sx * 0.006, -0.011, 0.054)),
-                                 eye + Vector((sx * 0.032, -0.004, 0.047))], [0.004, 0.005, 0.0035], mat("g_hair", 0.6),
-                 subdiv=1), "Head")
-        add(blob(f"G_Blush{sx}", hc + Vector((sx * 0.06, -0.093, -0.045)), (0.02, 0.006, 0.012), mat("g_blush", 0.6), subdiv=1),
-            "Head")
-    add(blob("G_Nose", hc + Vector((0, -0.118, -0.035)), (0.014, 0.014, 0.016), skin), "Head")
-    lips = [hc + Vector((x, -0.104 + 4 * x * x, -0.078 + 6 * x * x)) for x in (-0.028, -0.014, 0.0, 0.014, 0.028)]
-    add(tube("G_Lips", lips, [0.004, 0.007, 0.008, 0.007, 0.004], mat("g_lip", 0.4), side=Vector((0, 1, 0)), subdiv=1),
-        "Head")
+        add(fr.torus(f"G_Hoop{sx}", hc + Vector((sx * size[0] * 1.06, 0.006, -0.06)), 0.018, 0.003,
+                     mat("gold", 0.25, metallic=0.9), axis="X"), "Head")
+        cheek = fr.head_surface(hc, size, sx * 0.55, -0.18)
+        add(blob(f"G_Blush{sx}", cheek + Vector((0, -0.004, 0)), (0.018, 0.004, 0.01), mat("g_blush", 0.6), subdiv=1), "Head")
     # Black blunt bob with straight bangs.
     hair = mat("g_hair", 0.35, sheen=0.4)
     add(blob("G_HairBack", hc + Vector((0, 0.025, 0.01)), (0.132, 0.13, 0.15), hair), "Head")
@@ -300,7 +281,7 @@ def golden_hour(scene, pct):
     bg.inputs["Color"].default_value = hx("#b9cde0")
     bg.inputs["Strength"].default_value = 0.9
     sun = bpy.data.lights.new("Sun", "SUN")
-    sun.energy, sun.angle = 3.2, math.radians(4)
+    sun.energy, sun.angle = 3.6, math.radians(1.2)   # small sun disc: crisp, graphic shadows
     sun.color = (1.0, 0.86, 0.68)
     o = fr._link(bpy.data.objects.new("Sun", sun))
     o.rotation_euler = (math.radians(58), 0, math.radians(-125))   # low, warm, raking across the street
@@ -310,7 +291,7 @@ def golden_hour(scene, pct):
     r.resolution_x, r.resolution_y, r.resolution_percentage = 1920, 1080, pct
     r.fps = FPS
     scene.frame_start, scene.frame_end = 1, LAST
-    scene.view_settings.view_transform = "Standard"
+    fr.grade(scene)
     if hasattr(scene, "eevee"):
         for attr, val in (("taa_render_samples", 16), ("use_raytracing", False), ("use_shadows", True)):
             if hasattr(scene.eevee, attr):
@@ -424,50 +405,59 @@ class Face:
         self.base = {}
         for o in bpy.data.objects:
             if o.parent == rig and o.parent_bone == "Head":
-                self.base[o.name] = (o.location.copy(), o.scale.copy())
+                self.base[o.name] = (o.location.copy(), o.scale.copy(), o.rotation_euler.copy())
         hc = Vector((0, -0.01, 1.64))
+        size = (0.112, 0.124, 0.15)
         self.extra = {}
         # Hidden until the awe: sparkles in the eyes, blush, an open mouth, hearts.
         spark = emission_mat("sparkle", fr.COL["sparkle"], 6.0)
         for sx in (1, -1):
-            eye = hc + Vector((sx * 0.05, -0.105, -0.004))
-            for k, (sx2, sz2) in enumerate(((0.012, 0.0025), (0.0025, 0.012))):
-                o = fr.blob(f"Sparkle{sx}{k}", eye + Vector((-sx * 0.006, -0.03, 0.006)), (sx2, 0.002, sz2), spark, subdiv=1)
+            bpy.context.view_layer.update()
+            iris = bpy.data.objects[f"Iris{sx}"].matrix_world.translation.copy()   # sparkle sits on the iris
+            for k, (sx2, sz2) in enumerate(((0.011, 0.0022), (0.0022, 0.011))):
+                o = fr.blob(f"Sparkle{sx}{k}", iris + Vector((-sx * 0.003, -0.006, 0.002)), (sx2, 0.002, sz2), spark,
+                            subdiv=1)
                 fr.bind(o, rig, "Head")
                 self.extra[o.name] = o
-            o = fr.blob(f"BlushAwe{sx}", hc + Vector((sx * 0.07, -0.098, -0.045)), (0.03, 0.008, 0.016),
-                        fr.mat("blush", 0.6), subdiv=1)
+            o = fr.blob(f"BlushAwe{sx}", fr.head_surface(hc, size, sx * 0.56, -0.18) + Vector((0, -0.004, 0)),
+                        (0.026, 0.005, 0.014), fr.mat("blush", 0.6), subdiv=1)
             fr.bind(o, rig, "Head")
             self.extra[o.name] = o
-        o = fr.blob("MouthO", hc + Vector((0, -0.112, -0.075)), (0.022, 0.012, 0.03), fr.mat("mouth", 0.5), subdiv=1)
+        o = fr.blob("MouthO", fr.head_surface(hc, size, 0.03, -0.53) + Vector((0, -0.002, 0)), (0.017, 0.008, 0.022),
+                    fr.mat("mouth", 0.5), subdiv=1)
         fr.bind(o, rig, "Head")
         self.extra[o.name] = o
         for o in self.extra.values():
-            self.base[o.name] = (o.location.copy(), o.scale.copy())
+            self.base[o.name] = (o.location.copy(), o.scale.copy(), o.rotation_euler.copy())
 
     def key(self, f, eyes=1.0, iris=1.0, awe=0.0, brow=0.0, mouth_open=0.0):
-        """eyes/iris: scale factors; awe 0..1 shows sparkles and blush;
-        brow: lift in metres; mouth_open 0..1 swaps the grin for an 'o'."""
-        for name, (loc, sc) in self.base.items():
+        """eyes: >1 opens the upper lids wider (shock/awe); iris: pupil/iris
+        scale; awe 0..1 shows sparkles and blush; brow: lift in metres;
+        mouth_open 0..1 swaps the smirk for an 'o'."""
+        for name, (loc, sc, rot0) in self.base.items():
             o = bpy.data.objects[name]
             k = 1.0
-            if name.startswith("Eye"):
-                k = eyes
-            elif name.startswith(("Iris", "Glint")):
+            o.rotation_euler = rot0.copy()
+            if name.startswith("Lid") and not name.startswith("LidLow"):
+                o.rotation_euler.x = rot0.x - math.radians(100) * (eyes - 1)  # lid lifts off the eyeball
+                o.keyframe_insert("rotation_euler", frame=f)
+            elif name.startswith("Eye"):
+                k = 1.0
+            elif name.startswith(("Iris", "Glint", "Pupil")):
                 k = iris
             elif name.startswith(("Sparkle", "BlushAwe")):
                 k = max(1e-3, awe)
             elif name == "MouthO":
                 k = max(1e-3, mouth_open)
-            elif name == "Smile":
+            elif name in ("Smile", "Dimple"):
                 k = max(1e-3, 1 - mouth_open)
-            if name.startswith(("Eye", "Iris", "Glint")):
+            if name.startswith(("Iris", "Glint", "Pupil")):
                 # Grow in width and height only, so whites never bulge over the irises.
                 o.scale = (sc.x * k, sc.y, sc.z * k)
             else:
                 o.scale = sc * k
             o.location = loc.copy()
-            if name.startswith(("Brow", "Lid")):
+            if name.startswith("Brow"):
                 o.location = loc + Vector((0, 0, brow))
             o.keyframe_insert("scale", frame=f)
             o.keyframe_insert("location", frame=f)

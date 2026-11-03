@@ -26,6 +26,19 @@ How it is built (all code, Blender 4.3+/5.0):
 blender -b -P blender_pipeline/characters3d/fixie_rider.py -- --out renders/fixie --views sheet,ride,loop --frames 24
 ```
 
+## The studio look (vinyl-toy quality pass)
+
+What separates a "3D character design" render from a primitive-built one,
+and where it lives in `fixie_rider.py`:
+
+| | before | now |
+|---|---|---|
+| Faces | spheres stuck on an egg | `sculpt_head`: a dense sphere displaced like sculpt strokes - eye sockets under a brow ridge, cheekbones, nose bridge into a tip, philtrum and lips, a narrowing jaw and a defined chin; eyeballs set in the sockets; `lid_shell` eyelids that wrap the eye (rim = lash line), opened or closed by rotation; heavy tapered brows, one cocked; a crooked smirk |
+| Garments | smooth balloons | `tube(..., crease=, facet=)`: rounded-box sections, creased corner seams and crisp hems through subdivision, slightly faceted panels |
+| Materials | default plastic | `mat`: roughness 0.95, no specular, IOR 1.1, noise (scale 500) bump at 0.02 for a clay grain; eyes and metal stay glossy |
+| Light | big soft boxes | a 0.1 m key for crisp shadows, soft dim fill, small rim, and a separate soft light on the cyclorama for a value gradient |
+| Grade | Standard | `grade`: AgX + Medium High Contrast; `film_grain` adds a whisper of colour grain to stills |
+
 ## CROSSWALK (`street_scene.py`)
 
 He cruises down a golden-hour street on his fixie; a girl steps out from

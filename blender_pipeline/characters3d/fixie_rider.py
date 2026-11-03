@@ -34,7 +34,7 @@ def hx(c, a=1.0):
 
 
 COL = {
-    "skin": hx("#a96a47"), "skin_dark": hx("#7d4a30"), "lip": hx("#8e4b3a"),
+    "skin": hx("#a96a47"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#1f1613"), "eye_white": hx("#f3efe9"), "iris": hx("#2a1b14"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
     "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
@@ -46,14 +46,35 @@ COL = {
 _MAT = {}
 
 
+VINYL = True  # the matte vinyl-toy look (see `mat`)
+
+
 def mat(name, roughness=0.6, sheen=0.0, metallic=0.0, sss=0.0):
-    """Soft, slightly matte materials like a clay-toy render."""
+    """Ultra-matte vinyl-toy surfaces: roughness 0.95, no specular sheen,
+    IOR 1.1, plus a microscopic clay grain (noise scale 500 -> bump 0.02)
+    so surfaces catch light like a physical object. Glossy parts (eyes,
+    metal, roughness < 0.4 on purpose) keep their shine."""
     if name in _MAT:
         return _MAT[name]
     m = bpy.data.materials.new(f"FR_{name}")
     if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
         m.use_nodes = True
-    bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    glossy = metallic > 0 or roughness < 0.4
+    if VINYL and not glossy:
+        roughness = 0.95
+        if "Specular IOR Level" in bsdf.inputs:
+            bsdf.inputs["Specular IOR Level"].default_value = 0.0
+        bsdf.inputs["IOR"].default_value = 1.1
+        tc = nt.nodes.new("ShaderNodeTexCoord")
+        nz = nt.nodes.new("ShaderNodeTexNoise")
+        nz.inputs["Scale"].default_value = 500.0
+        bump = nt.nodes.new("ShaderNodeBump")
+        bump.inputs["Strength"].default_value = 0.02
+        nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
+        nt.links.new(nz.outputs["Fac"], bump.inputs["Height"])
+        nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
     bsdf.inputs["Base Color"].default_value = COL[name]
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = metallic
@@ -81,10 +102,18 @@ def _link(ob):
     return ob
 
 
-def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0)), subdiv=2):
+def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0)), subdiv=2, crease=0.0, facet=0.0,
+         seed=0):
     """Loft a closed tube along `path` (list of 3D points). radii: a list of
     r or (r_side, r_front) per path point - elliptical rings for boxy clothes.
-    Smooth-shaded with Subdivision Surface."""
+    Smooth-shaded with Subdivision Surface.
+
+    Garments: crease > 0 marks the four corner edges running along the tube
+    (and the end rings, the hems) as creases, so subdivision keeps sharp,
+    boxy panel boundaries instead of a balloon; facet > 0 jitters each
+    ring's corners to make directional fabric planes."""
+    import random as _r
+    rj = _r.Random(seed + len(name))
     pts = [Vector(p) for p in path]
     verts, faces = [], []
     n = len(pts)
@@ -98,8 +127,13 @@ def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0))
         r = radii[i]
         ru, rv = (r, r) if not isinstance(r, (tuple, list)) else r
         for k in range(ring):
-            a = 2 * math.pi * k / ring
-            verts.append(p + u * (ru * math.cos(a)) + v * (rv * math.sin(a)))
+            a = 2 * math.pi * k / ring + (math.pi / ring if crease else 0.0)
+            j = 1 + (rj.uniform(-facet, facet) if facet else 0.0)
+            if crease:  # push towards a rounded box: corners out, mid-panels flatter
+                sq = 1 + 0.18 * abs(math.sin(2 * a))
+                verts.append(p + u * (ru * j * sq * math.cos(a)) + v * (rv * j * sq * math.sin(a)))
+            else:
+                verts.append(p + u * (ru * j * math.cos(a)) + v * (rv * j * math.sin(a)))
     for i in range(n - 1):
         for k in range(ring):
             a, b = i * ring + k, i * ring + (k + 1) % ring
@@ -114,9 +148,31 @@ def tube(name, path, radii, material, ring=12, caps=True, side=Vector((1, 0, 0))
     me = bpy.data.meshes.new(name)
     me.from_pydata([tuple(v) for v in verts], [], faces)
     me.materials.append(material)
+    if crease:
+        _crease(me, ring, n, crease)
     ob = _link(bpy.data.objects.new(name, me))
     _smooth(ob, subdiv)
     return ob
+
+
+def _crease(me, ring, n, value):
+    """Crease the 4 corner seams along a tube and its two end rings (hems)."""
+    me.update(calc_edges=True)
+    corners = {k for k in range(ring) if ring >= 8 and k % (ring // 4) == ring // 8}
+    layer = me.edge_creases_ensure() if hasattr(me, "edge_creases_ensure") else None
+    for e in me.edges:
+        a, b = sorted(e.vertices)
+        if a >= ring * n or b >= ring * n:
+            continue
+        ia, ka = divmod(a, ring)
+        ib, kb = divmod(b, ring)
+        val = 0.0
+        if ka == kb and ib == ia + 1 and ka in corners:
+            val = value                                   # a panel corner running along the garment
+        elif ia == ib and ia in (0, n - 1):
+            val = 1.0                                     # crisp hem
+        if val and layer is not None:
+            layer.data[e.index].value = val
 
 
 def blob(name, center, scale, material, rot=(0, 0, 0), subdiv=2, segments=16):
@@ -190,6 +246,130 @@ def disc(name, center, radius, depth, material, axis="X", verts=48):
     for p in ob.data.polygons:
         p.use_smooth = True
     return ob
+
+
+def _g(a, mu, s):
+    return math.exp(-((a - mu) / s) ** 2)
+
+
+def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0):
+    """A head sculpted with planes, not a ball: eye sockets pressed in under
+    a brow ridge, cheekbones, a nose bridge running into a tip, a philtrum
+    and lips, a narrowing jaw ending in a defined chin. Built by displacing a
+    dense sphere with smooth bumps (the code version of sculpt strokes)."""
+    import bmesh
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=64, v_segments=40, radius=1.0)
+    sx, sy, sz = size
+    for v in bm.verts:
+        x, y, z = v.co
+        f = max(0.0, -y) ** 1.5                     # frontness (the face looks along -Y)
+        if z < 0:                                   # jaw narrows toward the chin
+            k = 1 - 0.32 * jaw * (-z) ** 1.7
+            x *= k
+            y = y * (1 - 0.08 * (-z)) if y > 0 else y
+        d = 0.0                                     # forward displacement (toward -Y)
+        for ex in (0.37, -0.37):
+            d -= 0.11 * _g(x, ex, 0.15) * _g(z, 0.1, 0.12) * f                    # eye sockets
+            d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, -0.14, 0.14) * f    # cheekbones
+            d += 0.05 * nose * _g(x, ex * 0.32, 0.05) * _g(z, -0.32, 0.05) * f     # nostril wings
+        d += 0.07 * _g(z, 0.31, 0.07) * (_g(x, 0.34, 0.22) + _g(x, -0.34, 0.22)) * f  # brow ridge
+        d += 0.09 * nose * _g(x, 0, 0.06) * _g(z, 0.02, 0.2) * f                   # nose bridge
+        d += 0.26 * nose * _g(x, 0, 0.1) * _g(z, -0.22, 0.09) * f                  # nose tip
+        d += 0.035 * _g(x, 0, 0.24) * _g(z, -0.46, 0.045) * f                      # upper lip
+        d -= 0.03 * _g(x, 0, 0.3) * _g(z, -0.52, 0.025) * f                        # mouth line
+        d += 0.04 * _g(x, 0, 0.2) * _g(z, -0.58, 0.05) * f                         # lower lip
+        d += 0.1 * chin * _g(x, 0, 0.16) * _g(z, -0.82, 0.11) * f                  # chin point
+        y -= d
+        v.co = Vector((hc.x + x * sx, hc.y + y * sy, hc.z + z * sz))
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material)
+    ob = _link(bpy.data.objects.new(name, me))
+    _smooth(ob, 1)
+    return ob
+
+
+def head_surface(hc, size, ux, uz, **kw):
+    """World point on the sculpted head's front at unit coords (ux, uz)."""
+    sx, sy, sz = size
+    y = -math.sqrt(max(0.0, 1 - ux * ux - uz * uz))
+    f = (-y) ** 1.5
+    d = -0.11 * sum(_g(ux, ex, 0.15) for ex in (0.37, -0.37)) * _g(uz, 0.1, 0.12) * f
+    return Vector((hc.x + ux * sx, hc.y + (y - d) * sy, hc.z + uz * sz))
+
+
+def lid_shell(name, center, r, open_deg, upper, skin, lash, rot_z=0.0):
+    """An eyelid that wraps the eyeball: a spherical cap slightly larger than
+    the eye, cut by a plane; its rim ring is the dark lash line. Rotating the
+    object about X opens or closes it (animatable)."""
+    import bmesh
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=32, v_segments=20, radius=r)
+    cut = r * 0.05 if upper else -r * 0.45
+    kill = [v for v in bm.verts if (v.co.z < cut if upper else v.co.z > cut)]
+    bmesh.ops.delete(bm, geom=kill, context="VERTS")
+    rim_z = min(v.co.z for v in bm.verts) if upper else max(v.co.z for v in bm.verts)
+    me = bpy.data.meshes.new(name)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(skin)
+    me.materials.append(lash)
+    for poly in me.polygons:
+        zs = [me.vertices[i].co.z for i in poly.vertices]
+        poly.material_index = 1 if min(abs(z - rim_z) for z in zs) < r * 0.12 else 0
+        poly.use_smooth = True
+    ob = _link(bpy.data.objects.new(name, me))
+    ob.location = center
+    ob.rotation_euler = (math.radians(open_deg if upper else -open_deg), 0, rot_z)
+    m = ob.modifiers.new("Thick", "SOLIDIFY")
+    m.thickness = r * 0.12
+    return ob
+
+
+def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose=1.0, chin=1.0, cheek=1.0,
+               jaw=1.0, eye_r=0.022, lashes=False, smirk=1.0):
+    """Head, sculpted features, eyeballs in their sockets with wrap-around
+    lids, heavy shaped brows (one cocked higher) and an asymmetric mouth.
+    Part names follow '<prefix>Eye1', '<prefix>Iris-1' ... for face rigs."""
+    add(sculpt_head(f"{prefix}Head", hc, size, skin, nose=nose, chin=chin, cheek=cheek, jaw=jaw), "Head")
+    lash = mat(brow_col, 0.6)
+    for sx in (1, -1):
+        surf = head_surface(hc, size, sx * 0.37, 0.1)
+        eye = surf + Vector((0, eye_r * 0.35, 0))           # set into the socket, front bulging out
+        add(blob(f"{prefix}Eye{sx}", eye, (eye_r, eye_r, eye_r), mat("eye_white", 0.25), subdiv=1, segments=24), "Head")
+        front = eye + Vector((0, -eye_r * 0.93, 0))
+        add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * 0.002, 0, -0.001)), (eye_r * 0.62, eye_r * 0.12, eye_r * 0.66),
+                 mat(iris_col, 0.2), subdiv=1), "Head")
+        add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * 0.002, -eye_r * 0.06, -0.001)), (eye_r * 0.3, eye_r * 0.08, eye_r * 0.32),
+                 mat("iris", 0.15), subdiv=1), "Head")
+        add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * eye_r * 0.25, -eye_r * 0.14, eye_r * 0.3)),
+                 (eye_r * 0.14, eye_r * 0.05, eye_r * 0.14), mat("eye_white", 0.05), subdiv=0, segments=8), "Head")
+        add(lid_shell(f"{prefix}Lid{sx}", eye, eye_r * 1.12, 8, True, skin, lash), "Head")
+        add(lid_shell(f"{prefix}LidLow{sx}", eye, eye_r * 1.08, 14, False, skin, mat(lip_col, 0.6)), "Head")
+        if lashes:
+            for k in range(3):
+                base = eye + Vector((sx * eye_r * (0.6 + 0.2 * k), -eye_r * 0.6, eye_r * (0.75 - 0.2 * k)))
+                add(tube(f"{prefix}Lash{sx}{k}", [base, base + Vector((sx * 0.011, -0.004, 0.008))], [0.0025, 0.0008], lash,
+                         subdiv=0, ring=6), "Head")
+        # Brows: thick, tapered, sitting on the brow ridge; the right one cocked up.
+        cock = 0.006 if sx < 0 else 0.0
+        b0 = head_surface(hc, size, sx * 0.16, 0.25) + Vector((0, -0.005, cock * 0.3))
+        b1 = head_surface(hc, size, sx * 0.36, 0.3) + Vector((0, -0.007, cock))
+        b2 = head_surface(hc, size, sx * 0.57, 0.26) + Vector((0, -0.003, cock * 0.6))
+        add(tube(f"{prefix}Brow{sx}", [b0, b1, b2], [0.0095, 0.0085, 0.004], mat(brow_col, 0.7), subdiv=1), "Head")
+        add(blob(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 1.0, 0.012, -size[2] * 0.08)),
+                 (size[0] * 0.2, size[1] * 0.22, size[2] * 0.27), skin), "Head")
+    # Mouth: a crooked line that rises into one cheek, with a dimple.
+    pts = []
+    for i, ux in enumerate((-0.3, -0.15, 0.0, 0.16, 0.33)):
+        uz = -0.52 + (0.06 * smirk if ux > 0.2 else 0.0) + 0.02 * smirk * max(0.0, ux) + 0.015 * abs(ux) * 2
+        pts.append(head_surface(hc, size, ux, uz) + Vector((0, -0.001 - 0.0035 * (1 - abs(ux) * 2), 0)))
+    add(tube(f"{prefix}Smile", pts, [0.0025, 0.004, 0.0045, 0.004, 0.0025], mat(lip_col, 0.5), side=Vector((0, 1, 0)), subdiv=1),
+        "Head")
+    add(tube(f"{prefix}Dimple", [pts[-1] + Vector((0.004, 0.0, 0.006)), pts[-1] + Vector((0.009, 0.002, -0.004))],
+             [0.002, 0.0012], mat(lip_col, 0.5), subdiv=0, ring=6), "Head")   # a tucked smirk corner
 
 
 def _smooth(ob, levels):
@@ -406,7 +586,8 @@ def build_character(rig):
         hip, knee = jp(f"hip_{s}"), jp(f"knee_{s}")
         hem = hip.lerp(knee, 0.62)
         add(tube(f"ShortLeg_{s}", arc(hip + Vector((0, 0, 0.03)), hem, n=4), [(0.1, 0.1), (0.105, 0.1), (0.108, 0.098),
-                                                                             (0.104, 0.094)], sh, caps=False, subdiv=1),
+                                                                             (0.104, 0.094)], sh, caps=False, subdiv=2,
+                 ring=16, crease=0.8, facet=0.03, seed=3),
             f"Thigh_{s}")
         add(tube(f"ShortHem_{s}", [hem + Vector((0, 0, -0.01)), hem + Vector((0, 0, 0.02))], [(0.107, 0.097), (0.107, 0.097)],
                  mat("strap", 0.85), caps=False, subdiv=1), f"Thigh_{s}")
@@ -414,7 +595,7 @@ def build_character(rig):
     shirt = mat("shirt", 0.8, sheen=0.3)
     body = [(0, 0.01, 0.9), (0, 0.01, 1.0), (0, 0.0, 1.15), (0, 0.0, 1.3), (0, 0.0, 1.4), (0, 0.0, 1.45)]
     add(tube("Shirt", body, [(0.22, 0.155), (0.235, 0.16), (0.235, 0.155), (0.235, 0.15), (0.21, 0.13), (0.1, 0.08)],
-             shirt), "Spine")
+             shirt, ring=16, crease=0.85, facet=0.03, seed=1), "Spine")
     add(tube("ShirtHem", [(0, 0.01, 0.885), (0, 0.01, 0.905)], [(0.226, 0.16), (0.226, 0.16)], shirt, subdiv=1), "Pelvis")
     add(tube("Collar", [(0, 0.0, 1.43), (0, 0.005, 1.475)], [(0.075, 0.065), (0.07, 0.06)], mat("shirt_seam", 0.8),
              caps=False, subdiv=1), "Spine")
@@ -433,7 +614,7 @@ def build_character(rig):
         end = sho.lerp(elb, 0.75)
         add(tube(f"Sleeve_{s}", arc(sho + Vector((-sx * 0.04, 0, 0.0)), end, n=4), [(0.11, 0.1), (0.115, 0.105),
                                                                                     (0.112, 0.102), (0.105, 0.098)],
-                 shirt, caps=False), f"UpperArm_{s}")
+                 shirt, caps=False, ring=16, crease=0.8, facet=0.04, seed=2), f"UpperArm_{s}")
         # Rolled sleeve cuff.
         d = (end - sho).normalized()
         add(tube(f"Cuff_{s}", [end - d * 0.01, end + d * 0.025], [(0.112, 0.104), (0.11, 0.102)], mat("shirt_seam", 0.8),
@@ -455,30 +636,11 @@ def build_character(rig):
             rot=(0, 0, math.radians(-20))), "Pelvis")
     add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
             rot=(0, 0, math.radians(-20))), "Pelvis")
-    # Neck and head: an oval head, big ears, a broad nose, big eyes, a grin.
+    # Neck and head: a sculpted, planar face (see build_face).
     add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.53)], [0.045, 0.043], skin), "Neck")
     hc = Vector((0, -0.01, 1.64))
-    add(blob("Head", hc, (0.118, 0.125, 0.148), skin), "Head")
-    add(blob("Jaw", hc + Vector((0, -0.03, -0.075)), (0.088, 0.085, 0.07), skin), "Head")
-    for sx in (1, -1):
-        add(blob(f"Ear{sx}", hc + Vector((sx * 0.118, 0.01, -0.005)), (0.022, 0.03, 0.04), skin), "Head")
-        # Big, friendly eyes set into the face, below the brim's shadow.
-        eye = hc + Vector((sx * 0.05, -0.105, -0.004))
-        add(blob(f"Eye{sx}", eye, (0.032, 0.016, 0.03), mat("eye_white", 0.3), subdiv=1), "Head")
-        add(blob(f"Iris{sx}", eye + Vector((-sx * 0.003, -0.012, -0.002)), (0.019, 0.007, 0.022), mat("iris", 0.2),
-                 subdiv=1), "Head")
-        add(blob(f"Glint{sx}", eye + Vector((-sx * 0.009, -0.02, 0.008)), (0.005, 0.002, 0.005), mat("eye_white", 0.1),
-                 subdiv=0, segments=8), "Head")
-        add(tube(f"Lid{sx}", [eye + Vector((-sx * 0.033, -0.006, 0.006)), eye + Vector((0, -0.016, 0.03)),
-                              eye + Vector((sx * 0.033, -0.006, 0.01))], [0.004, 0.005, 0.004], mat("hair", 0.6),
-                 subdiv=1), "Head")
-        add(tube(f"Brow{sx}", [eye + Vector((-sx * 0.026, -0.008, 0.048)), eye + Vector((sx * 0.004, -0.012, 0.058)),
-                               eye + Vector((sx * 0.03, -0.004, 0.052))], [0.006, 0.008, 0.005], mat("hair", 0.7),
-                 subdiv=1), "Head")
-    add(blob("Nose", hc + Vector((0, -0.13, -0.035)), (0.022, 0.02, 0.022), skin), "Head")
-    smile = [hc + Vector((x, -0.112 + 6 * x * x, -0.075 + 14 * x * x)) for x in (-0.045, -0.025, 0.0, 0.025, 0.045)]
-    add(tube("Smile", smile, [0.004, 0.007, 0.008, 0.007, 0.004], mat("lip", 0.5), side=Vector((0, 1, 0)), subdiv=1),
-        "Head")
+    build_face(add, hc, (0.112, 0.124, 0.15), skin, "iris", "hair", "lip", nose=1.15, chin=1.0, cheek=1.1, jaw=1.0,
+               eye_r=0.023, smirk=1.0)
     # Short twists peeking out under the cap.
     import random
     rnd = random.Random(3)
@@ -665,9 +827,13 @@ def studio(scene, pct):
     _link(bpy.data.objects.new("Cyc", me))
     # Big soft key, a fill and a rim, like a product-shoot set-up.
     for name, kind, loc, rot, energy, size in (
-        ("Key", "AREA", (-2.2, -2.4, 3.2), (55, 0, -40), 420, 2.5),
-        ("Fill", "AREA", (2.8, -2.0, 1.8), (70, 0, 50), 110, 3.0),
-        ("Rim", "AREA", (1.0, 2.5, 2.8), (-50, 0, 160), 220, 1.5),
+        # Hard key (a tiny source = crisp shadows under chin, sleeves, boots),
+        # a soft dim fill, a small rim, and a separate soft light on the
+        # backdrop only, for a controlled gradient behind the character.
+        ("Key", "AREA", (-2.2, -2.4, 3.2), (55, 0, -40), 520, 0.1),
+        ("Fill", "AREA", (2.8, -2.0, 1.8), (70, 0, 50), 90, 3.0),
+        ("Rim", "AREA", (1.0, 2.5, 2.8), (-50, 0, 160), 300, 0.15),
+        ("Backdrop", "AREA", (0.0, 1.2, 0.4), (-75, 0, 0), 120, 2.5),
     ):
         d = bpy.data.lights.new(name, kind)
         d.energy, d.size = energy, size
@@ -677,12 +843,37 @@ def studio(scene, pct):
     engines = [e.identifier for e in r.bl_rna.properties["engine"].enum_items]
     r.engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"
     r.resolution_percentage = pct
-    scene.view_settings.view_transform = "Standard"   # keep the palette's colours
+    grade(scene)
     if hasattr(scene, "eevee"):
         ev = scene.eevee
         for attr, val in (("use_shadows", True), ("taa_render_samples", 32), ("use_raytracing", False)):
             if hasattr(ev, attr):
                 setattr(ev, attr, val)
+
+
+def grade(scene):
+    """AgX with a medium-high contrast look: rich colours, rims that roll
+    off instead of clipping to white."""
+    vs = scene.view_settings
+    vs.view_transform = "AgX"
+    looks = [i.identifier for i in vs.bl_rna.properties["look"].enum_items]
+    for want in ("AgX - Medium High Contrast", "Medium High Contrast"):
+        if want in looks:
+            vs.look = want
+            break
+
+
+def film_grain(path, amount=0.025, seed=0):
+    """Bind the render together with a whisper of colour grain (post)."""
+    try:
+        import numpy as np
+        from PIL import Image
+    except ImportError:
+        return
+    im = np.asarray(Image.open(path).convert("RGB")).astype(np.float32) / 255
+    rng = np.random.default_rng(seed)
+    g = rng.normal(0, amount, im.shape[:2])[..., None] + rng.normal(0, amount * 0.35, im.shape)
+    Image.fromarray((np.clip(im + g, 0, 1) * 255).astype(np.uint8)).save(path)
 
 
 def camera(scene, loc, target, lens=60):
