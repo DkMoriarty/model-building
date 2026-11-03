@@ -396,8 +396,16 @@ def soft_features(x, z, nose=1.0, chin=1.0, smirk=1.0, lips=1.0):
     L = LAYOUT
     nz, ez = L["nose_z"], L["eye_uz"]
     span = max(0.12, ez - nz)
-    d += 0.045 * nose * _g(x, 0, 0.05) * max(0.0, min(1.0, (ez + 0.15 - z) / 0.15)) * _g(z, (ez + nz) / 2, span * 0.75)  # bridge
-    d += 0.15 * nose * _g(x, 0, 0.075) * _g(z, nz, 0.065)                                          # rounded tip
+    if L.get("diamond"):
+        # Flattened planes: a knife-edge bridge (tent, not bell) widening into a
+        # diamond tip - flat facets meeting in crisp ridges.
+        dm = L["diamond"]
+        wz = 0.03 + 0.05 * max(0.0, min(1.0, (ez - z) / span))            # bridge widens toward the tip
+        d += 0.06 * nose * dm * _tent(x, wz) * max(0.0, min(1.0, (ez + 0.12 - z) / 0.15)) * _plateau(z - (ez + nz) / 2, span * 0.55, 0.06)
+        d += 0.15 * nose * dm * _tent(x, 0.09) ** 0.8 * _tent(z - nz, 0.085) ** 0.8
+    else:
+        d += 0.045 * nose * _g(x, 0, 0.05) * max(0.0, min(1.0, (ez + 0.15 - z) / 0.15)) * _g(z, (ez + nz) / 2, span * 0.75)  # bridge
+        d += 0.15 * nose * _g(x, 0, 0.075) * _g(z, nz, 0.065)                                          # rounded tip
     for sx in (1, -1):
         d += 0.04 * nose * _g(x, sx * 0.1, 0.045) * _g(z, nz - 0.035, 0.04)                       # nostril wings
         d += 0.05 * _g(x, sx * 0.5, 0.17) * _g(z, ez - 0.13, 0.14)                                 # high cheeks
@@ -491,11 +499,31 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                 k = 1 - 0.18 * (-z) - 0.55 * max(0.0, -z - 0.55) ** 1.1
             x *= max(0.12, k)
             y = y * (1 - 0.1 * (-z)) if y > 0 else y
+        wedge = LAYOUT.get("wedge", 0.0) if toon else 0.0
+        if wedge:
+            # Grab: thin the lower face into an inverted wedge (cheekbone line down to a pointed chin).
+            if z < -0.3:
+                t = min(1.0, (-0.3 - z) / 0.7)
+                x *= 1 - wedge * 0.2 * t
+                # pull the chin apex down and to a point
+                z -= wedge * 0.07 * t * t * _g(x, 0, 0.22) * max(0.0, -y)
+            # Scrape: a flat plane under the jaw, from below the ear (back, high) to the chin (front, low).
+            zj = -0.32 - 0.62 * max(0.0, min(1.0, (0.35 - y) / 0.95))
+            zj -= 0.18 * max(0.0, 1 - abs(x) / 0.35) * max(0.0, -y)   # the chin keeps its apex
+            if z < zj and y < 0.45:
+                z = zj + (z - zj) * 0.12
         d = 0.0                                     # forward displacement (toward -Y)
         for ex in (0.37, -0.37):
             d -= 0.16 * _g(x, ex, 0.15) * _g(z, 0.1, 0.12) * f                    # deep eye sockets
             d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, -0.14, 0.14) * f    # cheekbones
         d += 0.07 * _g(z, 0.31, 0.07) * (_g(x, 0.34, 0.22) + _g(x, -0.34, 0.22)) * f  # brow ridge
+        if wedge:
+            for ex in (1, -1):
+                # Scrape a flat diagonal cheek panel under the eye, its lower edge a crisp ridge,
+                # and push the pocket below the cheekbone in (the shadow plane).
+                u = ex * x * 0.8 + (z - LAYOUT["eye_uz"]) * 0.6          # runs diagonally down-in
+                d += wedge * 0.05 * _plateau(ex * x - 0.5, 0.16, 0.05) * _plateau(z - (LAYOUT["eye_uz"] - 0.24), 0.1, 0.04) * f
+                d -= wedge * 0.11 * _g(ex * x, 0.64, 0.12) * _g(z, LAYOUT["eye_uz"] - 0.5, 0.13) * f * _tent(u - 0.3, 0.6)
         lipw = 0.0
         if toon:
             fd, lipw = soft_features(x, z, nose, chin, smirk, lips)
@@ -712,10 +740,19 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
             add(part, "Head")
     pts = [head_surface(hc, size, ux, smirk_line(ux, smirk * 0.5)) + Vector((0, -0.003, 0))
            for ux in (-0.27, -0.13, 0.0, 0.14, 0.28)]
-    add(tube(f"{prefix}Smile", pts, [0.001, 0.002, 0.0022, 0.002, 0.001], mat("mouth_dark", 0.5), side=Vector((0, 1, 0)),
-             subdiv=1), "Head")
-    add(tube(f"{prefix}Dimple", [pts[-1], pts[-1] + Vector((0.003, 0.0, 0.003))], [0.001, 0.0006], mat("mouth_dark", 0.5),
-             subdiv=0, ring=6), "Head")
+    if L.get("wedge"):
+        # A crisp, blocky slit (flat ends, even weight) with a short carved crease
+        # flicking up at the smirk corner and a faint tuck at the other.
+        add(tube(f"{prefix}Smile", pts, [0.0014, 0.0017, 0.0018, 0.0017, 0.0014], mat("mouth_dark", 0.5),
+                 side=Vector((0, 1, 0)), subdiv=0, ring=4), "Head")
+        c = pts[-1]
+        add(tube(f"{prefix}Dimple", [c, c + Vector((0.0025, -0.0005, 0.0018)), c + Vector((0.0045, -0.0008, 0.0055))],
+                 [0.0011, 0.0008, 0.0002], mat("mouth_dark", 0.5), subdiv=0, ring=6), "Head")
+    else:
+        add(tube(f"{prefix}Smile", pts, [0.001, 0.002, 0.0022, 0.002, 0.001], mat("mouth_dark", 0.5), side=Vector((0, 1, 0)),
+                 subdiv=1), "Head")
+        add(tube(f"{prefix}Dimple", [pts[-1], pts[-1] + Vector((0.003, 0.0, 0.003))], [0.001, 0.0006], mat("mouth_dark", 0.5),
+                 subdiv=0, ring=6), "Head")
     build_mouths(add, hc, size, lip_col, prefix, grin=grin)
     build_face_extras(add, hc, size, prefix)
     FACE_INFO[prefix] = dict(hc=hc.copy(), size=size, eye_r=eye_r, almond=eye_shape == "almond")
@@ -1054,7 +1091,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-0.97, ear_uz=-0.3, ear_h=0.55)
+HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-0.97, ear_uz=-0.3, ear_h=0.55,
+                  wedge=1.0, diamond=1.0)   # sharp wedge jaw + planar cheeks, diamond-plane nose
 
 
 def messy_hair(add, hc, size, material, n=80, seed=21):
@@ -1611,7 +1649,7 @@ def build_character(rig):
     add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
             rot=(0, 0, math.radians(-20))), "Pelvis")
     # Neck and head: a sculpted, planar face (see build_face).
-    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, HEAD_Z - 0.09)], [0.049, 0.046], skin), "Neck")   # long, slender neck
+    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, HEAD_Z - 0.09)], [0.056, 0.05], skin), "Neck")   # slim but strong neck
     hc = Vector((0, -0.01, HEAD_Z))
     # Young and energetic: a rounder face with full cheeks and a short soft
     # chin, big bright eyes, a small nose, lifted brows, healthy blush, no stubble.
