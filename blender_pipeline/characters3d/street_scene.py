@@ -151,22 +151,22 @@ def build_girl():
     size = (0.1, 0.11, 0.136)
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
     fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "g_lip", prefix="G_", nose=0.7, chin=1.15, cheek=0.9,
-                  jaw=1.1, eye_r=0.021, lashes=True, smirk=0.35)
+                  jaw=1.1, eye_r=0.024, lashes=True, smirk=0.35)
     for sx in (1, -1):
         add(fr.torus(f"G_Hoop{sx}", hc + Vector((sx * size[0] * 1.06, 0.006, -0.06)), 0.018, 0.003,
                      mat("gold", 0.25, metallic=0.9), axis="X"), "Head")
         cheek = fr.head_surface(hc, size, sx * 0.55, -0.18)
         add(blob(f"G_Blush{sx}", cheek + Vector((0, -0.004, 0)), (0.018, 0.004, 0.01), mat("g_blush", 0.6), subdiv=1), "Head")
-    # Black blunt bob with straight bangs.
+    # Black blunt bob: a cap of hair hugging the skull, straight bangs that end
+    # above the brows, sides falling to the jaw.
     hair = mat("g_hair", 0.35, sheen=0.4)
-    add(blob("G_HairBack", hc + Vector((0, 0.025, 0.01)), (0.132, 0.13, 0.15), hair), "Head")
+    add(blob("G_HairBack", hc + Vector((0, 0.03, 0.025)), (0.118, 0.125, 0.14), hair), "Head")
     for sx in (1, -1):
-        add(tube(f"G_HairSide{sx}", [hc + Vector((sx * 0.108, -0.04, 0.08)), hc + Vector((sx * 0.122, -0.02, -0.02)),
-                                     hc + Vector((sx * 0.118, -0.01, -0.105))],
-                 [(0.03, 0.06), (0.032, 0.07), (0.028, 0.07)], hair, side=Vector((1, 0, 0))), "Head")
-    add(box("G_Bangs", hc + Vector((0, -0.085, 0.07)), (0.19, 0.06, 0.07), hair, bevel=0.025), "Head")
-    add(tube("G_HairSheen", [hc + Vector((-0.06, -0.06, 0.12)), hc + Vector((0, -0.075, 0.13)), hc + Vector((0.06, -0.06, 0.12))],
-             [0.006, 0.008, 0.006], mat("g_hair_sheen", 0.2), side=Vector((0, 1, 0)), subdiv=1), "Head")
+        add(tube(f"G_HairSide{sx}", [hc + Vector((sx * 0.09, -0.03, 0.09)), hc + Vector((sx * 0.105, -0.01, 0.0)),
+                                     hc + Vector((sx * 0.1, 0.0, -0.085))],
+                 [(0.022, 0.05), (0.024, 0.055), (0.02, 0.05)], hair, side=Vector((1, 0, 0)), profile="box", p_exp=4.0,
+                 ring=24), "Head")
+    add(box("G_Bangs", hc + Vector((0, -0.075, 0.112)), (0.16, 0.05, 0.05), hair, bevel=0.02), "Head")
     rig.scale = (0.95, 0.95, 0.95)
     return rig, parts
 
@@ -308,7 +308,8 @@ SKID_DECEL = 7.0             # m/s^2 (skid + front grab: fast but survivable)
 # He must come to rest with the front tyre just short of her: final front
 # contact y = 1.14 (her body at y 0.35, a hand's gap), so
 # Y_START = 1.64 + V*T_BRAKE + V^2/(2*decel).
-Y_START = 1.64 + 4.2 * ((151 - 1) / 24) + 4.2 ** 2 / (2 * 7.0)
+STOP_AT = 1.3   # final rider_y: front contact at 0.8, the tyre just short of her shins
+Y_START = STOP_AT + 4.2 * ((151 - 1) / 24) + 4.2 ** 2 / (2 * 7.0)
 
 
 def rider_y(t):
@@ -330,9 +331,9 @@ def pitch(t):
         return 0.0
     u = (t - T_BRAKE) / (T_STOP - T_BRAKE)
     if u <= 1.0:
-        return math.radians(24) * (u ** 2)
+        return math.radians(34) * (u ** 1.4)          # rear wheel climbs as the front bites
     d = t - T_STOP
-    return math.radians(24) * max(0.0, math.cos(min(d / 0.45, 1.0) * math.pi / 2)) + \
+    return math.radians(34) * max(0.0, math.cos(min(d / 0.5, 1.0) * math.pi / 2)) + \
         math.radians(3) * math.exp(-d * 4) * math.sin(d * 18) * (d > 0.45)
 
 
@@ -464,6 +465,40 @@ class Face:
 
 
 # ---------------------------------------------------------------------------
+# Acting: expression keys on the story beats (holds, then quick changes)
+# ---------------------------------------------------------------------------
+
+STRUCK_AT = int((T_BRAKE + 4.2 / 7.0 + 0.55) * 24) + 1   # just after he stops
+
+ACTING_HIS = [  # (frame, expression, overrides)
+    (1, "HAPPY", {}),
+    (104, "HAPPY", {}),
+    (110, "NOTICE", {"gaze": (0.45, 0.0)}),       # something to his left: her, past the car
+    (132, "NOTICE", {"gaze": (0.45, 0.0)}),
+    (134, "SHOCK", {}),                            # snaps on the cut to the close-up
+    (STRUCK_AT - 3, "SHOCK", {}),
+    (STRUCK_AT, "STRUCK", {}),                     # the moment: pupils bloom, sparkles, blush, jaw drops
+    (276, "STRUCK", {}),
+    (278, "DAZED", {}),
+]
+ACTING_HERS = [
+    (1, "CALM", {}),
+    (151, "CALM", {}),
+    (154, "STARTLED", {}),                         # the screech
+    (190, "STARTLED", {}),
+    (196, "AMUSED", {}),                           # she reads the situation, a sidelong smile
+    (312, "AMUSED", {}),
+]
+
+
+def act_faces(face, g_face):
+    for f, name, over in ACTING_HIS:
+        face.key(f, name, **over)
+    for f, name, over in ACTING_HERS:
+        g_face.key(f, name, **over)
+
+
+# ---------------------------------------------------------------------------
 # Hearts (rise, sway, pop)
 # ---------------------------------------------------------------------------
 
@@ -511,13 +546,16 @@ def build(pct=40):
     for o in set(bpy.data.objects) - before:
         if o.parent is None and o is not bike_root:
             o.parent = bike_root
-    face = Face(rig)
     hearts = build_hearts(rig)
 
     g_rig, _ = build_girl()
     g_rig.rotation_euler = (0, 0, math.radians(-90))   # faces -X, her walking direction
+    bpy.context.view_layer.update()
+    face = fr.FaceRig(rig, "")
+    g_face = fr.FaceRig(g_rig, "G_")
 
     animate(scene, rig, bike, bike_root, face, hearts, g_rig)
+    act_faces(face, g_face)
     cam = build_camera(scene, rig, g_rig)
     animate_camera(scene, cam, rig, g_rig, bike_root)
     return scene
@@ -549,9 +587,10 @@ def animate(scene, rig, bike, bike_root, face, hearts, g_rig):
         brake = 0.0 if t < T_BRAKE else min(1.0, (t - T_BRAKE) / (T_STOP - T_BRAKE))
         frozen = t > T_STOP + 0.4
         lurch = brake * (1.0 if not frozen else 0.85)
-        rig.location = seat_local - hip_rest + Vector((0, -0.12 * lurch, 0.06 * lurch))
+        # Momentum throws him forward over the bars, toward her face.
+        rig.location = seat_local - hip_rest + Vector((0, -0.28 * lurch, 0.12 * lurch))
         bob = 0.0 if t >= T_BRAKE else math.sin(math.radians(ca) * 2) * 2.0
-        rot(rig, "Spine", x=48 + 10 * lurch)
+        rot(rig, "Spine", x=48 + 22 * lurch)
         rot(rig, "Neck", x=-24 - 8 * lurch)
         look_up = 0.0 if t < (T_STOP + 0.3) else min(1.0, (t - T_STOP - 0.3) / 0.6)
         rot(rig, "Head", x=-20 + bob - 18 * look_up, z=0)
@@ -593,20 +632,15 @@ def animate(scene, rig, bike, bike_root, face, hearts, g_rig):
         if 6.2 < t < 10.6:
             turn = min(1.0, (t - 6.2) / 0.3) * (1 - max(0.0, min(1.0, (t - 10.2) / 0.4)))
         # Twist about the bones' own (vertical) axis: negative turns her to her right, toward him.
-        rot(g_rig, "Head", y=-60 * turn, x=-4 * turn)
-        rot(g_rig, "Spine", y=-15 * turn)
+        rot(g_rig, "Head", y=-12 * turn, x=-6 * turn)   # the body does the turning now; a slight head tilt down to him
+        rot(g_rig, "Spine", y=0)
         for b in ("Head", "Spine"):
             g_rig.pose.bones[b].keyframe_insert("rotation_euler", frame=f)
+        face_him = min(1.0, max(0.0, (t - 6.3) / 0.35)) * (1 - min(1.0, max(0.0, (t - 10.05) / 0.35)))
+        g_rig.rotation_euler = (0, 0, math.radians(-90 - 80 * face_him))   # turns to her right, toward him
         g_rig.keyframe_insert("location", frame=f)
-    # --- his face across the story
+        g_rig.keyframe_insert("rotation_euler", frame=f)
     sf = lambda sec: int(sec * FPS) + 1
-    face.key(1)
-    face.key(132)
-    face.key(136, eyes=1.45, iris=0.75, brow=0.012, mouth_open=0.6)        # shock: eyes snap wide, pupils shrink
-    face.key(150, eyes=1.4, iris=0.75, brow=0.012, mouth_open=0.6)
-    face.key(sf(T_STOP), eyes=1.3, iris=0.9, brow=0.008, mouth_open=0.3)
-    face.key(sf(T_STOP + 0.6), eyes=1.35, iris=1.35, awe=1.0, brow=0.014, mouth_open=1.0)   # awe: pupils bloom, sparkle
-    face.key(LAST, eyes=1.35, iris=1.4, awe=1.0, brow=0.014, mouth_open=1.0)
     # --- hearts rise from above his head after the moment
     head = rig.pose.bones["Head"]
     for i, h in enumerate(hearts):
