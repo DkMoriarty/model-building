@@ -417,7 +417,7 @@ def soft_features(x, z, nose=1.0, chin=1.0, smirk=1.0, lips=1.0):
     low = _plateau(z - (zl - 0.045 * lips), 0.04 * lips, 0.016) * _g(x, 0, 0.16 * lips ** 0.5) ** 0.6
     d += 0.045 * lips * up + 0.065 * lips * low
     d -= 0.024 * _plateau(x, 0.28 * lips ** 0.5, 0.05) * _tent(z - zl, 0.016)                     # parting line
-    d += 0.07 * chin * _g(x, 0, 0.13 + 0.07 * L.get("jaw_ref", 0)) * _g(z, L["chin_z"], 0.1 + 0.03 * L.get("jaw_ref", 0))   # chin
+    d += 0.07 * chin * _g(x, 0, 0.13 + 0.07 * L.get("jaw_ref", 0) + L.get("chin_w", 0.0)) * _g(z, L["chin_z"], 0.1 + 0.03 * L.get("jaw_ref", 0))   # chin
     return d, max(up, low)
 
 
@@ -534,9 +534,11 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             if z < zj and y < 0.45:
                 z = zj + (z - zj) * 0.12
         d = 0.0                                     # forward displacement (toward -Y)
-        for ex in (0.37, -0.37):
-            d -= 0.16 * _g(x, ex, 0.15) * _g(z, 0.1, 0.12) * f                    # deep eye sockets
-            d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, -0.14, 0.14) * f    # cheekbones
+        eux = LAYOUT["eye_ux"] if toon and "hairline" in LAYOUT else 0.37      # mapped faces: sockets follow the eyes
+        euz = LAYOUT["eye_uz"] + 0.05 if toon and "hairline" in LAYOUT else 0.1
+        for ex in (eux, -eux):
+            d -= 0.16 * _g(x, ex, 0.15) * _g(z, euz, 0.12) * f                    # deep eye sockets
+            d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, euz - 0.24, 0.14) * f    # cheekbones
         d += 0.07 * _g(z, 0.31, 0.07) * (_g(x, 0.34, 0.22) + _g(x, -0.34, 0.22)) * f  # brow ridge
         if wedge:
             for ex in (1, -1):
@@ -1146,8 +1148,12 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HER_LAYOUT = dict(eye_ux=0.42, eye_uz=-0.15, nose_z=-0.43, mouth_z=-0.62, chin_z=-0.9, ear_uz=-0.18, ear_h=0.74,
-                  mouth_w=0.12, almond_h=0.8, liner=1.4, pout=0.65, iris=1.2, oval=0.45, soft=1.0, brow_drop=0.03)   # youthful: big cranium, features low, round cheeks   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
+# Mapped from the reference (front crop, 1 unit = half face width horizontally,
+# skull-top-to-centre vertically): eyes 0.37 below brows, wide-set; nose tip and
+# mouth low; small rounded chin; hairline high; ears level with the eyes.
+HER_LAYOUT = dict(eye_ux=0.5, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
+                  mouth_w=0.23, almond_h=0.75, liner=1.4, pout=0.65, iris=1.2, oval=0.3, soft=1.0, brow_drop=-0.07,
+                  hairline=0.74, chin_w=0.12)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
@@ -1392,7 +1398,7 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
-    hair_front = LAYOUT["eye_uz"] + (0.62 if style in ("sleek", "ponytail") else 0.42)
+    hair_front = LAYOUT.get("hairline") or LAYOUT["eye_uz"] + (0.62 if style in ("sleek", "ponytail") else 0.42)
 
     def keep(v):
         x, y, z = v.co
@@ -1843,7 +1849,7 @@ EXPRESSIONS = {
                     gaze=(0.0, 0.05)),
     "SIDEEYE": dict(lid=0.5, lid_low=0.25, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
     # hers
-    "CALM":    dict(lid=0.78, lid_low=0.3, mouth="SMIRK"),
+    "CALM":    dict(lid=0.9, lid_low=0.25, mouth="SMIRK"),
     "STARTLED": dict(lid=1.4, lid_low=0.0, brow_l=0.009, brow_r=0.009, ang_l=10, ang_r=-10, mouth="O", pupil=0.75),
     "AMUSED":  dict(lid=0.8, lid_low=0.35, brow_l=0.007, brow_r=0.0, ang_l=-6, ang_r=0, mouth="SMIRK", blush=0.6,
                     gaze=(-0.3, 0.0)),
