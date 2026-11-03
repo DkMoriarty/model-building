@@ -1,6 +1,6 @@
 ---
 name: production-coordinator
-description: Line producer and studio supervisor for the Toon City-style pipeline. Use first for any new episode, sequence or retake. Breaks the job into shots, assigns each department agent in pipeline order, tracks status on the production board, routes director/QC notes back down the chain, and decides when a shot moves on. Use proactively whenever work spans more than one department.
+description: "Line producer and studio supervisor for the Toon City-style pipeline. Use first for any new episode, sequence or retake. Breaks the job into shots, assigns each department agent in pipeline order, tracks status on the production board, routes director/QC notes back down the chain, and decides when a shot moves on. Use proactively whenever work spans more than one department."
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 ---
 

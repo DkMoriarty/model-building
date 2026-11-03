@@ -1,6 +1,6 @@
 ---
 name: story-animatic-lead
-description: Pre-production hand-off lead. Turns a script or storyline into the locked package every department works from: beat table, shot breakdown, recorded or synthesized voice, and the animatic (the timed timeline of events in story.json, then cues.json). Use when a new episode starts, when the story or dialogue changes, or when timing must be re-locked.
+description: "Pre-production hand-off lead. Turns a script or storyline into the locked package every department works from: beat table, shot breakdown, recorded or synthesized voice, and the animatic (the timed timeline of events in story.json, then cues.json). Use when a new episode starts, when the story or dialogue changes, or when timing must be re-locked."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

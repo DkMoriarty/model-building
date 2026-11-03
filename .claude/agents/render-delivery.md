@@ -1,6 +1,6 @@
 ---
 name: render-delivery
-description: Render wrangler and delivery. Renders approved episodes with --strict, makes the phone-safe master, remuxes audio-only fixes, sends the file to the user, and commits and pushes the source (never renders or master.wav). Use only after qc-reviewer has approved, or when the user asks for the final file.
+description: "Render wrangler and delivery. Renders approved episodes with --strict, makes the phone-safe master, remuxes audio-only fixes, sends the file to the user, and commits and pushes the source (never renders or master.wav). Use only after qc-reviewer has approved, or when the user asks for the final file."
 tools: Read, Bash, Glob, Grep, Edit
 ---
 

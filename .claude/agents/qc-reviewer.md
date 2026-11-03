@@ -1,6 +1,6 @@
 ---
 name: qc-reviewer
-description: Director's review and quality control. Runs the review pass on a shot, sequence or episode: typecheck, strict probe, stills read as a flipbook, frame audit (framing, negative space, sync, dead air), model and palette checks, story clarity (C1-C10). Writes numbered notes routed to the department that must fix each one. Use before anything is marked final or rendered for delivery, and after every retake.
+description: "Director's review and quality control. Runs the review pass on a shot, sequence or episode: typecheck, strict probe, stills read as a flipbook, frame audit (framing, negative space, sync, dead air), model and palette checks, story clarity (C1-C10). Writes numbered notes routed to the department that must fix each one. Use before anything is marked final or rendered for delivery, and after every retake."
 tools: Read, Bash, Glob, Grep, Write
 ---
 

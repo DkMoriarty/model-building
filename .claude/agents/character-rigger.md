@@ -1,6 +1,6 @@
 ---
 name: character-rigger
-description: Character technical director. Builds and maintains the digital puppets: figure specs in head units, the StickFigure joint rig, pose and hand/prop libraries, IK reach and planting, facing flips, and new character designs (original only). Use when a new character, prop rig, pose library or rig bug is needed, or before animation starts on a new cast.
+description: "Character technical director. Builds and maintains the digital puppets: figure specs in head units, the StickFigure joint rig, pose and hand/prop libraries, IK reach and planting, facing flips, and new character designs (original only). Use when a new character, prop rig, pose library or rig bug is needed, or before animation starts on a new cast."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

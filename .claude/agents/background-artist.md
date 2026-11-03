@@ -1,6 +1,6 @@
 ---
 name: background-artist
-description: Background designer and painter. Builds the environments, sets and background props as vector components on the house palette: depth layers, line-weight tiers, layered detail, ambient props that come and go. Use when an episode needs a new world, room, set or background prop, or when backgrounds feel empty, noisy or off-palette.
+description: "Background designer and painter. Builds the environments, sets and background props as vector components on the house palette: depth layers, line-weight tiers, layered detail, ambient props that come and go. Use when an episode needs a new world, room, set or background prop, or when backgrounds feel empty, noisy or off-palette."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

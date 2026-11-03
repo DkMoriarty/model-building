@@ -1,6 +1,6 @@
 ---
 name: compositor-vfx
-description: Compositor and VFX artist. Stacks background, midground, characters, shadows and overlays; adds glows, sparks, flashes, smoke, shards, energy rings, camera shake tiers, multiplane parallax and depth cues so every shot reads as one cinematic image. Use after animation is approved for a shot, or when effects, layering, glow or impact feel are off.
+description: "Compositor and VFX artist. Stacks background, midground, characters, shadows and overlays; adds glows, sparks, flashes, smoke, shards, energy rings, camera shake tiers, multiplane parallax and depth cues so every shot reads as one cinematic image. Use after animation is approved for a shot, or when effects, layering, glow or impact feel are off."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: inbetween-cleanup-artist
-description: In-betweener and clean-up artist. Takes blocked key animation and makes it fluid and on-model: breakdowns, spacing and easing curves, arcs, overlapping and secondary motion (settles, follow-through, smears), springs with settle tolerance, and checks every frame against the model sheet. Use after key animation, or when motion looks robotic, floaty, pops, or drifts off-model.
+description: "In-betweener and clean-up artist. Takes blocked key animation and makes it fluid and on-model: breakdowns, spacing and easing curves, arcs, overlapping and secondary motion (settles, follow-through, smears), springs with settle tolerance, and checks every frame against the model sheet. Use after key animation, or when motion looks robotic, floaty, pops, or drifts off-model."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: sound-designer
-description: Sound post-production. Designs the continuous score, a sound for every impact, spawn and fall, dramatic beds, vocal reactions and physical engine sounds, all synthesized from the timeline and mixed for phone speakers. Use after picture is locked for a sequence, or when sync, loudness, harshness or missing sounds are flagged.
+description: "Sound post-production. Designs the continuous score, a sound for every impact, spawn and fall, dramatic beds, vocal reactions and physical engine sounds, all synthesized from the timeline and mixed for phone speakers. Use after picture is locked for a sequence, or when sync, loudness, harshness or missing sounds are flagged."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

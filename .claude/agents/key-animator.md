@@ -1,6 +1,6 @@
 ---
 name: key-animator
-description: Senior key animator. Poses the storytelling extremes of every action (anticipation, contact, apex, recoil, reaction holds) on their cues, drives physics-planned motion from plan data, and acts the character so the audience always knows what it wants. Use after rig, layout and timeline are ready, or when a shot's acting, weight or timing is wrong.
+description: "Senior key animator. Poses the storytelling extremes of every action (anticipation, contact, apex, recoil, reaction holds) on their cues, drives physics-planned motion from plan data, and acts the character so the audience always knows what it wants. Use after rig, layout and timeline are ready, or when a shot's acting, weight or timing is wrong."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

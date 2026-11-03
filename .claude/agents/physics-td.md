@@ -1,6 +1,6 @@
 ---
 name: physics-td
-description: Physics and motion TD. Writes the Python planners that compute every real-world motion (jumps, falls, collisions, ball flights, braking, springs, chases), asserts the story outcome follows from the physics, and exports event times and per-frame data into story.json. Use whenever a beat involves something that obeys a physical law, or when a motion looks eyeballed.
+description: "Physics and motion TD. Writes the Python planners that compute every real-world motion (jumps, falls, collisions, ball flights, braking, springs, chases), asserts the story outcome follows from the physics, and exports event times and per-frame data into story.json. Use whenever a beat involves something that obeys a physical law, or when a motion looks eyeballed."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: lipsync-animator
-description: Lip-sync and dialogue animator. Breaks voice tracks into phonemes and accents, builds a mouth-shape (viseme) swap library for characters that have mouths, and for open-ring-head stick figures syncs talk acting (head nods, torso and hand accents) to stressed syllables. Use whenever an episode has spoken lines, vocal reactions (laugh, oof, sigh) or a character with a mouth.
+description: "Lip-sync and dialogue animator. Breaks voice tracks into phonemes and accents, builds a mouth-shape (viseme) swap library for characters that have mouths, and for open-ring-head stick figures syncs talk acting (head nods, torso and hand accents) to stressed syllables. Use whenever an episode has spoken lines, vocal reactions (laugh, oof, sigh) or a character with a mouth."
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

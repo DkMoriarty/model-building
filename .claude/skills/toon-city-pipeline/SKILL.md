@@ -1,6 +1,6 @@
 ---
 name: toon-city-pipeline
-description: Run an episode through a Toon City-style industrial animation pipeline using one specialist agent per department (pre-production/animatic, rigging, layout, backgrounds, physics, key animation, in-between/clean-up, lip sync, compositing/VFX, sound post, QC review, render/delivery) with locked hand-offs, a shot board and sequential review notes. Use when the user asks for the studio pipeline, department agents, a production board, a review pass, retakes, or wants a large episode split across departments; for a plain storyline-to-film request, storyline-to-film remains the method and this skill organises who does each step.
+description: "Run an episode through a Toon City-style industrial animation pipeline using one specialist agent per department (pre-production/animatic, rigging, layout, backgrounds, physics, key animation, in-between/clean-up, lip sync, compositing/VFX, sound post, QC review, render/delivery) with locked hand-offs, a shot board and sequential review notes. Use when the user asks for the studio pipeline, department agents, a production board, a review pass, retakes, or wants a large episode split across departments; for a plain storyline-to-film request, storyline-to-film remains the method and this skill organises who does each step."
 ---
 
 # Toon City pipeline (department agents)
