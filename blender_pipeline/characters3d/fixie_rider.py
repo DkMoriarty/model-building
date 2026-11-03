@@ -35,6 +35,7 @@ def hx(c, a=1.0):
 
 COL = {
     "fence": hx("#3b3a38"),
+    "lip_pout": hx("#c24e3c"),
     "foliage": hx("#6d7a3a"),
     "skin": hx("#a9643c"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#141116"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
@@ -434,7 +435,7 @@ def skin_paint_material(name, skin, blush, lip, stubble=None):
     lipa = nt.nodes.new("ShaderNodeAttribute")
     lipa.attribute_name = "Lip"
     rough = nt.nodes.new("ShaderNodeMapRange")
-    rough.inputs["To Min"].default_value = 0.55
+    rough.inputs["To Min"].default_value = 0.72
     rough.inputs["To Max"].default_value = 0.22
     nt.links.new(col.outputs["Color"], bsdf.inputs["Base Color"])
     nt.links.new(lipa.outputs["Fac"], rough.inputs["Value"])
@@ -445,7 +446,7 @@ def skin_paint_material(name, skin, blush, lip, stubble=None):
         if "Subsurface Scale" in bsdf.inputs:
             bsdf.inputs["Subsurface Scale"].default_value = 0.012
     if "Specular IOR Level" in bsdf.inputs:
-        bsdf.inputs["Specular IOR Level"].default_value = 0.35
+        bsdf.inputs["Specular IOR Level"].default_value = 0.15
     m.diffuse_color = COL[skin]
     return m
 
@@ -644,11 +645,11 @@ def recenter(ob):
 
 
 MOUTHS = {  # mouth shape -> its parts (names without prefix)
-    "SMIRK": ("Smile", "Dimple"),
+    "SMIRK": ("Smile", "Dimple", "PoutUp", "PoutLow"),
     "GRIN": ("MouthGrinDark", "MouthGrinTeeth", "MouthGrinTongue", "MouthGrinLine"),
     "O": ("MouthORim", "MouthO"),
     "GASP": ("MouthGasp", "MouthGaspTeeth"),
-    "FLAT": ("MouthFlat",),
+    "FLAT": ("MouthFlat", "PoutUp", "PoutLow"),
 }
 
 
@@ -733,7 +734,7 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         surf = head_surface(hc, size, sx * L["eye_ux"], L["eye_uz"])
         eye = surf + Vector((0, eye_r * 0.55, 0))
         if eye_shape == "almond":
-            almond_eye(add, prefix, sx, eye, eye_r, iris_col, liner, wing)
+            almond_eye(add, prefix, sx, eye, eye_r, iris_col, liner, wing, ah=L.get("almond_h"))
         else:
             toon_eye(add, prefix, sx, eye, eye_r, skin_flat, iris_col, liner, lashes, wing)
         # Brows: thick tapered swoosh. 'arch' peaks two-thirds out; 'angry' dives to the nose.
@@ -746,6 +747,9 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         elif brows == "angry":
             spec = ((0.1, 0.15), (0.25, 0.215), (0.42, 0.265), (0.62, 0.235))  # dive toward the nose, low over the eyes
             radii = [(0.006, 0.013), (0.006, 0.014), (0.005, 0.011), (0.003, 0.004)]
+        elif brows == "sharp":     # thin, dark, low; angled down at the inner end, peaking two-thirds out
+            spec = ((0.12, 0.13), (0.26, 0.19), (0.42, 0.235), (0.56, 0.245), (0.7, 0.2))
+            radii = [(0.0024, 0.0034), (0.0032, 0.006), (0.003, 0.0056), (0.0022, 0.004), (0.0005, 0.0007)]
         elif brows == "bushy":    # reference: thick, dark, low over the eyes, a soft arch, heavy at the inner end
             spec = ((0.1, 0.17), (0.24, 0.215), (0.4, 0.235), (0.56, 0.22), (0.68, 0.17))
             radii = [(0.0045, 0.008), (0.0055, 0.0105), (0.005, 0.0095), (0.0038, 0.007), (0.001, 0.0015)]
@@ -776,9 +780,26 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
                  subdiv=1), "Head")
         add(tube(f"{prefix}Dimple", [pts[-1], pts[-1] + Vector((0.003, 0.0, 0.003))], [0.001, 0.0006], mat("mouth_dark", 0.5),
                  subdiv=0, ring=6), "Head")
+    if L.get("pout"):
+        # Full, pouty coral lips: a cupid's-bow upper lip and a fuller lower lip
+        # sitting proud of the face, parted by a short dark line.
+        lipm = mat("lip_pout", 0.35)
+        pw = L["pout"]
+        mz = smirk_line(0.0, smirk * 0.5)
+        up = head_surface(hc, size, 0.0, mz + 0.045) + Vector((0, -0.004, 0))
+        lo = head_surface(hc, size, 0.0, mz - 0.055) + Vector((0, -0.005, 0))
+        add(tube(f"{prefix}PoutUp", [up + Vector((-0.021 * pw, 0.004, -0.004)), up + Vector((-0.008 * pw, 0, 0.0015)),
+                                     up + Vector((0, 0.0005, -0.0005)), up + Vector((0.008 * pw, 0, 0.0015)),
+                                     up + Vector((0.021 * pw, 0.004, -0.004))],
+                 [(0.002, 0.002), (0.0055, 0.005), (0.006, 0.0048), (0.0055, 0.005), (0.002, 0.002)], lipm,
+                 side=Vector((0, 1, 0)), subdiv=2, ring=12), "Head")
+        add(tube(f"{prefix}PoutLow", [lo + Vector((-0.017 * pw, 0.004, 0.003)), lo + Vector((-0.007 * pw, 0, 0)),
+                                      lo + Vector((0.007 * pw, 0, 0)), lo + Vector((0.017 * pw, 0.004, 0.003))],
+                 [(0.002, 0.002), (0.007, 0.0065), (0.007, 0.0065), (0.002, 0.002)], lipm, side=Vector((0, 1, 0)),
+                 subdiv=2, ring=12), "Head")
     build_mouths(add, hc, size, lip_col, prefix, grin=grin)
     build_face_extras(add, hc, size, prefix)
-    FACE_INFO[prefix] = dict(hc=hc.copy(), size=size, eye_r=eye_r, almond=eye_shape == "almond")
+    FACE_INFO[prefix] = dict(hc=hc.copy(), size=size, eye_r=eye_r, almond=eye_shape == "almond", ah=L.get("almond_h") or ALMOND_H)
 
 
 def build_face_extras(add, hc, size, prefix):
@@ -798,12 +819,12 @@ def build_face_extras(add, hc, size, prefix):
 ALMOND_H = 0.62   # almond eye height / width ratio driver (eyeball z-scale)
 
 
-def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing):
+def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     """A cool, narrow almond eye (feature-film street style): a wide, short
     eyeball (white shows both sides), a dark iris that fills its height, a
     heavy black upper line hugging the top contour into a short flick, a
     fine lower line. Openness is the eyeball's height (see FaceRig)."""
-    W, H = 1.3 * r, ALMOND_H * r
+    W, H = 1.3 * r, (ah or ALMOND_H) * r
     add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.95, 0))
     add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6, r * 0.08, H * 0.96), mat(iris_col, 0.15),
@@ -821,8 +842,10 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing):
     pts = [contour(t) for t in (-1.0, -0.6, -0.15, 0.3, 0.75, 1.0)]
     inner = pts[0] + Vector((-sx * r * 0.22, -r * 0.02, -r * 0.16))       # sharp inner point dipping toward the nose
     tip = pts[-1] + Vector((sx * r * 0.45 * wing, -r * 0.05, r * 0.3 * wing))
+    lw = LAYOUT.get("liner", 1.0)                   # liner weight (Ink girls: a heavy cat-eye line)
     lo = tube(f"{prefix}LidLiner{sx}", [inner] + pts + [tip],
-              [r * 0.01, r * 0.05, r * 0.11, r * 0.14, r * 0.16, r * 0.16, r * 0.12, r * 0.012], liner, subdiv=1, ring=10)
+              [r * 0.01, r * 0.05 * lw, r * 0.11 * lw, r * 0.14 * lw, r * 0.16 * lw, r * 0.16 * lw, r * 0.12 * lw, r * 0.012],
+              liner, subdiv=1, ring=10)
     if wing > 0.4:                                  # a second, longer lash sweep off the outer corner
         base = pts[-2]
         spike = tube(f"{prefix}LashSweep{sx}", [base, pts[-1] + Vector((sx * r * 0.2, -r * 0.08, r * 0.12)),
@@ -1114,6 +1137,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
+HER_LAYOUT = dict(eye_ux=0.4, eye_uz=0.0, nose_z=-0.33, mouth_z=-0.6, chin_z=-0.93, ear_uz=-0.12, ear_h=0.7,
+                  mouth_w=0.14, almond_h=0.85, liner=1.8, pout=1.0)   # Ink-style girl: big wide-set eyes mid-face, small nose, small full mouth, V chin
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
@@ -1330,7 +1355,7 @@ def matte_hair_material(col):
     return m
 
 
-def ribbon_hair(add, hc, size, material, seed=11):
+def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     """Hair from chunky Bezier ribbons, in three layers:
       1. a bumpy dark helmet hugging the skull (no scalp shows, it is the shadow layer);
       2. thick ribbon locks - flattened 'football' profile, fat in the middle,
@@ -1358,14 +1383,16 @@ def ribbon_hair(add, hc, size, material, seed=11):
     # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
-    hair_front = LAYOUT["eye_uz"] + 0.42
+    hair_front = LAYOUT["eye_uz"] + (0.62 if style == "sleek" else 0.42)
 
     def keep(v):
         x, y, z = v.co
         if y > 0.2:                                   # back: down to the nape
             return z > -0.35
         if abs(x) > 0.72:                             # sides: to the top of the ears
-            return z > -0.05
+            return z > (0.1 if style == "sleek" else -0.05)
+        if style == "sleek":                          # a soft rounded hairline dipping at the temples
+            return z > hair_front - 0.3 * x * x
         return z > hair_front + 0.08 * (abs(x) > 0.45)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
     for v in bm.verts:
@@ -1375,7 +1402,7 @@ def ribbon_hair(add, hc, size, material, seed=11):
     bm.to_mesh(me)
     bm.free()
     me.materials.append(material)
-    helmet = _link(bpy.data.objects.new("Hair_Helmet", me))
+    helmet = _link(bpy.data.objects.new(prefix + "Hair_Helmet", me))
     _smooth(helmet, 1)
     add(helmet, "Head")
 
@@ -1390,14 +1417,15 @@ def ribbon_hair(add, hc, size, material, seed=11):
     brow_z = hc.z + (LAYOUT["eye_uz"] + 0.17) * sz
 
     def lock(name, root_n, aim, length, width, k=1.12, puff=0.08, curl=0.0, tilt=0.0, stop_brow=False,
-             n=8, free=False, lift=0.0, flick=0.25):
+             n=8, free=False, lift=0.0, flick=0.25, path=None):
         """One ribbon: from a root on the head, heading `aim` along the shell
         (puffing out in the middle for volume), curling at the tip; fat
         middle, sharp tip. free=True lets it leave the head (breakouts)."""
+        name = prefix + name
         p = shell(Vector(root_n) * 0 + Vector((hc.x + root_n[0] * sx, hc.y + root_n[1] * sy, hc.z + root_n[2] * sz)), k)
         d = Vector(aim).normalized()
-        pts = [p.copy()]
-        for i_ in range(1, n):
+        pts = [p.copy()] if path is None else [Vector(q) for q in path]
+        for i_ in range(1, n if path is None else 0):
             t = i_ / (n - 1)
             here = Vector(((p.x - hc.x) / sx, (p.y - hc.y) / sy, (p.z - hc.z) / sz)).normalized()
             d = (d - here * here.dot(d)).normalized() if not free else d
@@ -1435,6 +1463,30 @@ def ribbon_hair(add, hc, size, material, seed=11):
         return ob
 
     from mathutils import Matrix
+    if style == "sleek":
+        # Sleek, pulled-back hair: ribbons combed from the hairline straight
+        # back over the skull (lying flat, barely any puff), long locks falling
+        # down the back past the shoulders, a few loose wisps by the face.
+        for i in range(22):
+            a = -1.25 + i * (2.5 / 21)                      # around the hairline, temple to temple
+            root = (math.sin(a) * 0.92, -math.cos(a) * 0.62, hair_front + 0.06 + 0.25 * abs(math.sin(a)) ** 2)
+            lock(f"HairComb{i}", root, (math.sin(a) * 0.15, 1.0, 0.35 - 0.5 * abs(math.sin(a))), rnd.uniform(0.26, 0.32),
+                 rnd.uniform(1.5, 1.9), k=1.05 + 0.012 * (i % 3), puff=0.025, flick=0.0, curl=rnd.uniform(-0.2, 0.2),
+                 tilt=math.sin(a) * 0.6)
+        for i in range(16):
+            a = -1.1 + i * (2.2 / 15)
+            x0 = math.sin(a) * 0.85
+            top = Vector((hc.x + x0 * sx * 1.05, hc.y + 0.75 * sy * 1.05 + 0.01, hc.z + 0.35 * sz))
+            pts = [top, top + Vector((x0 * 0.01, 0.035, -0.08)), top + Vector((x0 * 0.03, 0.05, -0.17)),
+                   top + Vector((x0 * 0.06, 0.06, -0.27)), top + Vector((x0 * 0.09, 0.055, -0.37)),
+                   top + Vector((x0 * 0.1, 0.045, -0.45))]
+            lock(f"HairFall{i}", (0, 0, 1), (0, 0, -1), 0, rnd.uniform(1.6, 2.1), tilt=rnd.uniform(-0.3, 0.3), path=pts)
+        for i, (x0, sgn) in enumerate(((-0.8, -1), (0.82, 1), (-0.88, -1))):   # loose wisps at the temples
+            p0 = Vector((hc.x + x0 * sx, hc.y - 0.45 * sy, hc.z + (hair_front - 0.05) * sz))
+            pts = [p0, p0 + Vector((sgn * 0.01, -0.012, -0.04)), p0 + Vector((sgn * 0.022, -0.016, -0.09)),
+                   p0 + Vector((sgn * 0.03, -0.012, -0.14)), p0 + Vector((sgn * 0.045, -0.004, -0.19))]
+            lock(f"HairWisp{i}", (0, 0, 1), (0, 0, -1), 0, 0.2, tilt=0.0, path=pts)
+        return
     # 2a. Crown: big locks from a whorl at the back of the crown, swooping forward and out.
     whorl = (0.1, 0.45, 0.88)
     for i in range(18):
@@ -1817,9 +1869,10 @@ class FaceRig:
                 lid = max(0.12, c["lid"])
                 be = self.base_scale[f"Eye{sx}"]
                 self._set(f"Eye{sx}", scale=(be.x, be.y, be.z * lid))
-                drop = ALMOND_H * r * 0.93 * (lid - 1)                 # the top line follows the eye's top edge
+                AH = FACE_INFO[self.p].get("ah", ALMOND_H)
+                drop = AH * r * 0.93 * (lid - 1)                 # the top line follows the eye's top edge
                 self._set(f"LidLiner{sx}", move=(0, 0, drop))
-                self._set(f"LowLiner{sx}", move=(0, 0, -ALMOND_H * r * 0.7 * (lid - 1) * 0.4 + r * 0.25 * c["lid_low"]))
+                self._set(f"LowLiner{sx}", move=(0, 0, -AH * r * 0.7 * (lid - 1) * 0.4 + r * 0.25 * c["lid_low"]))
             else:
                 self._set(f"Lid{sx}", axis=(1, 0, 0), angle=math.radians(60) * (1 - c["lid"]))
             self._set(f"LidLow{sx}", move=(0, 0, r * 0.55 * c["lid_low"]))
@@ -1836,10 +1889,10 @@ class FaceRig:
                 self._set(k, move=(gx * r * 0.35, 0, gz * r * 0.35), scale=self.base_scale[k] * max(1e-3, c["sparkle"]))
             self._set(f"Blush{sx}", scale=self.base_scale[f"Blush{sx}"] * max(1e-3, c["blush"]))
         self._set("Sweat", scale=self.base_scale["Sweat"] * max(1e-3, c["sweat"]))
-        for name, parts in MOUTHS.items():
-            for part in parts:
-                if part in self.obs:
-                    self._set(part, scale=self.base_scale[part] * (1.0 if name == c["mouth"] else 1e-3))
+        shown = set(MOUTHS.get(c["mouth"], ()))          # a part may belong to several mouths
+        for part in {q for parts in MOUTHS.values() for q in parts}:
+            if part in self.obs:
+                self._set(part, scale=self.base_scale[part] * (1.0 if part in shown else 1e-3))
 
     def key(self, frame, expr="COOL", **over):
         self.pose(expr, **over)

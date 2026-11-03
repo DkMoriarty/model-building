@@ -42,7 +42,7 @@ hx = fr.hx
 
 fr.COL.update({
     # Her palette: black bob, mustard cardigan, white tee, light-wash wide jeans, red bag, gold hoops.
-    "g_skin": hx("#e6a883"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2b1b15"),
+    "g_skin": hx("#c4825c"), "g_hair": hx("#18141a"), "g_hair_sheen": hx("#3a3542"), "g_iris": hx("#2b1b15"),
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#d9a43a"), "cardigan_rib": hx("#c08f2c"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
@@ -146,27 +146,27 @@ def build_girl():
     add(tube("G_BagFlap", [(0.24, -0.1, 1.07), (0.24, 0.04, 1.07)], [0.006, 0.006], mat("gold", 0.3, metallic=0.8),
              subdiv=1), "Pelvis")
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
-    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.032, 0.03], skin), "Neck")
-    hc = Vector((0, -0.005, 1.67))
-    size = (0.108, 0.112, 0.13)          # wide cheeks tapering to a small chin
+    add(tube("G_Neck", [(0, 0.01, 1.42), (0, 0.0, 1.565)], [0.037, 0.034], skin), "Neck")
+    hc = Vector((0, -0.005, 1.678))
+    size = (0.118, 0.12, 0.142)        # Ink proportions: a big head on a slender neck          # wide cheeks tapering to a small chin
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
-    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.7, chin=1.1, cheek=0.9,
-                  jaw=1.25, eye_r=0.033, lashes=True, smirk=0.2, style="toon", lips=1.5,
-                  paint=("g_skin", "blush_toon", "lip_toon", None), brows="arch")
-    for sx in (1, -1):
-        add(fr.torus(f"G_Hoop{sx}", hc + Vector((sx * size[0] * 1.06, 0.006, -0.06)), 0.018, 0.003,
-                     mat("gold", 0.25, metallic=0.9), axis="X"), "Head")
-        pass   # blush is painted into the skin now
-    # Black blunt bob: a cap of hair hugging the skull, straight bangs that end
-    # above the brows, sides falling to the jaw.
-    hair = mat("g_hair", 0.35, sheen=0.4)
-    add(blob("G_HairBack", hc + Vector((0, 0.03, 0.025)), (0.118, 0.125, 0.14), hair), "Head")
-    for sx in (1, -1):
-        add(tube(f"G_HairSide{sx}", [hc + Vector((sx * 0.09, -0.03, 0.09)), hc + Vector((sx * 0.105, -0.01, 0.0)),
-                                     hc + Vector((sx * 0.1, 0.0, -0.085))],
-                 [(0.022, 0.05), (0.024, 0.055), (0.02, 0.05)], hair, side=Vector((1, 0, 0)), profile="box", p_exp=4.0,
-                 ring=24), "Head")
-    add(box("G_Bangs", hc + Vector((0, -0.075, 0.112)), (0.16, 0.05, 0.05), hair, bevel=0.02), "Head")
+    # Ink-style face (measured from the reference): big wide-set eyes with a heavy
+    # winged liner, thin sharp brows low over them, a small straight nose, a
+    # small full coral mouth, a V chin, strong blush across cheeks and nose.
+    fr.build_face(add, hc, size, skin, "g_iris", "g_hair", "lip_toon", prefix="G_", nose=0.8, chin=1.0, cheek=1.0,
+                  jaw=0.95, eye_r=0.03, lashes=True, smirk=0.1, style="toon", lips=0.4,
+                  paint=("g_skin", "blush_toon", "lip_toon", None), brows="sharp", wing=1.0, eye_shape="almond",
+                  layout=fr.HER_LAYOUT)
+    gold = mat("gold", 0.25, metallic=0.9)
+    for sx in (1, -1):   # chunky square gold earrings hanging from the lobes
+        c = hc + Vector((sx * size[0] * 1.0, 0.004, size[2] * (fr.HER_LAYOUT["ear_uz"] - 0.42)))
+        w, h = 0.015, 0.017
+        sq = [c + Vector((0, -w, h)), c + Vector((0, w, h)), c + Vector((0, w, -h)), c + Vector((0, -w, -h)), c + Vector((0, -w, h))]
+        add(tube(f"G_Earring{sx}", sq, [0.0065] * 5, gold, ring=8, subdiv=1, profile="box", p_exp=3.0), "Head")
+        add(tube(f"G_EarHook{sx}", [c + Vector((0, 0, h)), c + Vector((0, 0, h + 0.012))], [0.0012, 0.0012], gold, subdiv=0,
+                 ring=6), "Head")
+    # Sleek black hair combed back, falling down the back, a few wisps by the face.
+    fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.hx("#07060a")), seed=5, style="sleek", prefix="G_")
     rig.scale = (0.95, 0.95, 0.95)
     return rig, parts
 
