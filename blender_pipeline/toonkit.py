@@ -21,7 +21,7 @@ import os
 from typing import Iterable, Sequence
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 # ---------------------------------------------------------------------------
 # Production setup and output        (production-coordinator, render-delivery)
@@ -391,6 +391,118 @@ def bind_layers_to_bones(gp_ob, arm_ob, mapping: dict[str, str] | None = None):
     mod.object = arm_ob
     gp_ob.parent = arm_ob
     return mod
+
+
+def _smoothstep(e0, e1, x):
+    t = max(0.0, min(1.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+def bind_smooth_chain(gp_ob, layer, arm_ob, bones, blend=0.04):
+    """Rubber-hose binding: every point on `layer` is weighted along a chain of
+    bones (e.g. thigh, shin, foot), blending smoothly across each joint over
+    +/- `blend` units, so a bent knee or elbow curves instead of hinging like
+    two sticks. Replaces any earlier weights on those points."""
+    heads = [arm_ob.data.bones[b].head_local for b in bones]
+    last = arm_ob.data.bones[bones[-2]] if len(bones) > 1 else arm_ob.data.bones[bones[0]]
+    tail = arm_ob.data.bones[bones[-1]].tail_local if len(bones) == 1 else heads[-1] + (last.tail_local - last.head_local)
+    # Path: head of each bone, then one segment's length past the last joint.
+    path = [Vector((h.x, h.z)) for h in heads] + [Vector((tail.x, tail.z))]
+    seg_len = [(path[i + 1] - path[i]).length for i in range(len(path) - 1)]
+    joint_s = [sum(seg_len[:i]) for i in range(1, len(bones))]  # arc length of each joint
+
+    def arc(p):
+        best, best_s = None, 0.0
+        acc = 0.0
+        for i in range(len(path) - 1):
+            a, b = path[i], path[i + 1]
+            ab = b - a
+            t = max(0.0, min(1.0, (p - a).dot(ab) / ab.length_squared)) if ab.length_squared else 0.0
+            d = (a + ab * t - p).length
+            if best is None or d < best:
+                best, best_s = d, acc + t * seg_len[i]
+            acc += seg_len[i]
+        return best_s
+
+    for b in bones:
+        if b not in gp_ob.vertex_groups:
+            gp_ob.vertex_groups.new(name=b)
+    for frame in gp_ob.data.layers[layer].frames:
+        d = frame.drawing
+        pts = [pt.position for st in d.strokes for pt in st.points]
+        if not pts:
+            continue
+        weights = {b: [] for b in bones}
+        for pos in pts:
+            sv = arc(Vector((pos.x, pos.z)))
+            w = [1.0] + [0.0] * (len(bones) - 1)
+            for k, js in enumerate(joint_s):  # hand weight over joint k from bone k to k+1
+                f = _smoothstep(js - blend, js + blend, sv)
+                carry = w[k] * f
+                w[k] -= carry
+                w[k + 1] += carry
+            for b, wi in zip(bones, w):
+                weights[b].append(wi)
+        idx = list(range(len(pts)))
+        for b in bones:
+            d.set_vertex_weights(b, idx, weights[b])
+
+
+def shadow_layer(gp_ob, layer, opacity=0.45):
+    """Mark a layer as a cel-shadow layer: Multiply blend, partial opacity,
+    so one dark desaturated colour darkens whatever it sits on."""
+    L = gp_ob.data.layers[layer]
+    L.blend_mode = "MULTIPLY"
+    L.opacity = opacity
+    return L
+
+
+def add_puff_lattice(gp_ob, layer, arm_ob, bone, margin=0.15, puff=0.22, squash=0.15, name=None):
+    """A 3x3 lattice around one layer, riding on `bone`, with two shape keys:
+    'Puff' swells the middle outward (padding inflating), 'Squash' flattens
+    and widens it (slider -1..1, negative = stretch). Animate them with
+    `key_puff` instead of re-drawing the volume."""
+    pts = [pt.position for f in gp_ob.data.layers[layer].frames for st in f.drawing.strokes for pt in st.points]
+    xs, zs = [p.x for p in pts], [p.z for p in pts]
+    cx, cz = (min(xs) + max(xs)) / 2, (min(zs) + max(zs)) / 2
+    w, h = (max(xs) - min(xs)) * (1 + margin), (max(zs) - min(zs)) * (1 + margin)
+    data = bpy.data.lattices.new(name or f"LAT_{layer}")
+    data.points_u, data.points_v, data.points_w = 3, 1, 3
+    data.interpolation_type_u = data.interpolation_type_w = "KEY_BSPLINE"
+    lat = bpy.data.objects.new(name or f"LAT_{layer}", data)
+    arm_ob.users_collection[0].objects.link(lat)
+    lat.hide_render = True
+    target = gp_ob.matrix_world @ Matrix.LocRotScale(Vector((cx, 0, cz)), None, Vector((w, 0.2, h)))
+    lat.parent, lat.parent_type, lat.parent_bone = arm_ob, "BONE", bone
+    bpy.context.view_layer.update()
+    lat.matrix_world = target
+    lat.shape_key_add(name="Basis")
+    kp = lat.shape_key_add(name="Puff")
+    ks = lat.shape_key_add(name="Squash")
+    for i, pt in enumerate(kp.data):
+        u, wv = i % 3, i // 3
+        if wv == 1 and u != 1:          # middle row, left/right: swell outward
+            pt.co.x *= 1 + puff
+        elif u == 1 and wv != 1:        # middle column, top/bottom: round out
+            pt.co.z *= 1 + puff * 0.5
+    for pt in ks.data:
+        pt.co.x *= 1 + squash
+        pt.co.z *= 1 - squash
+    ks.slider_min = -1.0
+    m = gp_ob.modifiers.new(f"Puff {layer}", "GREASE_PENCIL_LATTICE")
+    m.object = lat
+    m.tree_node_filter = layer
+    return lat
+
+
+def key_puff(lat, frame, puff=None, squash=None):
+    keys = lat.data.shape_keys.key_blocks
+    if puff is not None:
+        keys["Puff"].value = puff
+        keys["Puff"].keyframe_insert("value", frame=frame)
+    if squash is not None:
+        keys["Squash"].value = squash
+        keys["Squash"].keyframe_insert("value", frame=frame)
 
 
 def draw_stick_character(arm_ob, name="CH_Hero_Art", color=PALETTE["hero_red"], H=0.5):

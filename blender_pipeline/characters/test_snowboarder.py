@@ -29,6 +29,13 @@ names = [l.name for l in art.data.layers]
 check("every layer exists, in draw order", names == [n for n, _ in sb.LAYERS], f"{len(names)} layers")
 check("every layer is bound to its bone", all(b in art.vertex_groups for _, b in sb.LAYERS))
 check("eyes draw over the goggle lens", names.index("Eyes") > names.index("Goggles"))
+shd = [l for l in art.data.layers if l.name.endswith("_Shd")]
+check("cel shadows: Multiply layers at 45%", len(shd) == len(sb.SHADED) and
+      all(l.blend_mode == "MULTIPLY" and abs(l.opacity - 0.45) < 1e-3 for l in shd), f"{len(shd)} layers")
+radii = [p.radius for st in art.data.layers["Hair_Over"].frames[0].drawing.strokes for p in st.points]
+check("brush lines: hair locks pinch at the tips and swell at the base", max(radii) / min(radii) > 4,
+      f"thickest/thinnest = {max(radii) / min(radii):.1f}")
+
 check("collar draws over the chin", names.index("Collar") > names.index("Face"))
 check("mouth library: 9 visemes + GRIT + SMIRK", len(art.data.layers["Mouth"].frames) == 11)
 check("eye library: 4 expressions", len(art.data.layers["Eyes"].frames) == len(sb.EXPRESSIONS))
@@ -55,6 +62,27 @@ frames = sb.talk(art, [(0.0, "REST"), (0.5, "MBP")])
 s.frame_set(frames[1])
 check("talk: MBP on its frame", art.modifiers["Mouth Swap"].offset == tk.VISEMES.index("MBP") + 1)
 
+# Rubber-hose knee: with the right knee bent, points near it land between
+# where a pure thigh and a pure shin would carry them (no hinge).
+s.frame_set(keys[2])
+dg = bpy.context.evaluated_depsgraph_get()
+rest = [p.position.copy() for st in art.data.layers["Leg_R"].frames[0].drawing.strokes for p in st.points]
+ev = art.evaluated_get(dg)
+bent = [p.position.copy() for st in ev.data.layers["Leg_R"].frames[0].drawing.strokes for p in st.points]
+M = {b: rig.pose.bones[b].matrix @ rig.data.bones[b].matrix_local.inverted() for b in ("Leg_Upper_R", "Leg_Lower_R")}
+blended = sum(1 for p0, pe in zip(rest, bent)
+              if min((M["Leg_Upper_R"] @ p0 - pe).length, (M["Leg_Lower_R"] @ p0 - pe).length) > 0.004)
+check("rubber-hose knee: points near the knee blend thigh and shin (no hinge)", blended >= 4, f"{blended} blended points")
+
+
+def jacket_width(frame):
+    s.frame_set(frame)
+    ev = art.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    xs = [p.position.x for st in ev.data.layers["Jacket"].frames[0].drawing.strokes for p in st.points]
+    return max(xs) - min(xs)
+w_contact, w_pass = jacket_width(keys[0]), jacket_width(keys[2])
+check("puffer lattice: the jacket squashes wide on contact, slims on the pass", w_contact > w_pass * 1.03,
+      f"{w_contact:.3f} vs {w_pass:.3f}")
 sb.express(art, 30, eyes="SQUINT", mouth="GRIT")
 s.frame_set(30)
 check("express: squint + gritted grin on its frame",

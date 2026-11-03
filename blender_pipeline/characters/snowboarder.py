@@ -58,10 +58,17 @@ COL = {
     "slate": hx("#43424c"),
     "cuff": hx("#e4ca8d"),
     "cuff_shade": hx("#c99a70"),
-    "lens": hx("#8d7464"),
-    "eye_white_tint": hx("#d9c7b9"),
-    "iris_tint": hx("#4a3026"),
-    "brow_tint": hx("#3a2620"),
+    "lens": hx("#9b8a80"),
+    "lens_light": hx("#c6c0bc"),
+    "eye_white_tint": hx("#d8cdc4"),
+    "iris_tint": hx("#3a2620"),
+    "brow_tint": hx("#2f1e1a"),
+    "nose_tip": hx("#e59a86"),
+    # Cel-shadow colours, laid on Multiply layers (dark, desaturated).
+    "shd_cloth": hx("#5d6596"),
+    "shd_skin": hx("#7a3f30"),
+    "shd_hair": hx("#2a1410"),
+    "shd_boot": hx("#6e6656"),
     "lens_glint": alpha(hx("#ffffff"), 0.35),
     "eye_white": hx("#f4efe8"),
     "iris": hx("#5a3a2a"),
@@ -158,14 +165,52 @@ def stroke(ob, layer, pts, mat, width=7.0, closed=True, taper=False, smooth=True
     curve = catmull(pts, closed, per_seg) if smooth and len(pts) > 2 else list(pts)
     xz = [P(*p) for p in curve]
     st = tk.draw_stroke(ob, layer, frame, xz, radius=width / S / 2, material=mat, cyclic=closed)
-    n = len(st.points)
-    for i, p in enumerate(st.points):
-        r = 0.7 + 0.6 * _wobble(i, n, seed)
-        if taper:
-            t = i / max(n - 1, 1)
-            r *= min(1.0, 4 * t, 4 * (1 - t)) ** 0.8 + 0.05
+    for p, r in zip(st.points, line_profile(curve, closed, seed, taper)):
         p.radius = width / S / 2 * r
     return st
+
+
+SHADOW_DIR = (0.6, 0.8)  # light from the top-left: lines and shadows fall down-right
+
+
+def _smooth(e0, e1, x):
+    t = max(0.0, min(1.0, (x - e0) / (e1 - e0)))
+    return t * t * (3 - 2 * t)
+
+
+def line_profile(curve, closed, seed=0, taper=False):
+    """Thick-to-thin ink like the sheet's brush: lines pinch to a point at
+    sharp corners (hair tips, collar points), run thin on the lit top-left of
+    a shape and heavy on its shadow side, with a little pressure wobble;
+    open lines also taper at both ends."""
+    n = len(curve)
+    if n < 3:
+        return [1.0] * n
+    area = sum(curve[i][0] * curve[(i + 1) % n][1] - curve[(i + 1) % n][0] * curve[i][1] for i in range(n))
+    out = []
+    for i in range(n):
+        a = curve[(i - 2) % n] if closed else curve[max(i - 2, 0)]
+        b = curve[(i + 2) % n] if closed else curve[min(i + 2, n - 1)]
+        p = curve[i]
+        v1, v2 = (p[0] - a[0], p[1] - a[1]), (b[0] - p[0], b[1] - p[1])
+        l1, l2 = math.hypot(*v1), math.hypot(*v2)
+        turn = 0.0
+        if l1 > 1e-6 and l2 > 1e-6:
+            c = max(-1.0, min(1.0, (v1[0] * v2[0] + v1[1] * v2[1]) / (l1 * l2)))
+            turn = math.acos(c)
+        r = 1.0 - 0.85 * _smooth(math.radians(55), math.radians(145), turn)  # pinch at tips
+        if closed:
+            tx, ty = b[0] - a[0], b[1] - a[1]
+            tl = math.hypot(tx, ty) or 1.0
+            nx, ny = (ty / tl, -tx / tl) if area > 0 else (-ty / tl, tx / tl)  # outward normal
+            shade = nx * SHADOW_DIR[0] + ny * SHADOW_DIR[1]
+            r *= 0.62 + 0.38 * (shade + 1)  # 0.62 on the lit side .. 1.38 in shadow
+        r *= 0.88 + 0.24 * _wobble(i, n, seed)
+        if taper:
+            t = i / (n - 1)
+            r *= min(1.0, 4 * t, 4 * (1 - t)) ** 0.8 + 0.05
+        out.append(max(r, 0.06))
+    return out
 
 
 _MATS = {}
@@ -178,8 +223,58 @@ def mat(name, fill=None, line=True, line_color=None):
     return _MATS[name]
 
 
-def shape(ob, layer, pts, fill, name, width=7.0, seed=0, line=True, frame=1):
-    return stroke(ob, layer, pts, mat(name, fill, line), width=width, closed=True, seed=seed, frame=frame)
+def shape(ob, layer, pts, fill, name, width=7.0, seed=0, line=True, frame=1, smooth=True):
+    return stroke(ob, layer, pts, mat(name, fill, line), width=width, closed=True, seed=seed, frame=frame,
+                  smooth=smooth)
+
+
+def shade(ob, layer, pts, tone="cloth", frame=1, smooth=True):
+    """A crisp cel-shadow shape on the part's Multiply shadow layer."""
+    return stroke(ob, f"{layer}_Shd", pts, mat(f"Shd_{tone}", COL[f"shd_{tone}"], False), closed=True,
+                  frame=frame, smooth=smooth)
+
+
+def lock(root_a, root_b, tip, bend=0.0, n=8):
+    """One hair lock: two curved sides meeting at a sharp tip (not smoothed,
+    so the line profile pinches it). bend pushes the lock sideways."""
+    (ax, ay), (bx, by), (tx, ty) = root_a, root_b, tip
+    mx, my = (ax + bx) / 2, (ay + by) / 2
+    dx, dy = tx - mx, ty - my
+    L = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / L, dx / L
+    ctrl = (mx + dx * 0.5 + nx * bend * L, my + dy * 0.5 + ny * bend * L)
+
+    def q(p0, p1, p2, t):
+        return ((1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0],
+                (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1])
+    ca = (ctrl[0] + (ax - mx) * 0.5, ctrl[1] + (ay - my) * 0.5)
+    cb = (ctrl[0] + (bx - mx) * 0.5, ctrl[1] + (by - my) * 0.5)
+    side_a = [q(root_a, ca, tip, i / n) for i in range(n + 1)]
+    side_b = [q(tip, cb, root_b, i / n) for i in range(1, n + 1)]
+    return side_a + side_b
+
+
+def x_span(poly, y):
+    """Left and right x of a closed (smoothed) outline at height y."""
+    c = catmull(poly, True)
+    xs = []
+    for i in range(len(c)):
+        (x0, y0), (x1, y1) = c[i], c[(i + 1) % len(c)]
+        if (y0 - y) * (y1 - y) <= 0 and y0 != y1:
+            xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
+    return (min(xs), max(xs)) if xs else (None, None)
+
+
+def band_shadow(poly, y0, y1, inset=6, wave=6, n=10):
+    """Shadow on the lower part of one quilted puffer band (y0..y1), clipped
+    to the outline, with a soft wavy top edge."""
+    l0, r0 = x_span(poly, y0)
+    l1, r1 = x_span(poly, y1)
+    if l0 is None or l1 is None:
+        return None
+    top = [(l0 + inset + (r0 - l0 - 2 * inset) * i / n, y0 + wave * math.sin(i * 1.7)) for i in range(n + 1)]
+    bot = [(l1 + inset + (r1 - l1 - 2 * inset) * i / n, y1 - 2) for i in range(n, -1, -1)]
+    return top + bot
 
 
 def ink(ob, layer, pts, width=5.0, seed=0, color=None, name="Ink", frame=1):
@@ -258,19 +353,26 @@ def build_rig(collection=None):
 # Artwork, back to front. Each layer is bound to one bone.
 # ---------------------------------------------------------------------------
 
-LAYERS = [  # (layer, bone) in draw order, back to front
+BASE_LAYERS = [  # (layer, bone) in draw order, back to front
     ("Ponytail", "Ponytail"), ("Hair_Back", "Head"),
-    ("Leg_Lower_R", "Leg_Lower_R"), ("Leg_Upper_R", "Leg_Upper_R"),
-    ("Leg_Lower_L", "Leg_Lower_L"), ("Leg_Upper_L", "Leg_Upper_L"),
+    ("Leg_R", "Leg_Upper_R"), ("Leg_L", "Leg_Upper_L"),          # one rubber-hose shape per leg
     ("Shorts", "Torso"), ("Shorts_R", "Leg_Upper_R"), ("Shorts_L", "Leg_Upper_L"),
     ("Boot_R", "IK_Target_R"), ("Boot_L", "IK_Target_L"),
     ("Jacket", "Torso"),
     ("Face", "Head"), ("Mouth", "Head"), ("Hair_Front", "Head"), ("Goggles", "Head"), ("Eyes", "Head"),
-    ("Goggle_Glint", "Head"),
-    ("Collar", "Torso"),
+    ("Goggle_Glint", "Head"), ("Hair_Over", "Head"),
+    ("Collar", "Torso"), ("Hair_Locks", "Head"),
     ("Hand_R", "Hand_R"), ("Arm_Lower_R", "Arm_Lower_R"), ("Arm_Upper_R", "Arm_Upper_R"),
     ("Hand_L", "Hand_L"), ("Arm_Lower_L", "Arm_Lower_L"), ("Arm_Upper_L", "Arm_Upper_L"),
 ]
+# Parts that get a Multiply cel-shadow layer drawn right above them.
+SHADED = {"Ponytail", "Hair_Back", "Leg_R", "Leg_L", "Shorts", "Boot_R", "Boot_L", "Jacket", "Face", "Hair_Front",
+          "Collar", "Hand_R", "Arm_Lower_R", "Arm_Upper_R", "Hand_L", "Arm_Lower_L", "Arm_Upper_L"}
+LAYERS = [x for l, b in BASE_LAYERS for x in ([(l, b), (f"{l}_Shd", b)] if l in SHADED else [(l, b)])]
+# Rubber-hose chains: (layer, bones) blended smoothly across each joint.
+SMOOTH_CHAINS = [("Leg_R", ["Leg_Upper_R", "Leg_Lower_R", "IK_Target_R"]),
+                 ("Leg_L", ["Leg_Upper_L", "Leg_Lower_L", "IK_Target_L"]),
+                 ("Shorts_R", ["Torso", "Leg_Upper_R"]), ("Shorts_L", ["Torso", "Leg_Upper_L"])]
 
 
 def draw_hair(ob):
@@ -286,36 +388,71 @@ def draw_hair(ob):
         ink(ob, "Ponytail", [a, ((a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2), b], width=6, color=COL["hair_light"], name="HairLight")
     shape(ob, "Ponytail", [(462, 340), (492, 330), (505, 360), (474, 372)], COL["slate"], "Tie", width=5)
 
-    # Back hair mass behind the face (frames the cheeks).
-    back = [(455, 420), (500, 350), (600, 320), (700, 345), (755, 420), (760, 520), (740, 610), (715, 660),
-            (690, 560), (480, 560), (470, 655), (440, 610), (440, 500)]
+    shade(ob, "Ponytail", [(470, 350), (420, 330), (330, 410), (420, 380)], "hair")
+
+    # Back hair mass behind the face.
+    back = [(450, 420), (470, 350), (560, 315), (660, 310), (730, 345), (768, 420), (758, 490), (728, 565),
+            (505, 565), (476, 640), (446, 560)]
     shape(ob, "Hair_Back", back, COL["hair_dark"], "HairDark", width=7, seed=2)
 
-    # Front fringe: spiky bangs over the goggle strap, side locks along the cheeks.
-    front = [(445, 470), (450, 400), (500, 340), (540, 300), (575, 330), (615, 285), (640, 330), (700, 300),
-             (690, 345), (760, 360), (725, 400), (775, 470), (720, 445), (740, 560), (725, 640), (705, 520),
-             (690, 455), (640, 450), (625, 470), (600, 440), (565, 455), (540, 445), (500, 460), (485, 560),
-             (470, 650), (455, 560)]
-    shape(ob, "Hair_Front", front, COL["hair"], "Hair", width=7, seed=3)
-    for pts in (((520, 360), (560, 400), (575, 440)), ((620, 330), (640, 390), (650, 440)),
-                ((700, 360), (720, 410), (735, 470)), ((480, 420), (478, 500), (470, 600))):
-        ink(ob, "Hair_Front", list(pts), width=7, color=COL["hair_light"], name="HairLight", seed=4)
-    for pts in (((560, 335), (585, 400), (590, 440)), ((660, 330), (680, 400), (700, 445))):
-        ink(ob, "Hair_Front", list(pts), width=4, seed=5)
+    # Front hair: a cap over the crown, then pointed locks (sheet: long bangs
+    # falling onto the goggles, flicks out to the right, locks down the cheeks).
+    # The crown ends high at the centre, so forehead shows between the bangs.
+    cap = [(452, 470), (462, 380), (515, 332), (600, 316), (680, 324), (738, 362), (772, 432), (728, 468),
+           (700, 432), (660, 404), (620, 398), (585, 406), (548, 428), (505, 462)]
+    shape(ob, "Hair_Front", cap, COL["hair"], "Hair", width=8, seed=3)
+    H = COL["hair"]
+    for ra, rb, tip, bend in (((585, 335), (650, 328), (690, 262), -0.2),    # spike up-right
+                              ((505, 352), (570, 330), (500, 292), 0.25),    # spike up-left
+                              ((665, 336), (735, 362), (795, 340), -0.15),   # flicks out to the right
+                              ((712, 378), (765, 420), (818, 438), -0.12),
+                              ((728, 425), (770, 470), (796, 545), 0.05),
+                              ((724, 470), (752, 500), (760, 600), 0.1),
+                              ((462, 405), (540, 392), (488, 488), 0.2)):    # left fringe
+        shape(ob, "Hair_Front", lock(ra, rb, tip, bend), H, "Hair", width=7, smooth=False)
+    shade(ob, "Hair_Front", [(470, 455), (560, 440), (650, 446), (725, 462), (700, 470), (600, 462), (500, 470)],
+          "hair")
+    for pts in (((540, 345), (575, 390), (590, 440)), ((640, 335), (660, 390), (665, 440)),
+                ((705, 365), (735, 410), (750, 450))):
+        ink(ob, "Hair_Front", list(pts), width=6, color=COL["hair_light"], name="HairLight", seed=4)
+    # Bangs over the goggles' top edge.
+    # Chunky, overlapping bangs over the goggles' top edge (wide roots, curved).
+    for ra, rb, tip, bend in (((508, 392), (604, 376), (560, 486), 0.18), ((580, 384), (668, 390), (620, 474), -0.08),
+                              ((640, 388), (722, 418), (698, 480), -0.2)):
+        shape(ob, "Hair_Over", lock(ra, rb, tip, bend), H, "Hair", width=8, smooth=False)
+    for pts in (((560, 400), (566, 440), (562, 470)), ((630, 402), (626, 440), (620, 462))):
+        ink(ob, "Hair_Over", list(pts), width=5, color=COL["hair_light"], name="HairLight")
+    # Long locks down the cheeks, falling over the collar.
+    for ra, rb, tip, bend in (((470, 560), (498, 568), (498, 712), 0.08), ((712, 560), (738, 545), (742, 655), -0.05),
+                              ((726, 600), (746, 590), (736, 705), 0.1)):
+        shape(ob, "Hair_Locks", lock(ra, rb, tip, bend), H, "Hair", width=7, smooth=False)
 
 
 def draw_head(ob):
-    face = [(470, 470), (720, 470), (722, 560), (705, 610), (668, 662), (615, 690), (565, 680), (505, 640),
-            (470, 590)]
-    shape(ob, "Face", face, COL["skin"], "Skin", width=7, seed=6)
-    shape(ob, "Face", crescent(face, (0.45, 0.85), 0.86, bias=(0, -6)), COL["skin_shade"], "SkinShade", line=False)
-    ear = [(452, 525), (420, 515), (398, 545), (405, 590), (440, 610), (470, 595)]
-    shape(ob, "Face", ear, COL["skin"], "Skin", width=6, seed=7)
-    ink(ob, "Face", [(440, 540), (420, 560), (430, 585)], width=4)
-    # Blush and a small nose under the goggle notch.
-    shape(ob, "Face", [(670, 612), (700, 605), (705, 625), (675, 630)], COL["blush"], "Blush", line=False)
-    ink(ob, "Face", [(600, 597), (614, 607), (628, 600)], width=4)
-
+    # Neck in shadow inside the collar opening.
+    shape(ob, "Face", [(545, 640), (650, 640), (655, 735), (540, 735)], COL["skin_shade"], "SkinShade", width=6)
+    ear = [(456, 535), (426, 522), (404, 545), (402, 588), (424, 612), (458, 606)]
+    shape(ob, "Face", ear, COL["skin"], "Skin", width=7, seed=7)
+    ink(ob, "Face", [(442, 545), (420, 566), (434, 592)], width=6)
+    ink(ob, "Face", [(446, 562), (436, 578)], width=4)
+    # Face: cheek under the goggles, a pointed chin, jaw rising to the right.
+    face = [(470, 440), (540, 405), (630, 392), (705, 410), (726, 470), (722, 565), (702, 602), (680, 632), (646, 662),
+            (610, 676), (592, 682), (572, 674), (540, 660), (512, 634), (494, 598), (472, 562)]
+    shape(ob, "Face", face, COL["skin"], "Skin", width=8, seed=6)
+    # Cel shadows: under the goggles, left cheek, under the jaw line.
+    # Shadow cast by the goggles across both cheeks (clear of the nose tip),
+    # under the hairline, and down the left jaw.
+    shade(ob, "Face", [(490, 592), (598, 596), (604, 606), (640, 610), (660, 600), (712, 596), (700, 622), (668, 626),
+                       (640, 618), (600, 616), (560, 622), (512, 620)], "skin")
+    shade(ob, "Face", [(520, 420), (700, 410), (712, 445), (640, 432), (560, 440), (522, 452)], "skin")
+    shade(ob, "Face", [(494, 598), (512, 610), (528, 640), (556, 664), (590, 682), (560, 676), (520, 650), (500, 620)],
+          "skin")
+    # Rosy cheek, pointed nose with a pink tip, nostril.
+    shape(ob, "Face", [(668, 612), (700, 604), (706, 624), (676, 632)], COL["blush"], "Blush", line=False)
+    nose = [(606, 572), (630, 574), (642, 596), (630, 607), (609, 604)]
+    shape(ob, "Face", nose, COL["skin"], "Skin", width=6, seed=8)
+    shape(ob, "Face", [(622, 588), (639, 594), (632, 604), (619, 600)], COL["nose_tip"], "NoseTip", line=False)
+    ink(ob, "Face", [(604, 600), (616, 605)], width=5)
     draw_eyes(ob)
 
 
@@ -339,50 +476,55 @@ def draw_eye_set(ob, expr, frame):
     in a laugh (the gritted-grin head)."""
     E = dict(frame=frame)
     if expr == "SQUINT":
-        for cx, cy, d in ((550, 535, 1), (662, 538, -1)):
-            ink(ob, "Eyes", [(cx - 28 * d, cy - 14), (cx + 18 * d, cy), (cx - 28 * d, cy + 12)], width=8, **E)
-        ink(ob, "Eyes", [(512, 505), (552, 512), (590, 526)], width=10, color=COL["brow_tint"], name="Brow", **E)
-        ink(ob, "Eyes", [(628, 526), (666, 512), (704, 506)], width=10, color=COL["brow_tint"], name="Brow", **E)
+        for cx, cy, d in ((545, 535, 1), (664, 546, -1)):
+            ink(ob, "Eyes", [(cx - 26 * d, cy - 15), (cx + 16 * d, cy), (cx - 26 * d, cy + 13)], width=10, **E)
+        ink(ob, "Eyes", [(508, 506), (560, 512), (602, 530)], width=14, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(632, 530), (662, 514), (692, 508)], width=13, color=COL["brow_tint"], name="Brow", **E)
         return
     lid = {"GLARE": 1.0, "HAPPY": 1.25, "SIDE": 0.6}[expr]
     look = 11 if expr == "SIDE" else 0
-    for cx, cy, rx, ry in ((550, 532, 34, 22), (662, 536, 30, 20)):
+    for cx, cy, rx, ry in ((543, 535, 38, 25), (664, 546, 26, 21)):
         ry *= lid
         cy0 = cy + (ry * (1 - lid) if lid < 1 else 0)
         eye = [(cx - rx, cy + 4), (cx - rx * 0.4, cy0 - ry), (cx + rx * 0.5, cy0 - ry * 0.9), (cx + rx, cy - 2),
                (cx + rx * 0.3, cy + 20 * 0.85), (cx - rx * 0.5, cy + 20 * 0.8)]
         shape(ob, "Eyes", eye, COL["eye_white_tint"], "EyeWhite", width=5, **E)
-        shape(ob, "Eyes", tk.circle_points(cx + 5 + look, cy + 2, 14 if lid >= 1 else 12, 12), COL["iris_tint"], "Iris",
-              width=3, **E)
-        shape(ob, "Eyes", tk.circle_points(cx + 6 + look, cy + 3, 7, 10), COL["pupil"], "Pupil", line=False, **E)
-        shape(ob, "Eyes", tk.circle_points(cx + 1 + look, cy - 3, 4, 8), COL["eye_white_tint"], "Glint", line=False, **E)
-        ink(ob, "Eyes", [(cx - rx - 4, cy - 2), (cx - rx * 0.3, cy0 - ry - 3), (cx + rx * 0.6, cy0 - ry), (cx + rx + 4, cy - 4)],
-            width=7, **E)  # heavy upper lid
+        ir = (19 if rx > 30 else 16) * (1 if lid >= 1 else 0.85)
+        shape(ob, "Eyes", tk.circle_points(cx + 3 + look, cy + 2, ir, 14), COL["iris_tint"], "Iris", width=3, **E)
+        shape(ob, "Eyes", tk.circle_points(cx + 4 + look, cy + 3, ir * 0.45, 10), COL["pupil"], "Pupil", line=False, **E)
+        shape(ob, "Eyes", tk.circle_points(cx - 4 + look, cy - 4, ir * 0.28, 8), COL["eye_white_tint"], "Glint",
+              line=False, **E)
+        ink(ob, "Eyes", [(cx - rx - 5, cy - 1), (cx - rx * 0.3, cy0 - ry - 3), (cx + rx * 0.6, cy0 - ry), (cx + rx + 5, cy - 4)],
+            width=10, **E)  # heavy upper lid
+        ink(ob, "Eyes", [(cx - rx * 0.6, cy + ry * 0.8), (cx + rx * 0.5, cy + ry * 0.75)], width=3, **E)  # lower lid
     if expr == "HAPPY":
-        ink(ob, "Eyes", [(512, 492), (550, 480), (588, 492)], width=9, color=COL["brow_tint"], name="Brow", **E)
-        ink(ob, "Eyes", [(630, 494), (666, 482), (702, 492)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(506, 494), (545, 482), (586, 494)], width=11, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(636, 502), (664, 490), (692, 498)], width=10, color=COL["brow_tint"], name="Brow", **E)
         return
     if expr == "SIDE":
-        ink(ob, "Eyes", [(512, 500), (552, 503), (590, 512)], width=9, color=COL["brow_tint"], name="Brow", **E)
-        ink(ob, "Eyes", [(628, 505), (666, 494), (704, 488)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(506, 502), (550, 506), (594, 518)], width=12, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(634, 512), (664, 500), (694, 492)], width=11, color=COL["brow_tint"], name="Brow", **E)
         return
     _glare_brows(ob, E)
 
 
 def _glare_brows(ob, E):
-    ink(ob, "Eyes", [(510, 497), (552, 500), (592, 516)], width=10, color=COL["brow_tint"], name="Brow", **E)
-    ink(ob, "Eyes", [(628, 515), (666, 501), (704, 499)], width=10, color=COL["brow_tint"], name="Brow", **E)
+    # The sheet's hard V scowl: brows dive toward the nose.
+    ink(ob, "Eyes", [(504, 494), (558, 503), (604, 526)], width=15, color=COL["brow_tint"], name="Brow", **E)
+    ink(ob, "Eyes", [(632, 526), (662, 508), (694, 500)], width=13, color=COL["brow_tint"], name="Brow", **E)
 
 
 def draw_goggles(ob):
     # Strap behind the ear, frame, tinted lens over the eyes, glint.
     shape(ob, "Goggles", [(400, 470), (478, 468), (478, 530), (402, 525)], COL["slate"], "Slate", width=6)
-    frame = [(470, 470), (590, 455), (725, 470), (735, 540), (715, 595), (650, 600), (612, 578), (575, 600),
-             (500, 600), (470, 560)]
+    frame = [(466, 466), (590, 455), (722, 470), (733, 540), (712, 598), (650, 602), (622, 576), (592, 590),
+             (498, 598), (466, 560)]
     shape(ob, "Goggles", frame, COL["slate"], "Slate", width=7, seed=8)
     lens = [(492, 487), (590, 475), (712, 488), (718, 540), (700, 578), (652, 582), (612, 560), (575, 582),
             (510, 580), (490, 550)]
     shape(ob, "Goggles", lens, COL["lens"], "Lens", width=4, seed=9)
+    shape(ob, "Goggles", [(650, 484), (712, 488), (718, 540), (700, 578), (652, 582), (640, 530)], COL["lens_light"],
+          "LensLight", line=False)
     glint = mat("LensGlint", alpha(hx("#efe6df"), 1.0), line=False)
     # Thin streaks at the lens's outer edge, clear of the eye.
     stroke(ob, "Goggle_Glint", [(694, 492), (706, 494), (690, 540), (681, 538)], glint, closed=True)
@@ -393,7 +535,11 @@ def draw_jacket(ob):
     body = [(430, 780), (590, 800), (720, 780), (800, 850), (815, 1000), (790, 1180), (740, 1265), (590, 1290),
             (450, 1265), (395, 1180), (375, 1000), (390, 850)]
     shape(ob, "Jacket", body, COL["white"], "Cloth", width=8, seed=10)
-    shape(ob, "Jacket", crescent(body, (0.42, 0.78), 0.82, bias=(0, -10)), COL["cloth_shade"], "ClothShade", line=False)
+    for y0, y1 in ((880, 930), (1015, 1070), (1135, 1190), (1240, 1286)):  # under each quilted band
+        band = band_shadow(body, y0, y1)
+        if band:
+            shade(ob, "Jacket", band)
+    shade(ob, "Jacket", [(560, 800), (630, 800), (612, 860), (575, 860)])  # under the collar
     # Quilting seams, zip and pocket slits.
     for y in (930, 1070, 1190):
         ink(ob, "Jacket", [(410, y), (500, y + 12), (590, y + 16), (680, y + 12), (785, y)], width=4, seed=y)
@@ -408,7 +554,10 @@ def draw_jacket(ob):
     collar = [(400, 640), (455, 618), (520, 650), (575, 700), (612, 712), (660, 690), (705, 655), (728, 672),
               (725, 760), (650, 805), (590, 815), (520, 805), (420, 775), (390, 705)]
     shape(ob, "Collar", collar, COL["white"], "Cloth", width=8, seed=11)
-    shape(ob, "Collar", crescent(collar, (0.5, 0.95), 0.8, bias=(0, -6)), COL["cloth_shade"], "ClothShade", line=False)
+    # Inside the collar rim, and its lower right side.
+    shade(ob, "Collar", [(520, 655), (575, 704), (612, 716), (660, 694), (700, 662), (690, 690), (640, 722), (600, 735),
+                         (560, 722), (515, 680)])
+    shade(ob, "Collar", [(705, 700), (724, 690), (722, 760), (650, 805), (600, 812), (660, 770)])
     ink(ob, "Collar", [(612, 712), (600, 760), (594, 812)], width=4)
     ink(ob, "Collar", [(430, 715), (520, 750), (585, 760)], width=4)
 
@@ -424,8 +573,7 @@ def draw_arm(ob, side):
     ink(ob, f"Hand_{side}", m([(345, 1350), (350, 1395)]), width=3)
     ink(ob, f"Hand_{side}", m([(370, 1350), (372, 1400)]), width=3)
     shape(ob, f"Arm_Lower_{side}", lower, COL["white"], "Cloth", width=8, seed=13)
-    shape(ob, f"Arm_Lower_{side}", crescent(lower, (0.0, 0.4) if side == "L" else (0.6, 1.0), 0.8),
-          COL["cloth_shade"], "ClothShade", line=False)
+    shade(ob, f"Arm_Lower_{side}", crescent(lower, (0.05, 0.45), 0.72, bias=(0, 6)))
     if LOOK == "sheet2":  # metal tube cuff with a dark opening
         tube = m([(318, 1255), (412, 1255), (418, 1325), (312, 1325)])
         shape(ob, f"Arm_Lower_{side}", tube, COL["metal"], "Metal", width=6)
@@ -436,8 +584,8 @@ def draw_arm(ob, side):
         shape(ob, f"Arm_Lower_{side}", cuff, COL["white"], "Cloth", width=6)
     ink(ob, f"Arm_Lower_{side}", m([(250, 1185), (360, 1205), (465, 1190)]), width=4)
     shape(ob, f"Arm_Upper_{side}", upper, COL["white"], "Cloth", width=8, seed=14)
-    shape(ob, f"Arm_Upper_{side}", crescent(upper, (0.2, 0.6), 0.8, bias=(0, 8)),
-          COL["cloth_shade"], "ClothShade", line=False)
+    shade(ob, f"Arm_Upper_{side}", crescent(upper, (0.25, 0.62), 0.72, bias=(0, 10)))
+    shade(ob, f"Hand_{side}", crescent(hand, (0.15, 0.5), 0.6), "skin")
     ink(ob, f"Arm_Upper_{side}", m([(232, 960), (360, 990), (490, 975)]), width=4)
     if LOOK == "sheet2":  # nylon sheen
         ink(ob, f"Arm_Upper_{side}", m([(300, 870), (350, 850), (410, 852)]), width=12, color=COL["sheen"], name="Sheen")
@@ -445,18 +593,24 @@ def draw_arm(ob, side):
 
 
 def draw_legs(ob):
-    for side, pts_u, pts_l in (
-        ("R", [(458, 1360), (568, 1370), (530, 1480), (500, 1595), (472, 1622), (440, 1600), (445, 1480)],
-         [(447, 1590), (497, 1592), (492, 1660), (470, 1760), (468, 1850), (405, 1850), (420, 1700)]),
-        ("L", [(622, 1370), (718, 1360), (728, 1480), (740, 1598), (708, 1624), (678, 1600), (655, 1480)],
-         [(680, 1590), (736, 1588), (752, 1700), (766, 1850), (702, 1850), (695, 1760), (678, 1660)]),
+    # One continuous shape per leg (hem to ankle), bound as a rubber hose so
+    # the knee curves instead of hinging.
+    for side, leg, shd, knee in (
+        ("R", [(458, 1360), (568, 1370), (532, 1480), (502, 1590), (497, 1630), (490, 1680), (472, 1770), (468, 1850),
+               (405, 1850), (418, 1720), (440, 1612), (442, 1480)],
+         [(540, 1372), (568, 1370), (532, 1480), (502, 1590), (497, 1630), (490, 1680), (472, 1770), (468, 1850),
+          (452, 1850), (458, 1760), (476, 1660), (488, 1590), (515, 1480)], 472),
+        ("L", [(622, 1370), (718, 1360), (730, 1480), (740, 1600), (752, 1700), (766, 1850), (702, 1850), (695, 1770),
+               (680, 1665), (678, 1612), (655, 1480)],
+         [(700, 1362), (718, 1360), (730, 1480), (740, 1600), (752, 1700), (766, 1850), (746, 1850), (734, 1720),
+          (722, 1610), (708, 1480)], 708),
     ):
-        shape(ob, f"Leg_Upper_{side}", pts_u, COL["skin"], "Skin", width=6, seed=15, )
-        shape(ob, f"Leg_Lower_{side}", pts_l, COL["skin"], "Skin", width=6, seed=16)
-        kx = pts_u[4][0]
-        ink(ob, f"Leg_Upper_{side}", [(kx - 14, 1592), (kx, 1606), (kx + 12, 1596)], width=3)
+        shape(ob, f"Leg_{side}", leg, COL["skin"], "Skin", width=6, seed=15)
+        shade(ob, f"Leg_{side}", shd, "skin")
+        ink(ob, f"Leg_{side}", [(knee - 14, 1596), (knee, 1610), (knee + 12, 1600)], width=4)
     hips = [(440, 1225), (745, 1225), (722, 1330), (590, 1335), (460, 1330)]
     shape(ob, "Shorts", hips, COL["shorts"], "Shorts", width=7, seed=17)
+    shade(ob, "Shorts", [(440, 1225), (745, 1225), (740, 1250), (440, 1250)], "hair")  # under the jacket hem
     shape(ob, "Shorts_R", [(450, 1300), (590, 1310), (565, 1395), (455, 1385)], COL["shorts"], "Shorts", width=7)
     shape(ob, "Shorts_L", [(595, 1310), (725, 1300), (715, 1388), (620, 1398)], COL["shorts"], "Shorts", width=7)
     ink(ob, "Shorts_R", [(480, 1320), (490, 1380)], width=6, color=COL["shorts_light"], name="ShortsLight")
@@ -476,7 +630,7 @@ def draw_boots(ob):
     ):
         layer = f"Boot_{side}"
         shape(ob, layer, boot, COL["boot"], "Boot", width=8, seed=18)
-        shape(ob, layer, crescent(boot, (0.25, 0.55), 0.8, bias=(0, 8)), COL["boot_shade"], "BootShade", line=False)
+        shade(ob, layer, crescent(boot, (0.25, 0.6), 0.75, bias=(0, 10)), "boot")
         if LOOK == "sheet2":  # tan toe cap and ankle strap
             cap = ([(255, 2088), (278, 2150), (286, 2240), (198, 2230), (190, 2158)] if side == "R" else
                    [(905, 2078), (962, 2097), (988, 2162), (984, 2228), (900, 2242), (884, 2150)])
@@ -487,7 +641,7 @@ def draw_boots(ob):
         ink(ob, layer, sole, width=5)
         ink(ob, layer, crease, width=4)
         shape(ob, layer, cuff, COL["cuff"], "Cuff", width=7, seed=19)
-        shape(ob, layer, crescent(cuff, (0.3, 0.7), 0.7), COL["cuff_shade"], "CuffShade", line=False)
+        shade(ob, layer, crescent(cuff, (0.3, 0.75), 0.65), "boot")
         cx = (cuff[0][0] + cuff[1][0]) / 2
         shape(ob, layer, [(cx - 45, 1810), (cx + 45, 1808), (cx + 40, 1830), (cx - 40, 1832)], COL["shorts"], "Shorts",
               width=4)  # the leg opening
@@ -497,7 +651,7 @@ def draw_boots(ob):
 # Mouth library in this style (9 visemes on frames 1-9 of the Mouth layer)
 # ---------------------------------------------------------------------------
 
-MOUTH_C = (588, 630)
+MOUTH_C = (592, 622)
 # viseme: (width px, open px, roundness 0..1, teeth: 'top' | 'both' | None, tongue)
 VISEME_SHAPES = {
     "A_I": (112, 44, 0.2, "top", False),
@@ -523,7 +677,7 @@ def mouth_curves(w, h, rnd, smirk=10, n=13):
     for i in range(n):
         t = -1 + 2 * i / (n - 1)
         x = cx + t * w / 2
-        curl = -smirk * (t ** 2) * (1 - rnd) - 6 * t  # corners up; right side higher
+        curl = -smirk * (t ** 2) * (1 - rnd) + 11 * t  # corners up; the sheet's grin rises to her right cheek
         y_top = cy + curl - (h * 0.25) * (1 - t * t) * rnd
         y_bot = cy + curl + h * (1 - t * t) ** (0.8 if rnd < 0.5 else 0.5)
         top.append((x, y_top))
@@ -553,10 +707,14 @@ def draw_mouth(ob, viseme, frame):
     if tongue:
         tb = [(x, y - min(10, h * 0.3)) for x, y in bot[3:-3]]
         shape(ob, "Mouth", bot[3:-3] + tb[::-1], COL["tongue"], "Tongue", line=False, frame=frame)
+    if viseme in ("REST", "E", "A_I"):  # the deep curled corner of her grin
+        ink(ob, "Mouth", [(top[0][0] + 6, top[0][1] + 6), (top[0][0] - 6, top[0][1] - 2), (top[0][0] - 4, top[0][1] - 12)],
+            width=6, frame=frame)
     if teeth:
-        th = min(h * 0.55, 16)
+        th = min(h * 0.62, 18)
         lower = [(x, min(y + th, yb - 2)) for (x, y), (_, yb) in zip(top, bot)]
-        shape(ob, "Mouth", top[1:-1] + lower[1:-1][::-1], COL["white"], "Teeth", width=3, frame=frame)
+        # Teeth start right at the lip line (no dark band above them).
+        shape(ob, "Mouth", top + lower[::-1], COL["white"], "Teeth", width=3, frame=frame, smooth=False)
         if teeth == "both" and h > 18:
             upper_b = [(x, max(yb - th * 0.7, yt + th + 2)) for (x, yt), (_, yb) in zip(top, bot)]
             shape(ob, "Mouth", upper_b[2:-2] + bot[2:-2][::-1], COL["white"], "Teeth", width=3, frame=frame)
@@ -627,6 +785,24 @@ def build(collection=None, with_board=True, look="sheet1"):
     draw_boots(art)
     build_mouth_library(art)
     tk.bind_layers_to_bones(art, rig, dict(LAYERS))
+    for layer, bones in SMOOTH_CHAINS:
+        for lay in (layer, f"{layer}_Shd"):  # a part's shadow bends exactly like the part
+            if lay in art.data.layers and len(art.data.layers[lay].frames):
+                tk.bind_smooth_chain(art, lay, rig, bones, blend=0.045)
+    for layer, _ in LAYERS:
+        if layer.endswith("_Shd"):
+            tk.shadow_layer(art, layer, 0.45)
+    # Puffer volume: a lattice per jacket part, animated with shape keys.
+    global LATTICES
+    LATTICES = {layer: tk.add_puff_lattice(art, layer, rig, bone, name=f"LAT_{layer}")
+                for layer, bone in (("Jacket", "Torso"), ("Arm_Upper_R", "Arm_Upper_R"), ("Arm_Lower_R", "Arm_Lower_R"),
+                                    ("Arm_Upper_L", "Arm_Upper_L"), ("Arm_Lower_L", "Arm_Lower_L"))}
+    for lat in LATTICES.values():
+        for layer in (f"{lat.name[4:]}_Shd",):  # the part's shadow layer deforms with it
+            if layer in art.data.layers:
+                m = art.modifiers.new(f"Puff {layer}", "GREASE_PENCIL_LATTICE")
+                m.object = lat
+                m.tree_node_filter = layer
     tk.light_layers(art, False)  # flat cel colours, like the sheet
     board = build_board(coll) if with_board else None
     if board:
@@ -656,11 +832,23 @@ def pose_sheet(rig):
     tk.rotate_bone_2d(rig, "Ponytail", math.radians(-10))
 
 
+LATTICES = {}
+
+
 def walk(rig, start=1, length=24):
     """She is drawn from the front, so she walks in place toward camera:
-    alternating knee lifts, a bounce, small arm swings, ponytail trailing."""
+    alternating knee lifts, a bounce, small arm swings, ponytail trailing.
+    The puffer squashes on each contact and re-inflates (sleeves 2 frames
+    behind the body: overlapping action)."""
     reset_pose(rig)
-    return tk.walk_front(rig, start=start, length=length, H=0.32)
+    keys = tk.walk_front(rig, start=start, length=length, H=0.32)
+    h = length // 2
+    for f0 in (start, start + h, start + length):
+        for name, lat in LATTICES.items():
+            lag = 0 if name == "Jacket" else 2
+            tk.key_puff(lat, f0 + lag, puff=0.0, squash=0.55)
+            tk.key_puff(lat, min(f0 + h // 2 + lag, start + length + lag), puff=0.6, squash=-0.35)
+    return keys
 
 
 def express(art, frame, eyes=None, mouth=None):

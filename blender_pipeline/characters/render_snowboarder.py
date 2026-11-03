@@ -87,7 +87,7 @@ def main(argv):
         board.hide_render = True
         keys = sb.walk(rig)
         frame_on(cam, 0.05, 1.12, 2.45)
-        for f in (1, 4, 7, 13, 19):
+        for f in (1, 4, 7, 9, 13, 19):
             s.frame_set(f)
             shoot(s, os.path.join(a.out, f"snowboarder_walk_{f:02d}.png"))
     if "anim" in views:
