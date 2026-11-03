@@ -42,7 +42,9 @@ COL = {
     "skin": hx("#a9643c"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#141116"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
-    "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
+    "shorts": hx("#2c2c31"), "faded_jeans": hx("#3e5986"), "jeans_fade": hx("#5873a0"), "jeans_seam": hx("#c08a3e"), "vest": hx("#f1eee6"),
+    "belt": hx("#4a3226"), "ink": hx("#2a130c"), "skin_cel_lit": hx("#d29468"), "skin_cel_shadow": hx("#9c5a3a"),
+    "skin_cel_rim": hx("#f0b88a"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
     "lace": hx("#f7f5f0"), "cap": hx("#c0582b"), "cap_seam": hx("#9a4220"),
     "mouth_dark": hx("#3b1a17"), "liner": hx("#0e0a0a"), "tongue": hx("#d06a66"), "blush_toon": hx("#e46a5c"), "lip_toon": hx("#d0675d"),
     "stubble": hx("#6e4a38"), "skin_toon": hx("#cf8f66"), "teeth": hx("#f6f2ea"), "sparkle_fx": hx("#ffffff"), "blush_fx": hx("#ff8f8f"), "sweat": hx("#cfe9ff"), "bag": hx("#1e1e21"), "strap": hx("#2d2d31"),
@@ -781,6 +783,8 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         elif brows == "bushy":    # reference: thick, dark, low over the eyes, a soft arch, heavy at the inner end
             spec = ((0.1, 0.17), (0.24, 0.215), (0.4, 0.235), (0.56, 0.22), (0.68, 0.17))
             radii = [(0.0045, 0.008), (0.0055, 0.0105), (0.005, 0.0095), (0.0038, 0.007), (0.001, 0.0015)]
+            bk = L.get("brow_k", 1.0)                       # brow weight (1 = the original heavy bushy brow)
+            radii = [(a * bk, b * bk) for a, b in radii]
         elif brows == "wedge":     # thin dark wedge: heavy hooked head low by the nose, tilting up and out to a needle tip
             spec = ((0.08, 0.1), (0.13, 0.15), (0.24, 0.2), (0.39, 0.245), (0.54, 0.26), (0.68, 0.23))
             radii = [(0.003, 0.004), (0.004, 0.0085), (0.0038, 0.0075), (0.003, 0.0058), (0.0022, 0.0035), (0.0004, 0.0005)]
@@ -1215,7 +1219,8 @@ HER_LAYOUT = dict(eye_ux=0.47, eye_uz=-0.08, nose_z=-0.47, mouth_z=-0.66, chin_z
                   ear_x=1.02, ear_flare=25, ear_soft=1.0, lip_t=1.35, blush=1.5, mouth_w=0.24, almond_h=0.66, liner=1.2, iris=1.0, soft=1.0, brow_drop=0.06, hairline=0.64,
                   eye_k=(0.8, 1.05, 0.55), eye_sink=0.4, iris_x=0.12, shield=1.0, slit=1.0, pout=0.8)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
-                  jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # tennis reference: straight long jawline to a broad forward chin
+                  jaw_ref=1.0, slit=1.0, mouth_w=0.2, brow_k=0.68, wild_fringe=1,
+                  iris=1.25, liner=1.5, blush=1.4, brow_drop=0.03)   # tennis reference: straight long jawline to a broad forward chin
 
 
 def messy_hair(add, hc, size, material, n=80, seed=21):
@@ -1475,7 +1480,8 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
 
     # 1. Helmet: the shadow layer, hairline low on the forehead, temples down to the ears.
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=28, radius=1.0)
+    fine = LAYOUT.get("wild_fringe")                  # finer rings: the hairline edge follows the curve instead of stepping
+    bmesh.ops.create_uvsphere(bm, u_segments=96 if fine else 48, v_segments=72 if fine else 28, radius=1.0)
     hair_front = LAYOUT.get("hairline") or LAYOUT["eye_uz"] + (0.62 if style in ("sleek", "ponytail") else 0.42)
 
     def keep(v):
@@ -1494,6 +1500,8 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
             return z > (0.1 if style in ("sleek", "ponytail") else -0.05)
         if style in ("sleek", "ponytail"):            # a soft rounded hairline dipping at the temples
             return z > hair_front - 0.3 * x * x
+        if LAYOUT.get("wild_fringe"):                 # smooth edge hidden under the fringe: no notch, no skin between locks
+            return z > hair_front - 0.06 - 0.12 * x * x - 0.07 * abs(math.sin(x * 13 + 0.6))   # ragged, like lock tips
         return z > hair_front + 0.08 * (abs(x) > 0.45)
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(v)], context="VERTS")
     for v in bm.verts:
@@ -1520,7 +1528,7 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
     brow_z = hc.z + (LAYOUT["eye_uz"] + 0.17) * sz
 
     def lock(name, root_n, aim, length, width, k=1.12, puff=0.08, curl=0.0, tilt=0.0, stop_brow=False,
-             n=8, free=False, lift=0.0, flick=0.25, path=None):
+             n=8, free=False, lift=0.0, flick=0.25, path=None, stop_dz=0.0):
         """One ribbon: from a root on the head, heading `aim` along the shell
         (puffing out in the middle for volume), curling at the tip; fat
         middle, sharp tip. free=True lets it leave the head (breakouts)."""
@@ -1541,8 +1549,8 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
             p = p + d * length / (n - 1)
             if not free:
                 p = shell(p, k + puff * math.sin(math.pi * t) + flick * max(0.0, t - 0.55) ** 2 * 5)
-            if stop_brow and p.z < brow_z:
-                p.z = brow_z
+            if stop_brow and p.z < brow_z + stop_dz:
+                p.z = brow_z + stop_dz
                 p = shell(p, k + 0.02) if not free else p
             pts.append(p.copy())
         cu = bpy.data.curves.new(name, "CURVE")
@@ -1666,10 +1674,17 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
              rnd.uniform(0.17, 0.24), rnd.uniform(1.6, 2.1), k=rnd.uniform(1.12, 1.22), puff=rnd.uniform(0.1, 0.22), flick=0.3,
              curl=rnd.uniform(-1.0, 1.0), tilt=rnd.uniform(-0.5, 0.5))
     # 2b. Fringe: chunky locks sweeping down and across the forehead, over the brows.
-    for i in range(12):
-        x0 = -0.75 + i * 0.135
+    nf = 16 if LAYOUT.get("wild_fringe") else 12
+    for i in range(nf):
+        x0 = -0.75 + i * (1.62 / nf)
         side = 1.0 if x0 > -0.35 else -0.6                         # main sweep to his left, a few the other way
         aim = (side * (0.5 + rnd.uniform(-0.2, 0.2)), -0.3, -1.0)
+        if LAYOUT.get("wild_fringe"):                              # ref 08: thinner, longer locks, some hanging past the brows
+            lock(f"HairFringe{i}", (x0 * 0.9, -0.62, 0.72), aim, rnd.uniform(0.15, 0.2), rnd.uniform(0.7, 1.0),
+                 k=1.05 + 0.02 * (i % 3), puff=rnd.uniform(0.03, 0.06), curl=side * rnd.uniform(0.4, 0.9),
+                 tilt=rnd.uniform(-0.4, 0.4), stop_brow=(i % 4 != 1), flick=0.18,
+                 stop_dz=sz * rnd.uniform(-0.04, 0.12))      # ragged tips: each lock ends at its own height
+            continue
         lock(f"HairFringe{i}", (x0, -0.4, 0.82), aim, rnd.uniform(0.12, 0.16), rnd.uniform(1.4, 1.9),
              k=1.07 + 0.025 * (i % 3), puff=rnd.uniform(0.06, 0.12), curl=side * rnd.uniform(0.6, 1.3),
              tilt=rnd.uniform(-0.4, 0.4), stop_brow=True, flick=0.12)
@@ -1771,6 +1786,127 @@ def cap_brim(name, center, r_in, depth, material):
     return ob
 
 
+def cel_skin(name, base, shadow, edge=0.5, rim=None, scale=0.15):
+    """Hard-edged (cel) skin for the body: the lighting is read with Shader to RGB
+    and snapped by a constant ramp, so every muscle form throws a crisp shadow
+    shape instead of a soft gradient. Lit colour `base`, shadow colour `shadow`."""
+    m = bpy.data.materials.new(name)
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    dif = nt.nodes.new("ShaderNodeBsdfDiffuse")
+    dif.inputs["Color"].default_value = (1, 1, 1, 1)
+    s2r = nt.nodes.new("ShaderNodeShaderToRGB")
+    bw = nt.nodes.new("ShaderNodeRGBToBW")
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "CONSTANT"
+    e = ramp.color_ramp.elements
+    e[0].position, e[0].color = 0.0, (*shadow[:3], 1)
+    e[1].position, e[1].color = edge, (*base[:3], 1)
+    if rim:
+        r = e.new(0.92)
+        r.color = (*rim[:3], 1)
+    em = nt.nodes.new("ShaderNodeEmission")
+    k = nt.nodes.new("ShaderNodeMath")                 # the scene's lights are bright: bring them into the ramp's 0..1
+    k.operation = "MULTIPLY"
+    k.inputs[1].default_value = scale
+    nt.links.new(dif.outputs[0], s2r.inputs[0])
+    nt.links.new(s2r.outputs["Color"], bw.inputs[0])
+    nt.links.new(bw.outputs[0], k.inputs[0])
+    nt.links.new(k.outputs[0], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], em.inputs["Color"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    m.diffuse_color = (*base[:3], 1)
+    return m
+
+
+def ink_line(add, name, pts, bone, w=0.0022, material=None):
+    """A thin dark ink stroke lying on the skin at a muscle separation, tapering at both ends."""
+    n = len(pts)
+    radii = [w * (0.25 + 0.75 * math.sin(math.pi * (i + 0.5) / n)) for i in range(n)]
+    add(tube(name, pts, radii, material or mat("ink", 0.6), subdiv=1, ring=8), bone)
+
+
+def arm_path(s, sho, elb, wri, hand):
+    """One continuous arm from inside the shoulder cap to just past the wrist (no
+    ball joint at the shoulder, no gap at the wrist): 8 points."""
+    sx = 1 if s == "L" else -1
+    d = (hand - wri).normalized()
+    return ([sho + Vector((-sx * 0.03, 0, 0.025)), sho + Vector((sx * 0.008, 0, -0.04))]
+            + [sho.lerp(elb, t) for t in (0.4, 0.7)] + [elb] + [elb.lerp(wri, t) for t in (0.35, 0.7)] + [wri + d * 0.022])
+
+
+# Elliptical (side-to-side, front-to-back) radii along arm_path's 8 points: the
+# deltoid cap, the delt's widest point, biceps/triceps depth, the narrowing above
+# the elbow, the elbow, the broad upper forearm, the taper, the wrist.
+ARM_RADII = [(0.055, 0.052), (0.064, 0.058), (0.053, 0.064), (0.046, 0.054), (0.042, 0.045), (0.052, 0.046),
+             (0.04, 0.034), (0.03, 0.021)]
+
+
+def arm_radii(k=1.0):
+    return [(a * k, b * k) for a, b in ARM_RADII]
+
+
+def arm_anatomy(add, prefix, s, sho, elb, wri, skin, k=1.0, vein=True, ink=False):
+    """Muscle forms laid over the smooth arm so it reads anatomically: a deltoid
+    cap, biceps in front, triceps behind, the two forearm masses, a bony elbow
+    point and an optional forearm vein. k scales how pronounced they are."""
+    sx = 1 if s == "L" else -1
+    out, fwd = Vector((sx, 0, 0)), Vector((0, -1, 0))
+    up = sho.lerp(elb, 0.0)
+    # The muscle masses themselves are in the arm's elliptical radii (ARM_RADII): no
+    # separate lumps. Only the bony elbow point sits on top.
+    forms = [
+        ("ElbowPt", "Forearm", elb - fwd * 0.03 * k + Vector((0, 0, -0.006)), (0.014, 0.012, 0.018)),
+    ]
+    for name, bone, c, sz in forms:
+        add(blob(f"{prefix}{name}_{s}", c, tuple(v * k for v in sz), skin, subdiv=2), f"{bone}_{s}")
+    if ink:
+        # Hard ink strokes at the muscle separations (ref: drawn anime musculature).
+        def on(a0, b0, t, ang, rx, ry):                 # a point on the arm's elliptical surface
+            c = a0.lerp(b0, t)
+            a = math.radians(ang)
+            return c + out * (math.cos(a) * rx * k * 1.03) + fwd * (math.sin(a) * ry * k * 1.03)
+        U, F = (0.056, 0.061), (0.05, 0.046)
+        strokes = {
+            "DeltLine": ("UpperArm", sho, elb, [(0.2, 105), (0.3, 70), (0.4, 30), (0.44, -10), (0.42, -45)], U),
+            "BicepLine": ("UpperArm", sho, elb, [(0.5, 5), (0.62, 0), (0.74, -5), (0.84, -8)], U),
+            "BicepFront": ("UpperArm", sho, elb, [(0.55, 150), (0.68, 140), (0.82, 130)], U),
+            "ForearmLine": ("Forearm", elb, wri, [(0.08, 75), (0.25, 60), (0.42, 50), (0.58, 45)], F),
+            "ElbowCrease": ("Forearm", elb, wri, [(0.0, 55), (0.01, 85), (0.0, 115)], (0.044, 0.044)),
+        }
+        for nm, (bone, a0, b0, spec, (rx, ry)) in strokes.items():
+            ink_line(add, f"{prefix}{nm}_{s}", [on(a0, b0, t, ang, rx, ry) for t, ang in spec], f"{bone}_{s}", w=0.0024 * k)
+    if vein:
+        a, b = elb.lerp(wri, 0.15) + fwd * 0.043 * k, elb.lerp(wri, 0.85) + fwd * 0.03 * k
+        add(tube(f"{prefix}Vein_{s}", [a, a.lerp(b, 0.5) + out * 0.008, b], [0.0026, 0.0028, 0.0018], skin, subdiv=1, ring=8),
+            f"Forearm_{s}")
+    _ = up
+
+
+def build_hand(add, prefix, s, wri, hand, skin, k=1.0):
+    """A stylised hand hanging from the wrist: a slim palm, four tapered fingers
+    curling a little toward the body, and a thumb on the front. k scales it."""
+    sx = 1 if s == "L" else -1
+    d = (hand - wri).normalized()                        # wrist -> fingertips
+    palm_c = wri + d * 0.045 * k
+    add(blob(f"{prefix}Hand_{s}", palm_c, (0.017 * k, 0.04 * k, 0.045 * k), skin), f"Hand_{s}")
+    base = wri + d * 0.082 * k
+    for i, (oy, ln) in enumerate(((-0.026, 0.05), (-0.009, 0.058), (0.009, 0.055), (0.025, 0.044))):
+        p0 = base + Vector((0, oy * k, 0))
+        p1 = p0 + d * ln * 0.55 * k + Vector((-sx * 0.004 * k, 0, 0))
+        p2 = p0 + d * ln * k + Vector((-sx * 0.012 * k, 0, 0))   # curl toward the palm
+        add(tube(f"{prefix}Finger_{s}{i}", [p0, p1, p2], [0.0085 * k, 0.0078 * k, 0.0062 * k], skin, subdiv=1, ring=10),
+            f"Hand_{s}")
+        add(blob(f"{prefix}Knuckle_{s}{i}", p0 + Vector((sx * 0.011 * k, 0, 0.004 * k)), (0.0065 * k, 0.0085 * k, 0.008 * k),
+                 skin, subdiv=1), f"Hand_{s}")             # knuckle bumps on the back of the hand
+    t0 = wri + d * 0.03 * k + Vector((-sx * 0.006 * k, -0.034 * k, 0))
+    add(tube(f"{prefix}Thumb_{s}", [t0, t0 + d * 0.028 * k + Vector((0, -0.01 * k, 0)), t0 + d * 0.05 * k + Vector((-sx * 0.006 * k, -0.008 * k, 0))],
+             [0.011 * k, 0.0095 * k, 0.0075 * k], skin, subdiv=1, ring=10), f"Hand_{s}")
+
+
 def build_character(rig):
     parts = []
 
@@ -1779,23 +1915,20 @@ def build_character(rig):
         parts.append(ob)
         return ob
 
-    skin = mat("skin", 0.55, sss=0.25)
-    # Legs: very long and thin, a little knob at the knee, bare between shorts and socks.
+    # Body skin is cel-shaded (hard muscle shadows); the head keeps its painted skin.
+    skin = cel_skin("SkinCel", COL["skin_cel_lit"], COL["skin_cel_shadow"], rim=COL["skin_cel_rim"])
+    # Faded straight-leg jeans from the hips to the shoes, bending at the knee.
+    jeans = mat("faded_jeans", 0.88, sheen=0.25)
     for s in "LR":
         hip, knee, ank = jp(f"hip_{s}"), jp(f"knee_{s}"), jp(f"ankle_{s}")
-        leg = arc(hip, knee, n=5)[:-1] + [knee] + arc(knee, ank, Vector((0, 0.012, 0)), n=6)[1:]
-        radii = [0.058, 0.052, 0.047, 0.042, 0.04, 0.041, 0.039, 0.033, 0.028, 0.026]
-        parts.append(skin_chain(tube(f"Leg_{s}", leg, radii, skin), rig, [f"Thigh_{s}", f"Shin_{s}"], blend=0.06))
-        # Tall ribbed socks.
-        sock_top = ank.lerp(knee, 0.42)
-        add(tube(f"Sock_{s}", arc(ank + Vector((0, 0, -0.02)), sock_top, n=4), [0.033, 0.031, 0.034, 0.037],
-                 mat("sock", 0.9, sheen=0.4)), f"Shin_{s}")
-        add(tube(f"SockCuff_{s}", [sock_top - Vector((0, 0, 0.012)), sock_top + Vector((0, 0, 0.012))], [0.039, 0.039],
-                 mat("sock", 0.9, sheen=0.4), subdiv=1), f"Shin_{s}")
-        for k in range(2):  # two sport stripes on the sock
-            zz = sock_top - (sock_top - ank) * (0.12 + 0.1 * k)
-            add(tube(f"SockStripe_{s}{k}", [zz - Vector((0, 0, 0.005)), zz + Vector((0, 0, 0.005))], [0.0365, 0.0365],
-                     mat("frame", 0.6), caps=False, subdiv=1), f"Shin_{s}")
+        leg = arc(hip + Vector((-0.012 if s == "L" else 0.012, 0, 0.07)), knee, n=4)[:-1] + [knee] + arc(knee, ank + Vector((0, 0, -0.01)), n=5)[1:]
+        r = [(0.098, 0.11), (0.084, 0.082), (0.076, 0.074), (0.069, 0.067), (0.065, 0.063), (0.063, 0.061), (0.062, 0.06),
+             (0.064, 0.06)]
+        parts.append(skin_chain(tube(f"Jeans_{s}", leg, r, jeans, caps=False, ring=16, crease=0.6, facet=0.03, seed=3), rig,
+                                [f"Thigh_{s}", f"Shin_{s}"], blend=0.07))
+        fade = mat("jeans_fade", 0.9, sheen=0.25)          # worn, lighter patch down the front of the thigh
+        mid = hip.lerp(knee, 0.55) + Vector((0, -0.066, 0))
+        add(blob(f"JeansFade_{s}", mid, (0.05, 0.012, 0.16), fade, subdiv=1), f"Thigh_{s}")
         # Chunky sneaker: lofted upper, a thick gum sole, a tongue and laces.
         x = jp(f"ankle_{s}").x
         upper = [(x, 0.09, 0.075), (x, 0.06, 0.085), (x, 0.0, 0.08), (x, -0.07, 0.065), (x, -0.14, 0.05), (x, -0.185, 0.04)]
@@ -1803,7 +1936,6 @@ def build_character(rig):
                                       (0.04, 0.025)], mat("shoe", 0.7), side=Vector((1, 0, 0))), f"Foot_{s}")
         add(tube(f"Sole_{s}", [(x, 0.105, 0.03), (x, 0.0, 0.026), (x, -0.12, 0.022), (x, -0.2, 0.024)],
                  [(0.058, 0.022), (0.066, 0.02), (0.066, 0.02), (0.042, 0.018)], mat("sole", 0.8)), f"Foot_{s}")
-        # Side swoosh-free stripe and a heel tab.
         add(tube(f"ShoeStripe_{s}", [(x + (0.064 if x > 0 else -0.064), 0.05, 0.06), (x + (0.066 if x > 0 else -0.066), -0.02, 0.07),
                                      (x + (0.062 if x > 0 else -0.062), -0.1, 0.055)], [0.008] * 3, mat("cap", 0.6), subdiv=1),
             f"Foot_{s}")
@@ -1812,93 +1944,54 @@ def build_character(rig):
             yy = -0.005 - 0.03 * k
             add(box(f"Lace_{s}{k}", (x, yy, 0.118 - 0.012 * k), (0.06, 0.008, 0.008), mat("lace", 0.8), bevel=0.003,
                     rot=(math.radians(-25), 0, 0)), f"Foot_{s}")
-    # Baggy shorts: wide legs to just above the knee, a soft waistband.
-    sh = mat("shorts", 0.85, sheen=0.2)
-    add(blob("Hips", (0, 0.005, 0.985), (0.17, 0.12, 0.12), sh), "Pelvis")
-    for sx in (1, -1):  # drawstrings hanging below the shirt hem
-        add(tube(f"Drawstring{sx}", [(sx * 0.03, -0.12, 0.9), (sx * 0.035, -0.125, 0.84), (sx * 0.03, -0.12, 0.8)],
-                 [0.005] * 3, mat("lace", 0.6), subdiv=1), "Pelvis")
-    for s in "LR":
-        hip, knee = jp(f"hip_{s}"), jp(f"knee_{s}")
-        hem = hip.lerp(knee, 0.62)
-        F = -math.pi / 2
-        sh_folds = folds([(0.78, F - 0.9, 0.74, F + 0.9, 0.01, 0.012), (0.3, F + 0.4, 0.62, F + 1.2, 0.009, 0.012),
-                          (0.88, -F - 0.8, 0.84, -F + 0.8, 0.008, 0.011)], length=0.3, radius=0.1)
-        add(tube(f"ShortLeg_{s}", arc(hip + Vector((0, 0, 0.03)), hem, n=4), [(0.104, 0.1), (0.108, 0.1), (0.11, 0.098),
-                                                                             (0.108, 0.095)], sh, caps=False, subdiv=1,
-                 ring=40, rows=14, profile="box", p_exp=4.0, carve=sh_folds),
-            f"Thigh_{s}")
-        add(tube(f"ShortHem_{s}", [hem + Vector((0, 0, -0.01)), hem + Vector((0, 0, 0.02))], [(0.107, 0.097), (0.107, 0.097)],
-                 mat("strap", 0.85), caps=False, subdiv=1), f"Thigh_{s}")
-    # Boxy oversized work shirt, carved like architecture: a rigid block whose
-    # shoulder line runs flat from the collar out to the sleeves, flat panels,
-    # and sharp folds - drags from the armpits, stacked folds at the hem.
-    shirt = mat("shirt", 0.8, sheen=0.3)
-    F = -math.pi / 2                      # angle of the front (-Y) on a vertical tube
-    body = [(0, 0.01, 0.88), (0, 0.01, 1.0), (0, 0.0, 1.15), (0, 0.0, 1.3), (0, 0.0, 1.39), (0, 0.0, 1.44), (0, 0.0, 1.465)]
-    shirt_folds = folds([
-        (0.86, F + 1.0, 0.42, F + 0.35, 0.024, 0.02), (0.86, F - 1.0, 0.42, F - 0.35, 0.024, 0.02),     # armpit drags
-        (0.72, F + 0.65, 0.52, F + 0.12, 0.016, 0.014), (0.72, F - 0.65, 0.52, F - 0.12, 0.016, 0.014),
-        (0.13, F - 1.3, 0.1, F + 1.3, 0.016, 0.015), (0.22, F - 0.9, 0.24, F + 0.95, 0.012, 0.012),      # hem stack
-        (0.86, -F - 0.7, 0.55, -F + 0.1, 0.012, 0.015),                                                   # back drag
-    ], length=0.58, radius=0.2)
-    add(tube("Shirt", body, [(0.235, 0.165), (0.245, 0.17), (0.248, 0.168), (0.255, 0.165), (0.27, 0.155),
-                             (0.2, 0.12), (0.08, 0.07)], shirt, ring=48, rows=26, profile="box", p_exp=5.0,
-             carve=shirt_folds, subdiv=1), "Spine")
-    add(tube("ShirtHem", [(0, 0.01, 0.872), (0, 0.01, 0.89)], [(0.238, 0.168), (0.238, 0.168)], shirt, ring=48,
-             profile="box", p_exp=5.0, subdiv=1), "Pelvis")
-    add(tube("Collar", [(0, 0.0, 1.43), (0, 0.005, 1.475)], [(0.075, 0.065), (0.07, 0.06)], mat("shirt_seam", 0.8),
-             caps=False, subdiv=1), "Spine")
-    add(tube("Placket", [(0, -0.155, 0.92), (0, -0.152, 1.42)], [0.012, 0.012], mat("shirt_seam", 0.8), subdiv=1), "Spine")
-    for k in range(4):
-        add(blob(f"Button{k}", (0, -0.165, 1.0 + 0.11 * k), (0.008, 0.004, 0.008), mat("lace", 0.4), subdiv=1), "Spine")
-    # Detailing: a chest pocket with a flap and pen, collar points, side seams.
-    add(box("Pocket", (-0.09, -0.158, 1.27), (0.075, 0.008, 0.085), mat("shirt", 0.8, sheen=0.3), bevel=0.006), "Spine")
-    add(box("PocketFlap", (-0.09, -0.166, 1.31), (0.08, 0.01, 0.025), mat("shirt_seam", 0.8), bevel=0.006), "Spine")
-    add(tube("Pen", [(-0.07, -0.165, 1.29), (-0.07, -0.166, 1.35)], [0.006, 0.006], mat("cap", 0.4), subdiv=1), "Spine")
-    for sx in (1, -1):
-        add(box(f"CollarPt{sx}", (sx * 0.04, -0.06, 1.445), (0.06, 0.012, 0.035), mat("shirt_seam", 0.8), bevel=0.006,
-                rot=(math.radians(-30), 0, math.radians(sx * 25))), "Spine")
+    # Seat of the jeans: a short flat-bottomed block (a straight crotch seam, no bulge between the legs).
+    add(tube("Hips", [(0, 0.008, 0.935), (0, 0.006, 1.0), (0, 0.004, 1.045)], [(0.15, 0.1), (0.165, 0.112), (0.168, 0.12)], jeans,
+             ring=32, subdiv=1, caps=False), "Pelvis")
+    add(tube("Belt", [(0, 0.0, 1.052), (0, 0.0, 1.08)], [(0.176, 0.128), (0.176, 0.128)], mat("belt", 0.5), caps=False,
+             subdiv=1), "Pelvis")
+    add(box("Buckle", (0, -0.13, 1.066), (0.04, 0.008, 0.03), mat("metal", 0.3, metallic=0.8), bevel=0.004), "Pelvis")
+    add(tube("Fly", [(0.012, -0.118, 1.045), (0.014, -0.112, 0.96)], [0.0022, 0.0022], mat("jeans_seam", 0.8), subdiv=0,
+             ring=6), "Pelvis")
+    # Muscular torso: a V from a narrow waist to broad shoulders, traps up to the neck, round delts.
+    add(tube("Torso", [(0, 0.01, 0.95), (0, 0.01, 1.05), (0, 0.0, 1.16), (0, 0.0, 1.27), (0, 0.0, 1.35), (0, 0.0, 1.41),
+                       (0, 0.005, 1.45)],
+             [(0.145, 0.105), (0.148, 0.105), (0.16, 0.11), (0.186, 0.12), (0.2, 0.115), (0.17, 0.095), (0.075, 0.065)], skin),
+        "Spine")
     for s, sx in (("L", 1), ("R", -1)):
-        sho, elb = jp(f"sho_{s}"), jp(f"elb_{s}")
-        end = sho.lerp(elb, 0.75)
-        # Sleeve: grows out of the flat shoulder line, then drops as a heavy block.
-        # Hang from the shoulder line: the sleeve's top face continues the torso's.
-        root = Vector((sx * 0.13, 0.0, 1.3))
-        top = Vector((sx * 0.27, 0.0, 1.285))
-        drop = Vector((sx * 0.3, 0.01, 1.19))
-        cuff_c = Vector((sx * 0.31, 0.01, 1.1))
-        inner = math.pi if sx > 0 else 0.0               # the side facing the body
-        sl_folds = folds([
-            (0.35, inner - 0.7, 0.62, inner + 0.25, 0.02, 0.016), (0.5, inner - 0.9, 0.78, inner + 0.1, 0.016, 0.014),
-            (0.45, -inner + 0.5, 0.85, -inner - 0.3, 0.012, 0.014),
-        ], length=0.42, radius=0.11)
-        add(tube(f"Sleeve_{s}", [root, top, drop, cuff_c], [(0.1, 0.105), (0.115, 0.11), (0.122, 0.112), (0.118, 0.108)],
-                 shirt, caps=False, ring=40, rows=20, profile="box", p_exp=4.5, carve=sl_folds, subdiv=1,
-                 side=Vector((0, 1, 0))), f"UpperArm_{s}")
-        # Rolled, blocky cuff.
-        d = (cuff_c - drop).normalized()
-        add(tube(f"Cuff_{s}", [cuff_c - d * 0.012, cuff_c + d * 0.022], [(0.124, 0.114), (0.122, 0.112)], mat("shirt_seam", 0.8),
-                 caps=False, ring=40, profile="box", p_exp=4.5, subdiv=1, side=Vector((0, 1, 0))), f"UpperArm_{s}")
-        # Thin arms, mitten hands with a thumb.
-        wri, hand = jp(f"wri_{s}"), jp(f"hand_{s}")
-        armpts = arc(sho.lerp(elb, 0.3), elb, n=3)[:-1] + [elb] + arc(elb, wri, n=4)[1:]
-        parts.append(skin_chain(tube(f"Arm_{s}", armpts, [0.036, 0.034, 0.032, 0.033, 0.03, 0.026], skin), rig,
+        sho = jp(f"sho_{s}")
+        add(blob(f"Trap_{s}", Vector((sx * 0.1, 0.012, 1.415)), (0.075, 0.048, 0.032), skin), "Spine")
+    # White ribbed baniyan (vest): fitted over chest and waist, deep armholes, narrow straps over the shoulders.
+    vest = mat("vest", 0.85, sheen=0.35)
+    # Tucked in: the vest runs down inside the jeans so no skin opens at the back when he leans over the bars.
+    add(tube("Vest", [(0, 0.012, 0.95), (0, 0.01, 1.01), (0, 0.01, 1.06), (0, 0.0, 1.15), (0, 0.0, 1.27), (0, 0.0, 1.34),
+                      (0, 0.0, 1.385)],
+             [(0.138, 0.096), (0.15, 0.108), (0.155, 0.113), (0.166, 0.117), (0.19, 0.126), (0.172, 0.122), (0.118, 0.108)], vest,
+             caps=False, ring=32, subdiv=1), "Spine")
+    for k in range(7):                                   # knit ribs on the front panel, hugging the vest's curve
+        xk = -0.09 + 0.03 * k
+        fy = lambda ry, rx: -ry * math.sqrt(max(0.0, 1 - (xk / rx) ** 2)) - 0.0015
+        add(tube(f"VestRib{k}", [(xk, fy(0.113, 0.155), 1.07), (xk, fy(0.117, 0.166), 1.15), (xk * 0.92, fy(0.126, 0.19), 1.27)],
+                 [0.0026] * 3, vest, subdiv=0, ring=6), "Spine")
+    for sx in (1, -1):
+        add(tube(f"VestStrap{sx}", [(sx * 0.1, -0.11, 1.375), (sx * 0.1, -0.075, 1.43), (sx * 0.1, 0.0, 1.452),
+                                    (sx * 0.1, 0.075, 1.43), (sx * 0.1, 0.11, 1.375)], [0.011] * 5, vest, subdiv=1, ring=10),
+            "Spine")
+    for s, sx in (("L", 1), ("R", -1)):
+        sho, elb, wri, hand = jp(f"sho_{s}"), jp(f"elb_{s}"), jp(f"wri_{s}"), jp(f"hand_{s}")
+        # Muscular arms: a full biceps, a defined elbow, a thick forearm tapering to the wrist.
+        armpts = arm_path(s, sho, elb, wri, hand)          # round delt cap -> biceps -> elbow -> forearm -> wrist
+        parts.append(skin_chain(tube(f"Arm_{s}", armpts, arm_radii(1.0), skin), rig,
                                 [f"UpperArm_{s}", f"Forearm_{s}"], blend=0.05))
-        add(blob(f"Hand_{s}", wri.lerp(hand, 0.55), (0.03, 0.022, 0.055), skin), f"Hand_{s}")
-        add(blob(f"Thumb_{s}", wri.lerp(hand, 0.35) + Vector((0, -0.026, 0)), (0.011, 0.011, 0.026), skin,
-                 rot=(math.radians(-25), 0, 0)), f"Hand_{s}")
-    # Crossbody bag: strap from the right shoulder to the left hip, bag at the hip.
-    add(tube("Strap", [(-0.16, 0.0, 1.43), (-0.13, -0.13, 1.33), (0.0, -0.165, 1.16), (0.13, -0.168, 1.0),
-                       (0.2, -0.13, 0.93)], [0.012] * 5, mat("strap", 0.7), side=Vector((0, 1, 0)), subdiv=1), "Spine")
-    add(tube("StrapBack", [(-0.16, 0.0, 1.43), (-0.1, 0.13, 1.3), (0.05, 0.16, 1.1), (0.2, 0.12, 0.95)], [0.012] * 4,
-             mat("strap", 0.7), side=Vector((0, 1, 0)), subdiv=1), "Spine")
-    add(box("Bag", (0.22, -0.11, 0.9), (0.075, 0.2, 0.13), mat("bag", 0.55, sheen=0.2), bevel=0.03,
-            rot=(0, 0, math.radians(-20))), "Pelvis")
-    add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
-            rot=(0, 0, math.radians(-20))), "Pelvis")
+        build_hand(add, "", s, wri, hand, skin, k=1.1)
+        arm_anatomy(add, "", s, sho, elb, wri, skin, k=1.0, ink=True)
+    # Collarbones, the neck's two diagonal muscles, and chest volume under the vest.
+    for sx in (1, -1):
+        add(tube(f"Clavicle{sx}", [(sx * 0.02, -0.076, 1.42), (sx * 0.09, -0.06, 1.428), (sx * 0.17, -0.03, 1.42)],
+                 [0.007, 0.008, 0.007], skin, subdiv=1, ring=10), "Spine")
+        add(tube(f"NeckMuscle{sx}", [(sx * 0.048, 0.005, 1.585), (sx * 0.036, -0.032, 1.5), (sx * 0.016, -0.058, 1.44)],
+                 [0.011, 0.012, 0.009], skin, subdiv=1, ring=10), "Neck")
     # Neck and head: a sculpted, planar face (see build_face).
-    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, HEAD_Z - 0.09)], [0.056, 0.05], skin), "Neck")   # slim but strong neck
+    add(tube("Neck", [(0, 0.01, 1.4), (0, 0.005, 1.47), (0, 0.0, HEAD_Z - 0.09)], [0.074, 0.06, 0.053], skin), "Neck")   # strong neck, flaring into the traps
     hc = Vector((0, -0.01, HEAD_Z))
     # Young and energetic: a rounder face with full cheeks and a short soft
     # chin, big bright eyes, a small nose, lifted brows, healthy blush, no stubble.
@@ -1909,7 +2002,7 @@ def build_character(rig):
     # below mid-skull, thick level brows, a long nose with a rosy tip, a thin
     # closed smirk, a long defined chin, big low ears.
     build_face(add, hc, (0.108, 0.118, 0.15), skin, "iris", "hair", "lip_toon", nose=1.45, chin=1.2, cheek=1.0, jaw=0.45,
-               eye_r=0.024, smirk=0.4, style="toon", lips=0.45, paint=("skin", "blush_toon", "lip_toon", None),
+               eye_r=0.024, smirk=0.65, style="toon", lips=0.45, paint=("skin", "blush_toon", "lip_toon", None),
                brows="bushy", wing=0.35, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
     if HAIR == "messy":
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
@@ -1952,7 +2045,8 @@ def build_character(rig):
 
 EXPRESSIONS = {
     # his
-    "COOL":    dict(lid=0.6, lid_low=0.2, brow_l=-0.001, brow_r=0.004, ang_l=-4, ang_r=-6, mouth="SMIRK"),
+    "COOL":    dict(lid=0.5, lid_low=0.25, brow_l=-0.002, brow_r=0.003, ang_l=-4, ang_r=-6, mouth="SMIRK",
+                    gaze=(0.3, -0.12)),          # ref 08: a sideways glance under heavy lids
     "HAPPY":   dict(lid=1.0, lid_low=0.35, brow_l=0.006, brow_r=0.007, ang_l=-6, ang_r=6, mouth="GRIN"),
     "NOTICE":  dict(lid=1.15, lid_low=0.0, brow_l=0.002, brow_r=0.007, ang_l=0, ang_r=-6, mouth="FLAT", gaze=(0.35, 0.0)),
     "SHOCK":   dict(lid=1.5, lid_low=0.0, brow_l=0.011, brow_r=0.011, ang_l=12, ang_r=-12, mouth="GASP", pupil=0.55,

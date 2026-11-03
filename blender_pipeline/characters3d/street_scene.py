@@ -46,6 +46,7 @@ fr.COL.update({
     "g_lip": hx("#c46a62"), "g_blush": hx("#e79a8c"), "cardigan": hx("#4b66ab"), "cardigan_rib": hx("#425b9c"), "silver": hx("#d9dbe0"),
     "tee": hx("#f4f1ea"), "jeans": hx("#8fa9c9"), "jeans_seam": hx("#6f89ab"), "g_shoe": hx("#f3f1ec"),
     "g_sole": hx("#e6e2da"), "g_bag": hx("#b8352d"), "gold": hx("#d8b25a"),
+    "croptop": hx("#1c1a20"), "croptop_rib": hx("#2a2730"),
     # Street.
     "asphalt": hx("#55565c"), "asphalt_dark": hx("#46474c"), "paint": hx("#f1efe8"), "paint_yellow": hx("#e2b84a"),
     "sidewalk": hx("#bdb8b0"), "curb": hx("#a7a29a"), "glass": hx("#5b6b7d"), "frame_w": hx("#efe9de"),
@@ -92,8 +93,8 @@ def build_girl():
     for s in "LR":
         hip, knee, ank = jp(f"hip_{s}"), jp(f"knee_{s}"), jp(f"ankle_{s}")
         # Wide-leg jeans from hip to shoe, bending smoothly at the knee.
-        leg = arc(hip + Vector((0, 0, 0.04)), knee, n=4)[:-1] + [knee] + arc(knee, ank + Vector((0, 0, -0.03)), n=5)[1:]
-        r = [(0.085, 0.082), (0.08, 0.078), (0.074, 0.072), (0.072, 0.07), (0.078, 0.074), (0.088, 0.082), (0.1, 0.09),
+        leg = arc(hip + Vector((-0.012 if s == "L" else 0.012, 0, 0.06)), knee, n=4)[:-1] + [knee] + arc(knee, ank + Vector((0, 0, -0.03)), n=5)[1:]
+        r = [(0.09, 0.1), (0.08, 0.078), (0.074, 0.072), (0.072, 0.07), (0.078, 0.074), (0.088, 0.082), (0.1, 0.09),
              (0.112, 0.098)]
         parts.append(skin_chain(tube(f"Jeans_{s}", leg, r, jeans, caps=False, ring=16, crease=0.7, facet=0.03, seed=6), rig,
                                 [f"Thigh_{s}", f"Shin_{s}"], blend=0.07))
@@ -106,37 +107,42 @@ def build_girl():
         add(tube(f"Sole_{s}", [(x, 0.1, 0.03), (x, 0.0, 0.028), (x, -0.12, 0.026), (x, -0.18, 0.03)],
                  [(0.056, 0.03), (0.064, 0.028), (0.062, 0.028), (0.04, 0.026)], mat("g_sole", 0.8)), f"Foot_{s}")
         _ = seam
-    add(blob("G_Hips", (0, 0.005, 0.99), (0.15, 0.11, 0.11), jeans), "Pelvis")
-    add(tube("G_Belt", [(0, 0.0, 1.03), (0, 0.0, 1.055)], [(0.152, 0.112), (0.152, 0.112)], mat("g_bag", 0.5), caps=False,
+    add(tube("G_Hips", [(0, 0.008, 0.94), (0, 0.006, 1.0), (0, 0.004, 1.04)], [(0.136, 0.094), (0.15, 0.104), (0.152, 0.11)],
+             jeans, ring=32, subdiv=1, caps=False), "Pelvis")             # flat-bottomed seat: straight crotch seam, no bulge
+    add(tube("G_Belt", [(0, 0.0, 1.045), (0, 0.0, 1.07)], [(0.158, 0.118), (0.158, 0.118)], mat("g_bag", 0.5), caps=False,
              subdiv=1), "Pelvis")
-    # A chunky blue cable-knit crewneck over a white collared shirt, a fine silver chain.
-    card = mat("cardigan", 0.95, sheen=0.6)
-    add(tube("Sweater", [(0, 0.0, 0.93), (0, 0.0, 1.15), (0, 0.0, 1.33), (0, 0.0, 1.41)],
-             [(0.2, 0.15), (0.19, 0.14), (0.2, 0.135), (0.13, 0.085)], card, ring=20, crease=0.3, facet=0.03, seed=8), "Spine")
-    for k in range(5):                                   # knit cables running down the front
-        x = -0.1 + 0.05 * k
-        add(tube(f"Cable{k}", [(x, -0.14, 0.98), (x, -0.146, 1.15), (x, -0.13, 1.33)], [0.008, 0.009, 0.008], card,
-                 subdiv=1, ring=8), "Spine")
-    add(fr.torus("SweaterNeck", Vector((0, 0.0, 1.405)), 0.085, 0.012, mat("cardigan_rib", 0.95), axis="Z"), "Spine")
-    shirt = mat("tee", 0.7)
-    for sx in (1, -1):                                   # white shirt collar points over the crewneck
-        add(tube(f"Collar{sx}", [(sx * 0.03, -0.055, 1.44), (sx * 0.08, -0.075, 1.415), (sx * 0.14, -0.07, 1.37)],
-                 [(0.004, 0.03), (0.004, 0.034), (0.003, 0.014)], shirt, side=Vector((0, 1, 0)), subdiv=1), "Spine")
+    # Fitted crop top over a bare midriff (high-waist jeans below), a fine silver chain.
+    add(tube("G_Waist", [(0, 0.0, 1.0), (0, 0.0, 1.1), (0, 0.0, 1.2)], [(0.132, 0.096), (0.118, 0.088), (0.128, 0.092)], skin),
+        "Pelvis")
+    add(blob("G_Navel", (0, -0.087, 1.1), (0.004, 0.003, 0.006), mat("mouth_dark", 0.6), subdiv=1), "Pelvis")
+    add(tube("G_Torso", [(0, 0.0, 1.15), (0, 0.0, 1.28), (0, 0.0, 1.36), (0, 0.0, 1.41), (0, 0.004, 1.45)],
+             [(0.125, 0.09), (0.14, 0.1), (0.152, 0.095), (0.122, 0.08), (0.05, 0.045)], skin), "Spine")
+    top = mat("croptop", 0.75, sheen=0.3)
+    add(tube("G_CropTop", [(0, 0.0, 1.17), (0, 0.0, 1.28), (0, 0.0, 1.36), (0, 0.0, 1.395)],
+             [(0.132, 0.097), (0.147, 0.112), (0.158, 0.103), (0.118, 0.087)], top, caps=False, ring=32, subdiv=1), "Spine")
+    add(tube("G_CropHem", [(0, 0.0, 1.165), (0, 0.0, 1.182)], [(0.134, 0.099), (0.134, 0.099)], mat("croptop_rib", 0.8),
+             caps=False, subdiv=1), "Spine")
+    add(fr.torus("G_CropNeck", Vector((0, 0.0, 1.395)), 0.1, 0.006, mat("croptop_rib", 0.8), axis="Z"), "Spine")
     chain = [Vector((0.03 * math.sin(a_) * 1.0, -0.024 - 0.01 * math.cos(a_), 1.47 - 0.035 * math.cos(a_ / 2) ** 0.5))
              for a_ in [-math.pi / 2 + math.pi * i / 10 for i in range(11)]]
     add(tube("Necklace", chain, [0.0014] * len(chain), mat("silver", 0.2, metallic=1.0), subdiv=0, ring=6), "Neck")
     for s, sx in (("L", 1), ("R", -1)):
         sho, elb, wri, hand = jp(f"sho_{s}"), jp(f"elb_{s}"), jp(f"wri_{s}"), jp(f"hand_{s}")
-        # Long, slouchy sleeves to the wrist (bend with the elbow), ribbed cuffs.
-        slv = arc(sho + Vector((-sx * 0.03, 0, 0.02)), elb, n=4)[:-1] + [elb] + arc(elb, wri, n=4)[1:]
-        parts.append(skin_chain(tube(f"CardSleeve_{s}", slv, [(0.09, 0.085), (0.095, 0.09), (0.092, 0.088), (0.088, 0.085),
-                                                               (0.084, 0.082), (0.072, 0.07), (0.06, 0.058)], card,
-                                     caps=False), rig, [f"UpperArm_{s}", f"Forearm_{s}"], blend=0.06))
-        add(tube(f"CardCuff_{s}", [wri + Vector((0, 0, 0.03)), wri - Vector((0, 0, 0.005))], [0.05, 0.048],
-                 mat("cardigan_rib", 0.9), caps=False, subdiv=1), f"Forearm_{s}")
-        add(blob(f"G_Hand_{s}", wri.lerp(hand, 0.55), (0.026, 0.02, 0.05), skin), f"Hand_{s}")
-        add(blob(f"G_Thumb_{s}", wri.lerp(hand, 0.35) + Vector((0, -0.022, 0)), (0.01, 0.01, 0.022), skin,
-                 rot=(math.radians(-25), 0, 0)), f"Hand_{s}")
+        # Thin straps over the shoulders, then bare slender arms.
+        add(tube(f"G_TopStrap_{s}", [(sx * 0.085, -0.088, 1.385), (sx * 0.088, -0.058, 1.422), (sx * 0.09, 0.0, 1.434),
+                                     (sx * 0.088, 0.058, 1.422), (sx * 0.085, 0.088, 1.385)], [0.007] * 5, top, subdiv=1, ring=8),
+            "Spine")
+        armpts = fr.arm_path(s, sho + Vector((-sx * 0.02, 0, 0)), elb, wri, hand)   # one smooth arm, no ball joints
+        parts.append(skin_chain(tube(f"G_Arm_{s}", armpts, fr.arm_radii(0.64), skin), rig,
+                                [f"UpperArm_{s}", f"Forearm_{s}"], blend=0.05))
+        fr.build_hand(add, "G_", s, wri, hand, skin, k=0.92)
+        fr.arm_anatomy(add, "G_", s, sho + Vector((-sx * 0.02, 0, 0)), elb, wri, skin, k=0.68, vein=False)   # toned, subtle
+    # Fine collarbones, neck lines and a defined waist (obliques) around the bare midriff.
+    for sx in (1, -1):
+        add(tube(f"G_Clavicle{sx}", [(sx * 0.018, -0.068, 1.405), (sx * 0.08, -0.056, 1.41), (sx * 0.15, -0.028, 1.4)],
+                 [0.0045, 0.0055, 0.0045], skin, subdiv=1, ring=10), "Spine")
+        add(tube(f"G_NeckMuscle{sx}", [(sx * 0.03, 0.0, 1.6), (sx * 0.022, -0.02, 1.52), (sx * 0.012, -0.04, 1.44)],
+                 [0.006, 0.007, 0.006], skin, subdiv=1, ring=10), "Neck")
     # Red shoulder bag on a thin strap.
     add(tube("G_Strap", [(0.15, 0.0, 1.43), (0.17, -0.06, 1.25), (0.2, -0.05, 1.08)], [0.008] * 3, mat("g_bag", 0.5),
              side=Vector((0, 1, 0)), subdiv=1), "Spine")
@@ -144,7 +150,9 @@ def build_girl():
     add(tube("G_BagFlap", [(0.24, -0.1, 1.07), (0.24, 0.04, 1.07)], [0.006, 0.006], mat("gold", 0.3, metallic=0.8),
              subdiv=1), "Pelvis")
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
-    add(tube("G_Neck", [(0, 0.01, 1.38), (0, 0.0, 1.6)], [0.025, 0.022], skin), "Neck")   # long, thin, elegant
+    # long, thin, elegant; flares out at the base into the chest (tapered, not a straight bar)
+    add(tube("G_Neck", [(0, 0.012, 1.36), (0, 0.008, 1.43), (0, 0.004, 1.51), (0, 0.0, 1.6)], [0.062, 0.046, 0.031, 0.022], skin),
+        "Neck")
     hc = Vector((0, -0.005, 1.70))
     size = (0.118, 0.118, 0.15)         # shield head: wide upper face; the jaw outline is set in sculpt_head (shield)
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
@@ -292,14 +300,46 @@ def golden_hour(scene, pct):
     scene.world = w
     if getattr(w, "node_tree", None) is None and hasattr(w, "use_nodes"):
         w.use_nodes = True
-    bg = next(n for n in w.node_tree.nodes if n.type == "BACKGROUND")
-    bg.inputs["Color"].default_value = hx("#b9cde0")
-    bg.inputs["Strength"].default_value = 0.9
+    nt = w.node_tree
+    bg = next(n for n in nt.nodes if n.type == "BACKGROUND")
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_WORLD")
+    # Golden hour: the camera sees a peach-to-blue gradient sky, but the sky's light
+    # on the set is dim and cool, so the sun's shadows stay deep and violet.
+    bg.inputs["Color"].default_value = hx("#8f8fb8")          # cool violet bounce in the shadows
+    bg.inputs["Strength"].default_value = 0.48
+    sky = nt.nodes.new("ShaderNodeBackground")
+    sky.inputs["Strength"].default_value = 1.0
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    el = ramp.color_ramp.elements
+    el[0].position, el[0].color = 0.0, hx("#f7c59c")          # warm haze at the horizon
+    el[1].position, el[1].color = 0.35, hx("#8fb0d8")
+    mid = el.new(0.1)
+    mid.color = hx("#f0d6c0")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    nt.links.new(sep.outputs["Z"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], sky.inputs["Color"])
+    lp = nt.nodes.new("ShaderNodeLightPath")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(lp.outputs["Is Camera Ray"], mix.inputs[0])
+    nt.links.new(bg.outputs[0], mix.inputs[1])
+    nt.links.new(sky.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
     sun = bpy.data.lights.new("Sun", "SUN")
-    sun.energy, sun.angle = 3.6, math.radians(1.2)   # small sun disc: crisp, graphic shadows
-    sun.color = (1.0, 0.86, 0.68)
+    sun.energy, sun.angle = 5.0, math.radians(1.0)   # small sun disc: crisp, graphic shadows
+    sun.color = (1.0, 0.78, 0.55)
+    if hasattr(sun, "use_contact_shadow"):
+        sun.use_contact_shadow = True
     o = fr._link(bpy.data.objects.new("Sun", sun))
-    o.rotation_euler = (math.radians(58), 0, math.radians(-125))   # low, warm, raking across the street
+    o.rotation_euler = (math.radians(68), 0, math.radians(-125))   # low, warm, raking across the street: long shadows
+    fill = bpy.data.lights.new("SunFill", "SUN")                   # soft warm bounce from the other side: lifts faces in shade
+    fill.energy, fill.color = 1.3, (1.0, 0.82, 0.7)
+    if hasattr(fill, "use_shadow"):
+        fill.use_shadow = False
+    fill.specular_factor = 0.2
+    fo = fr._link(bpy.data.objects.new("SunFill", fill))
+    fo.rotation_euler = (math.radians(70), 0, math.radians(40))
     r = scene.render
     engines = [e.identifier for e in r.bl_rna.properties["engine"].enum_items]
     r.engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"
@@ -308,9 +348,14 @@ def golden_hour(scene, pct):
     scene.frame_start, scene.frame_end = 1, LAST
     fr.grade(scene)
     if hasattr(scene, "eevee"):
-        for attr, val in (("taa_render_samples", 16), ("use_raytracing", False), ("use_shadows", True)):
+        for attr, val in (("taa_render_samples", 16), ("use_raytracing", False), ("use_shadows", True),
+                          ("use_gtao", True), ("gtao_distance", 1.5), ("use_bloom", True), ("bloom_intensity", 0.04),
+                          ("use_soft_shadows", True), ("shadow_cascade_size", "4096")):
             if hasattr(scene.eevee, attr):
-                setattr(scene.eevee, attr, val)
+                try:
+                    setattr(scene.eevee, attr, val)
+                except (TypeError, ValueError):     # setting differs between Blender versions
+                    pass
 
 
 # ---------------------------------------------------------------------------
@@ -544,8 +589,13 @@ def shot_of(f):
     return SHOTS[-1]
 
 
-def build(pct=40):
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+def build(pct=40, reset=True):
+    """reset=True: factory-reset first (command line). reset=False: clear the open
+    file instead, keeping the UI and add-ons - use this inside the Blender UI."""
+    if reset:
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+    else:
+        fr.clear_scene()
     scene = bpy.context.scene
     fr.COLL = scene.collection
     golden_hour(scene, pct)
