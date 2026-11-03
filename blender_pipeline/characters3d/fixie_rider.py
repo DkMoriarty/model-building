@@ -238,9 +238,9 @@ def jp(j):
     return Vector(J[j]) if isinstance(j, str) else Vector(j)
 
 
-def build_rig():
-    arm = bpy.data.armatures.new("FR_Rig")
-    rig = _link(bpy.data.objects.new("FR_Rig", arm))
+def build_rig(name="FR_Rig"):
+    arm = bpy.data.armatures.new(name)
+    rig = _link(bpy.data.objects.new(name, arm))
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm.edit_bones
@@ -376,6 +376,10 @@ def build_character(rig):
                  mat("sock", 0.9, sheen=0.4)), f"Shin_{s}")
         add(tube(f"SockCuff_{s}", [sock_top - Vector((0, 0, 0.012)), sock_top + Vector((0, 0, 0.012))], [0.039, 0.039],
                  mat("sock", 0.9, sheen=0.4), subdiv=1), f"Shin_{s}")
+        for k in range(2):  # two sport stripes on the sock
+            zz = sock_top - (sock_top - ank) * (0.12 + 0.1 * k)
+            add(tube(f"SockStripe_{s}{k}", [zz - Vector((0, 0, 0.005)), zz + Vector((0, 0, 0.005))], [0.0365, 0.0365],
+                     mat("frame", 0.6), caps=False, subdiv=1), f"Shin_{s}")
         # Chunky sneaker: lofted upper, a thick gum sole, a tongue and laces.
         x = jp(f"ankle_{s}").x
         upper = [(x, 0.09, 0.075), (x, 0.06, 0.085), (x, 0.0, 0.08), (x, -0.07, 0.065), (x, -0.14, 0.05), (x, -0.185, 0.04)]
@@ -383,6 +387,11 @@ def build_character(rig):
                                       (0.04, 0.025)], mat("shoe", 0.7), side=Vector((1, 0, 0))), f"Foot_{s}")
         add(tube(f"Sole_{s}", [(x, 0.105, 0.03), (x, 0.0, 0.026), (x, -0.12, 0.022), (x, -0.2, 0.024)],
                  [(0.058, 0.022), (0.066, 0.02), (0.066, 0.02), (0.042, 0.018)], mat("sole", 0.8)), f"Foot_{s}")
+        # Side swoosh-free stripe and a heel tab.
+        add(tube(f"ShoeStripe_{s}", [(x + (0.064 if x > 0 else -0.064), 0.05, 0.06), (x + (0.066 if x > 0 else -0.066), -0.02, 0.07),
+                                     (x + (0.062 if x > 0 else -0.062), -0.1, 0.055)], [0.008] * 3, mat("cap", 0.6), subdiv=1),
+            f"Foot_{s}")
+        add(box(f"HeelTab_{s}", (x, 0.11, 0.1), (0.035, 0.015, 0.05), mat("cap", 0.6), bevel=0.006), f"Foot_{s}")
         for k in range(4):
             yy = -0.005 - 0.03 * k
             add(box(f"Lace_{s}{k}", (x, yy, 0.118 - 0.012 * k), (0.06, 0.008, 0.008), mat("lace", 0.8), bevel=0.003,
@@ -390,12 +399,17 @@ def build_character(rig):
     # Baggy shorts: wide legs to just above the knee, a soft waistband.
     sh = mat("shorts", 0.85, sheen=0.2)
     add(blob("Hips", (0, 0.005, 0.985), (0.17, 0.12, 0.12), sh), "Pelvis")
+    for sx in (1, -1):  # drawstrings hanging below the shirt hem
+        add(tube(f"Drawstring{sx}", [(sx * 0.03, -0.12, 0.9), (sx * 0.035, -0.125, 0.84), (sx * 0.03, -0.12, 0.8)],
+                 [0.005] * 3, mat("lace", 0.6), subdiv=1), "Pelvis")
     for s in "LR":
         hip, knee = jp(f"hip_{s}"), jp(f"knee_{s}")
         hem = hip.lerp(knee, 0.62)
         add(tube(f"ShortLeg_{s}", arc(hip + Vector((0, 0, 0.03)), hem, n=4), [(0.1, 0.1), (0.105, 0.1), (0.108, 0.098),
                                                                              (0.104, 0.094)], sh, caps=False, subdiv=1),
             f"Thigh_{s}")
+        add(tube(f"ShortHem_{s}", [hem + Vector((0, 0, -0.01)), hem + Vector((0, 0, 0.02))], [(0.107, 0.097), (0.107, 0.097)],
+                 mat("strap", 0.85), caps=False, subdiv=1), f"Thigh_{s}")
     # Boxy oversized work shirt: wide dropped shoulders, short wide sleeves, a collar.
     shirt = mat("shirt", 0.8, sheen=0.3)
     body = [(0, 0.01, 0.9), (0, 0.01, 1.0), (0, 0.0, 1.15), (0, 0.0, 1.3), (0, 0.0, 1.4), (0, 0.0, 1.45)]
@@ -407,12 +421,23 @@ def build_character(rig):
     add(tube("Placket", [(0, -0.155, 0.92), (0, -0.152, 1.42)], [0.012, 0.012], mat("shirt_seam", 0.8), subdiv=1), "Spine")
     for k in range(4):
         add(blob(f"Button{k}", (0, -0.165, 1.0 + 0.11 * k), (0.008, 0.004, 0.008), mat("lace", 0.4), subdiv=1), "Spine")
+    # Detailing: a chest pocket with a flap and pen, collar points, side seams.
+    add(box("Pocket", (-0.09, -0.158, 1.27), (0.075, 0.008, 0.085), mat("shirt", 0.8, sheen=0.3), bevel=0.006), "Spine")
+    add(box("PocketFlap", (-0.09, -0.166, 1.31), (0.08, 0.01, 0.025), mat("shirt_seam", 0.8), bevel=0.006), "Spine")
+    add(tube("Pen", [(-0.07, -0.165, 1.29), (-0.07, -0.166, 1.35)], [0.006, 0.006], mat("cap", 0.4), subdiv=1), "Spine")
+    for sx in (1, -1):
+        add(box(f"CollarPt{sx}", (sx * 0.04, -0.06, 1.445), (0.06, 0.012, 0.035), mat("shirt_seam", 0.8), bevel=0.006,
+                rot=(math.radians(-30), 0, math.radians(sx * 25))), "Spine")
     for s, sx in (("L", 1), ("R", -1)):
         sho, elb = jp(f"sho_{s}"), jp(f"elb_{s}")
         end = sho.lerp(elb, 0.75)
         add(tube(f"Sleeve_{s}", arc(sho + Vector((-sx * 0.04, 0, 0.0)), end, n=4), [(0.11, 0.1), (0.115, 0.105),
                                                                                     (0.112, 0.102), (0.105, 0.098)],
                  shirt, caps=False), f"UpperArm_{s}")
+        # Rolled sleeve cuff.
+        d = (end - sho).normalized()
+        add(tube(f"Cuff_{s}", [end - d * 0.01, end + d * 0.025], [(0.112, 0.104), (0.11, 0.102)], mat("shirt_seam", 0.8),
+                 caps=False, subdiv=1), f"UpperArm_{s}")
         # Thin arms, mitten hands with a thumb.
         wri, hand = jp(f"wri_{s}"), jp(f"hand_{s}")
         armpts = arc(sho.lerp(elb, 0.3), elb, n=3)[:-1] + [elb] + arc(elb, wri, n=4)[1:]
