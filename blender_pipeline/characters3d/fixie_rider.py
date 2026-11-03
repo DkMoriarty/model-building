@@ -35,7 +35,7 @@ def hx(c, a=1.0):
 
 COL = {
     "skin": hx("#bd7c54"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
-    "hair": hx("#1f1613"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
+    "hair": hx("#141116"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
     "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
     "lace": hx("#f7f5f0"), "cap": hx("#c0582b"), "cap_seam": hx("#9a4220"),
@@ -325,9 +325,14 @@ def _seg(px, pz, ax, az, bx, bz):
     return math.hypot(px - cx, pz - cz), t, side
 
 
+DEFAULT_LAYOUT = dict(eye_ux=0.34, eye_uz=0.05, nose_z=-0.235, mouth_z=-0.54, chin_z=-0.84, ear_uz=-0.06, ear_h=0.62,
+                      brow_style=None)
+LAYOUT = dict(DEFAULT_LAYOUT)
+
+
 def smirk_line(x, smirk=1.0):
     """Height of the mouth crease across the face (rises into the right cheek)."""
-    return -0.54 + smirk * 0.075 * max(0.0, x - 0.1) + 0.02 * x * x
+    return LAYOUT["mouth_z"] + smirk * 0.075 * max(0.0, x - 0.1) + 0.02 * x * x
 
 
 def hard_features(x, z, nose=1.0, chin=1.0, smirk=1.0):
@@ -386,19 +391,22 @@ def soft_features(x, z, nose=1.0, chin=1.0, smirk=1.0, lips=1.0):
     cupid's bow and a fuller lower lip, a soft ball chin, high cheeks.
     Returns (forward displacement, lip mask)."""
     d = 0.0
-    d += 0.045 * nose * _g(x, 0, 0.05) * max(0.0, min(1.0, (0.2 - z) / 0.15)) * _g(z, -0.05, 0.22)   # bridge
-    d += 0.15 * nose * _g(x, 0, 0.075) * _g(z, -0.235, 0.065)                                      # button tip
+    L = LAYOUT
+    nz, ez = L["nose_z"], L["eye_uz"]
+    span = max(0.12, ez - nz)
+    d += 0.045 * nose * _g(x, 0, 0.05) * max(0.0, min(1.0, (ez + 0.15 - z) / 0.15)) * _g(z, (ez + nz) / 2, span * 0.75)  # bridge
+    d += 0.15 * nose * _g(x, 0, 0.075) * _g(z, nz, 0.065)                                          # rounded tip
     for sx in (1, -1):
-        d += 0.04 * nose * _g(x, sx * 0.1, 0.045) * _g(z, -0.27, 0.04)                            # nostril wings
-        d += 0.05 * _g(x, sx * 0.5, 0.17) * _g(z, -0.08, 0.14)                                     # high cheeks
-    d -= 0.02 * _g(x, 0, 0.05) * _g(z, -0.36, 0.03)                                                # under-nose dip
+        d += 0.04 * nose * _g(x, sx * 0.1, 0.045) * _g(z, nz - 0.035, 0.04)                       # nostril wings
+        d += 0.05 * _g(x, sx * 0.5, 0.17) * _g(z, ez - 0.13, 0.14)                                 # high cheeks
+    d -= 0.02 * _g(x, 0, 0.05) * _g(z, nz - 0.125, 0.03)                                           # under-nose dip
     zl = smirk_line(x, smirk * 0.5)
     top = zl + 0.065 * lips - 0.02 * _g(x, 0, 0.03) + 0.008 * (_g(x, 0.06, 0.035) + _g(x, -0.06, 0.035))   # cupid's bow
     up = _plateau(z - (zl + top) / 2, (top - zl) / 2, 0.014) * _g(x, 0, 0.2 * lips ** 0.5) ** 0.6
     low = _plateau(z - (zl - 0.045 * lips), 0.04 * lips, 0.016) * _g(x, 0, 0.16 * lips ** 0.5) ** 0.6
     d += 0.045 * lips * up + 0.065 * lips * low
     d -= 0.024 * _plateau(x, 0.28 * lips ** 0.5, 0.05) * _tent(z - zl, 0.016)                     # parting line
-    d += 0.07 * chin * _g(x, 0, 0.13) * _g(z, -0.84, 0.1)                                          # soft chin
+    d += 0.07 * chin * _g(x, 0, 0.13) * _g(z, L["chin_z"], 0.1)                                    # chin
     return d, max(up, low)
 
 
@@ -475,8 +483,10 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             x = math.copysign(plane + (abs(x) - plane) * (0.5 if not toon else 0.7), x)
         if y < -0.82 and z > 0.15:                  # flat forehead plane
             y = -0.82 + (y + 0.82) * 0.35
-        if z < 0:                                   # a hard V jaw tapering to a triangular chin
+        if z < 0:                                   # jaw tapering to the chin (angular when jaw is low)
             k = 1 - 0.4 * jaw * (-z) ** 1.2
+            if jaw < 0.6:                           # keep a squarer jaw corner, then narrow hard to the chin
+                k = 1 - 0.18 * (-z) - 0.55 * max(0.0, -z - 0.55) ** 1.1
             x *= max(0.12, k)
             y = y * (1 - 0.1 * (-z)) if y > 0 else y
         d = 0.0                                     # forward displacement (toward -Y)
@@ -494,8 +504,8 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         if paint:
             skin_c, blush_c, lip_c, stub_c = [Vector(c[:3]) if c else None for c in paint]
             fr_ = max(0.0, -y)
-            bw = (sum(_g(x, e, 0.17) for e in (0.48, -0.48)) * _g(z, -0.17, 0.15) * 0.85
-                  + 1.0 * _g(x, 0, 0.1) * _g(z, -0.22, 0.09)) * fr_
+            bw = (sum(_g(x, e, 0.17) for e in (0.48, -0.48)) * _g(z, LAYOUT["eye_uz"] - 0.22, 0.15) * 0.85
+                  + 1.0 * _g(x, 0, 0.1) * _g(z, LAYOUT["nose_z"], 0.09)) * fr_
             c = skin_c.lerp(Vector(blush_c), min(0.9, bw * 1.35))
             if stub_c is not None and z < -0.28 and abs(x) < 0.82 and lipw < 0.2:
                 sw = min(1.0, (-0.28 - z) / 0.15) * (0.55 + 0.45 * rs.random()) * (1 if rs.random() < 0.55 else 0.3)
@@ -601,6 +611,7 @@ def build_mouths(add, hc, size, lip_col, prefix, grin="open"):
 
     def at(ux, uz, fwd=0.0):
         return head_surface(hc, size, ux, uz) + Vector((0, -0.002 - fwd, 0))
+    mz = LAYOUT["mouth_z"] + 0.54                  # shift every mouth shape to this face's mouth line
     # A wide, open grin: the corners lift hard, the opening is a deep D below
     # the line, a row of upper teeth along its top, a tongue at the bottom.
     made = []
@@ -610,7 +621,7 @@ def build_mouths(add, hc, size, lip_col, prefix, grin="open"):
         # bottom curve, rising on one side, outlined thin and dark.
         xs = [(-0.34 + 0.68 * i / 8) for i in range(9)]
         xs = [x * 1.15 for x in xs]                                          # wide
-        top = [-0.465 + 0.2 * x * x + 0.08 * x for x in xs]
+        top = [-0.465 + mz + 0.2 * x * x + 0.08 * x for x in xs]
         bot = [t - 0.1 * (1 - (x / 0.41) ** 2) for x, t in zip(xs, top)]
         T = [at(x, z) for x, z in zip(xs, top)]
         B = [at(x, z) for x, z in zip(xs, bot)]
@@ -626,7 +637,7 @@ def build_mouths(add, hc, size, lip_col, prefix, grin="open"):
         made.append(blob(f"{prefix}MouthGrinTongue", Mid[4], (0.001, 0.001, 0.001), dark, subdiv=0))
     else:
         xs = (-0.36, -0.24, -0.12, 0.0, 0.12, 0.24, 0.36)
-        grin = [at(ux, -0.5 + 0.3 * ux * ux) for ux in xs]
+        grin = [at(ux, -0.5 + mz + 0.3 * ux * ux) for ux in xs]
     if style != "crescent":
         depth = [0.003, 0.012, 0.019, 0.022, 0.019, 0.012, 0.003]
         # Flat against the face: thin front-to-back (first radius), tall top-to-bottom (second).
@@ -639,12 +650,12 @@ def build_mouths(add, hc, size, lip_col, prefix, grin="open"):
                          mat("tongue", 0.5), subdiv=1))
         made.append(tube(f"{prefix}MouthGrinLine", grin, [0.0015, 0.0025, 0.003, 0.003, 0.003, 0.0025, 0.0015], lip,
                          side=Vector((0, 1, 0)), subdiv=1))
-    c = at(0.02, -0.53, 0.001)
+    c = at(0.02, -0.53 + mz, 0.001)
     made.append(blob(f"{prefix}MouthORim", c + Vector((0, 0.002, 0)), (0.0165, 0.006, 0.021), lip, subdiv=1))
     made.append(blob(f"{prefix}MouthO", c, (0.012, 0.006, 0.016), dark, subdiv=1))
     made.append(blob(f"{prefix}MouthGasp", c + Vector((0, 0, -0.004)), (0.017, 0.007, 0.026), dark, subdiv=1))
     made.append(blob(f"{prefix}MouthGaspTeeth", c + Vector((0, -0.003, 0.016)), (0.011, 0.004, 0.0045), teeth, subdiv=1))
-    made.append(tube(f"{prefix}MouthFlat", [at(-0.18, -0.52), at(0.0, -0.53), at(0.2, -0.515)], [0.0025, 0.0035, 0.0025], lip,
+    made.append(tube(f"{prefix}MouthFlat", [at(-0.18, -0.52 + mz), at(0.0, -0.53 + mz), at(0.2, -0.515 + mz)], [0.0025, 0.0035, 0.0025], lip,
                      side=Vector((0, 1, 0)), subdiv=1))
     for ob in made:
         recenter(ob)
@@ -654,9 +665,14 @@ def build_mouths(add, hc, size, lip_col, prefix, grin="open"):
 
 
 def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, nose, chin, jaw, eye_r, lashes, smirk, lips,
-                    paint, brows, wing=1.0, eye_shape="round", grin="open"):
+                    paint, brows, wing=1.0, eye_shape="round", grin="open", layout=None):
     """The feature-film face: soft forms, painted blush and lips, big
-    almond eyes with winged liner, sharply arched brows."""
+    almond eyes with winged liner, sharply arched brows. `layout` places
+    the features (measured from a reference)."""
+    LAYOUT.clear()
+    LAYOUT.update(DEFAULT_LAYOUT)
+    LAYOUT.update(layout or {})
+    L = LAYOUT
     skin_m = skin_paint_material(f"{prefix}SkinPaint", *paint) if paint else skin
     cols = (COL[paint[0]], COL[paint[1]], COL[paint[2]], COL[paint[3]] if paint[3] else None) if paint else None
     add(sculpt_head(f"{prefix}Head", hc, size, skin_m, nose=nose, chin=chin, jaw=jaw, smirk=smirk, style="toon", lips=lips,
@@ -664,14 +680,17 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
     liner = mat("liner", 0.4)
     skin_flat = skin
     for sx in (1, -1):
-        surf = head_surface(hc, size, sx * 0.34, 0.05)
+        surf = head_surface(hc, size, sx * L["eye_ux"], L["eye_uz"])
         eye = surf + Vector((0, eye_r * 0.55, 0))
         if eye_shape == "almond":
             almond_eye(add, prefix, sx, eye, eye_r, iris_col, liner, wing)
         else:
             toon_eye(add, prefix, sx, eye, eye_r, skin_flat, iris_col, liner, lashes, wing)
         # Brows: thick tapered swoosh. 'arch' peaks two-thirds out; 'angry' dives to the nose.
-        if brows == "lift":
+        if brows == "straight":    # thick, nearly level, sitting just above the eyes
+            spec = ((0.12, 0.215), (0.27, 0.24), (0.43, 0.245), (0.6, 0.215))
+            radii = [(0.005, 0.009), (0.005, 0.0095), (0.0045, 0.008), (0.003, 0.003)]
+        elif brows == "lift":
             spec = ((0.12, 0.29), (0.28, 0.36), (0.44, 0.385), (0.6, 0.32))
             radii = [0.0065, 0.009, 0.008, 0.003]
         elif brows == "angry":
@@ -680,10 +699,11 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         else:
             spec = ((0.13, 0.27), (0.29, 0.33), (0.45, 0.36), (0.62, 0.29))
             radii = [0.0045, 0.006, 0.0052, 0.0016]
-        pts = [head_surface(hc, size, sx * ux, uz) + Vector((0, -0.006, 0)) for ux, uz in spec]
+        dz = L["eye_uz"] - 0.05                       # brows ride with the eye line
+        pts = [head_surface(hc, size, sx * ux, uz + dz) + Vector((0, -0.006, 0)) for ux, uz in spec]
         add(recenter(tube(f"{prefix}Brow{sx}", pts, radii, mat(brow_col, 0.6), subdiv=1)), "Head")
-        for part in ear_shell(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 0.85, 0.015, -size[2] * 0.06)), size[2] * 0.62, sx,
-                              skin_flat):
+        for part in ear_shell(f"{prefix}Ear{sx}", hc + Vector((sx * size[0] * 0.88, 0.015, size[2] * L["ear_uz"])),
+                              size[2] * L["ear_h"], sx, skin_flat):
             add(part, "Head")
     pts = [head_surface(hc, size, ux, smirk_line(ux, smirk * 0.5)) + Vector((0, -0.003, 0))
            for ux in (-0.27, -0.13, 0.0, 0.14, 0.28)]
@@ -700,7 +720,7 @@ def build_face_extras(add, hc, size, prefix):
     """Cartoon accents an expression can dial in: blush, eye sparkles, a sweat drop."""
     blush = mat("blush_fx", 0.6)
     for sx in (1, -1):
-        b = blob(f"{prefix}Blush{sx}", head_surface(hc, size, sx * 0.56, -0.2) + Vector((0, -0.004, 0)), (0.024, 0.004, 0.013),
+        b = blob(f"{prefix}Blush{sx}", head_surface(hc, size, sx * 0.56, LAYOUT["eye_uz"] - 0.25) + Vector((0, -0.004, 0)), (0.024, 0.004, 0.013),
                  blush, subdiv=1)
         add(b, "Head")
         b.scale = b.scale * 0.001
@@ -791,10 +811,10 @@ def toon_eye(add, prefix, sx, eye, r, skin, iris_col, liner, lashes, wing=1.0):
 
 def build_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix="", nose=1.0, chin=1.0, cheek=1.0,
                jaw=1.0, eye_r=0.022, lashes=False, smirk=1.0, style="planes", lips=1.0, paint=None, brows="cocky",
-               wing=1.0, eye_shape="round", grin="open"):
+               wing=1.0, eye_shape="round", grin="open", layout=None):
     if style == "toon":
         return build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, nose, chin, jaw, eye_r, lashes, smirk,
-                               lips, paint, brows, wing, eye_shape, grin)
+                               lips, paint, brows, wing, eye_shape, grin, layout)
     """Head, sculpted features, eyeballs in their sockets with wrap-around
     lids, heavy shaped brows (one cocked higher) and an asymmetric mouth.
     Part names follow '<prefix>Eye1', '<prefix>Iris-1' ... for face rigs."""
@@ -1008,7 +1028,69 @@ def bind(ob, rig, bone):
 # The character
 # ---------------------------------------------------------------------------
 
-HEAD_Z = 1.67   # head centre (raised on a longer neck)
+HEAD_Z = 1.69   # head centre (on a long, slender neck)
+HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair, no cap)
+
+# His feature layout, measured from the reference frame (head units:
+# skull height ~ 285 px; centre at the mid-skull). See README.
+HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-0.97, ear_uz=-0.3, ear_h=0.55)
+
+
+def messy_hair(add, hc, size, material, n=80, seed=21):
+    """Voluminous messy hair: a mass over the crown (lower at the nape), a
+    heavy fringe falling to the brows, and wavy tapered clumps flicking out
+    in every direction."""
+    import bmesh
+    import random as _r
+    rnd = _r.Random(seed)
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=24, radius=1.0)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < 0.3 - 1.0 * max(0.0, v.co.y)], context="VERTS")
+    for v in bm.verts:
+        v.co = Vector((hc.x + v.co.x * size[0] * 1.16, hc.y + 0.008 + v.co.y * size[1] * 1.14, hc.z + 0.012 + v.co.z * size[2] * 1.12))
+    me = bpy.data.meshes.new("HairMass")
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(material)
+    mass = _link(bpy.data.objects.new("HairMass", me))
+    sm = mass.modifiers.new("Thick", "SOLIDIFY")
+    sm.thickness = 0.012
+    _smooth(mass, 1)
+    add(mass, "Head")
+    brow_z = hc.z + (LAYOUT["eye_uz"] + 0.24) * size[2]
+    down = Vector((0, 0, -1))
+    for i in range(n):
+        th = rnd.uniform(0, 2 * math.pi)                   # around the head (0 = back)
+        ph = rnd.uniform(0.25, 0.98)                        # height on the crown
+        rr = math.sqrt(1 - ph * ph)
+        root = hc + Vector((math.sin(th) * rr * size[0] * 1.12, math.cos(th) * rr * size[1] * 1.12, ph * size[2] * 1.1))
+        out = (root - hc).normalized()
+        front = math.cos(th) < -0.25 and ph < 0.85
+        tdown = down - out * out.dot(down)
+        tdown = tdown.normalized() if tdown.length > 1e-3 else Vector((math.sin(th), math.cos(th), 0))
+        side = out.cross(tdown).normalized()
+        # Locks fall with gravity along the head, lift off it a little, and curl.
+        d = (tdown * 0.75 + out * (0.25 if not front else 0.15) + side * rnd.uniform(-0.45, 0.45)).normalized()
+        L1 = rnd.uniform(0.07, 0.13)
+        curl = rnd.uniform(-1.4, 1.4)
+        pts, p, dd = [root], root.copy(), d.copy()
+        for k in range(4):
+            dd = (dd + side * curl * 0.35 + out * 0.08).normalized()
+            p = p + dd * L1 / 4
+            if front and p.z < brow_z:                     # the fringe stops at the brows
+                p.z = brow_z + rnd.uniform(0.0, 0.006)
+            pts.append(p.copy())
+        w = rnd.uniform(0.011, 0.02)
+        add(tube(f"HairLock{i}", pts, [(w, w * 0.45), (w * 0.95, w * 0.42), (w * 0.75, w * 0.35), (w * 0.45, w * 0.25),
+                                       (w * 0.08, w * 0.06)], material, side=side, subdiv=1, ring=8), "Head")
+    for i in range(14):                                     # a few flyaway strands catching the light
+        th = rnd.uniform(0, 2 * math.pi)
+        root = hc + Vector((math.sin(th) * size[0] * 0.6, math.cos(th) * size[1] * 0.6, size[2] * 1.0))
+        out = (root - hc).normalized()
+        a = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0.2, 1))).normalized()
+        pts = [root, root + a * 0.03 + out * 0.02, root + a * 0.06 + out * 0.03 + Vector((0, 0, -0.01)),
+               root + a * 0.08 + out * 0.02 + Vector((0, 0, -0.03))]
+        add(tube(f"HairFly{i}", pts, [0.002, 0.0018, 0.0014, 0.0006], material, subdiv=1, ring=6), "Head")
 
 
 def cap_crown(name, center, size, material):
@@ -1191,16 +1273,22 @@ def build_character(rig):
     add(box("BagZip", (0.258, -0.12, 0.93), (0.006, 0.17, 0.008), mat("metal", 0.3, metallic=0.8), bevel=0.003,
             rot=(0, 0, math.radians(-20))), "Pelvis")
     # Neck and head: a sculpted, planar face (see build_face).
-    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, 1.57)], [0.052, 0.048], skin), "Neck")   # a sturdy young neck
+    add(tube("Neck", [(0, 0.01, 1.42), (0, 0.0, HEAD_Z - 0.09)], [0.049, 0.046], skin), "Neck")   # long, slender neck
     hc = Vector((0, -0.01, HEAD_Z))
     # Young and energetic: a rounder face with full cheeks and a short soft
     # chin, big bright eyes, a small nose, lifted brows, healthy blush, no stubble.
     # Young, cool and cocky (feature-film street style): a longer face with a
     # defined chin, narrow almond eyes under heavy lines, brows diving to the
     # nose, a rosy nose tip and cheeks, a crooked crescent grin.
-    build_face(add, hc, (0.11, 0.122, 0.15), skin, "iris", "hair", "lip_toon", nose=1.35, chin=0.85, cheek=1.0, jaw=0.8,
-               eye_r=0.031, smirk=0.8, style="toon", lips=0.55, paint=("skin", "blush_toon", "lip_toon", None),
-               brows="angry", wing=0.35, eye_shape="almond", grin="crescent")
+    # Measured from the reference: a long face, narrow heavy-lidded eyes set
+    # below mid-skull, thick level brows, a long nose with a rosy tip, a thin
+    # closed smirk, a long defined chin, big low ears.
+    build_face(add, hc, (0.108, 0.118, 0.15), skin, "iris", "hair", "lip_toon", nose=1.2, chin=1.0, cheek=1.0, jaw=0.45,
+               eye_r=0.024, smirk=0.4, style="toon", lips=0.45, paint=("skin", "blush_toon", "lip_toon", None),
+               brows="straight", wing=0.2, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
+    if HAIR == "messy":
+        messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
+        return parts
     # Short twists peeking out under the cap.
     import random
     rnd = random.Random(3)
@@ -1243,6 +1331,7 @@ EXPRESSIONS = {
                     sparkle=0.7, blush=1.0, gaze=(0.0, 0.25)),
     "SMUG":    dict(lid=0.62, lid_low=0.35, brow_l=-0.003, brow_r=-0.001, ang_l=-10, ang_r=8, mouth="GRIN",
                     gaze=(0.0, 0.05)),
+    "SIDEEYE": dict(lid=0.62, lid_low=0.3, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
     # hers
     "CALM":    dict(lid=0.95, lid_low=0.1, mouth="SMIRK"),
     "STARTLED": dict(lid=1.4, lid_low=0.0, brow_l=0.009, brow_r=0.009, ang_l=10, ang_r=-10, mouth="O", pupil=0.75),
