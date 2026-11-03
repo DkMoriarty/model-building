@@ -2189,6 +2189,126 @@ def studio(scene, pct):
                 setattr(ev, attr, val)
 
 
+FACE_FEATURE_PARTS = ("Eye", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Lid", "Brow",
+                      "Pout", "Smile", "Dimple", "Blush", "Mouth", "Sparkle", "Sweat")
+
+
+def project_face_image(rig, prefix, image_path, img_pts, ellipse, skin_rgb=None, hide_features=True):
+    """Paint a reference face onto the sculpted head: front-project the image
+    onto the head mesh, aligned by matching landmarks, blend the face oval into
+    the skin and hide the 3D facial features it replaces.
+
+    img_pts: {"eye_l": (px, py), "eye_r": .., "nose": .., "mouth": ..} in image
+    pixels (eye_l = the character's left eye = image right). ellipse: (cx, cy,
+    rx, ry) in pixels - the face area kept from the image; it feathers to the
+    skin colour outside. skin_rgb: fill colour (0-255) sampled from the image."""
+    import numpy as np
+    head = bpy.data.objects[f"{prefix}Head"]
+    img = bpy.data.images.load(image_path, check_existing=True)
+    w, h = img.size
+    bpy.context.view_layer.update()
+
+    def wpos(name):
+        return bpy.data.objects[f"{prefix}{name}"].matrix_world.translation
+
+    def centre(name):
+        ob = bpy.data.objects[f"{prefix}{name}"]
+        return sum((ob.matrix_world @ v.co for v in ob.data.vertices), Vector()) / len(ob.data.vertices)
+    world = {"eye_l": wpos("Eye1"), "eye_r": wpos("Eye-1"), "mouth": centre("Smile")}
+    world["nose"] = (world["eye_l"] + world["eye_r"]) / 2 * 0.5 + world["mouth"] * 0.5
+    # Outline landmarks: the head's cheek edges at eye level, chin, hairline.
+    vs = [head.matrix_world @ v.co for v in head.data.vertices]
+    ez = (world["eye_l"].z + world["eye_r"].z) / 2
+    band = [v for v in vs if abs(v.z - ez) < 0.006 and v.y < head.matrix_world.translation.y]
+    xc = (world["eye_l"].x + world["eye_r"].x) / 2
+    world["cheek_l"] = Vector((max(v.x for v in band), 0, ez))
+    world["cheek_r"] = Vector((min(v.x for v in band), 0, ez))
+    world["chin"] = Vector((xc, 0, min(v.z for v in vs if abs(v.x - xc) < 0.01 and v.y < head.matrix_world.translation.y)))
+    hl = bpy.data.objects.get(f"{prefix}Hair_Helmet")
+    if hl:
+        hv = [hl.matrix_world @ v.co for v in hl.data.vertices if abs((hl.matrix_world @ v.co).x - xc) < 0.01]
+        world["hairline"] = Vector((xc, 0, min(v.z for v in hv if v.y < head.matrix_world.translation.y - 0.03)))
+    keys = [k for k in ("eye_l", "eye_r", "nose", "mouth", "cheek_l", "cheek_r", "chin", "hairline") if k in img_pts and k in world]
+    A = np.array([[world[k].x, world[k].z, 1.0] for k in keys])
+    B = np.array([img_pts[k] for k in keys], dtype=float)
+    M, *_ = np.linalg.lstsq(A, B, rcond=None)                     # world (x, z) -> image pixels (affine)
+    me = head.data
+    uv = me.uv_layers.new(name="RefUV") if "RefUV" not in me.uv_layers else me.uv_layers["RefUV"]
+    mw = head.matrix_world
+    nm = mw.to_3x3().inverted().transposed()
+    cx, cy, rx, ry = ellipse
+    wts = []
+    for v in me.vertices:
+        p = mw @ v.co
+        px, py = np.array([p.x, p.z, 1.0]) @ M
+        d = math.hypot((px - cx) / rx, (py - cy) / ry)
+        n = (nm @ v.normal).normalized()
+        front = max(0.0, min(1.0, (-n.y - 0.15) / 0.35))            # only surfaces facing the camera take the paint
+        wts.append(max(0.0, min(1.0, (1.0 - d) / 0.18)) * front)
+    for loop in me.loops:
+        p = mw @ me.vertices[loop.vertex_index].co
+        px, py = np.array([p.x, p.z, 1.0]) @ M
+        uv.data[loop.index].uv = (px / w, 1.0 - py / h)
+    if "FaceMask" not in me.attributes:
+        me.attributes.new("FaceMask", "FLOAT", "POINT")
+    fm = me.attributes["FaceMask"]
+    for i, wt in enumerate(wts):
+        fm.data[i].value = wt
+    # Material: image inside the oval, the sampled skin outside, matte.
+    m = bpy.data.materials.new(f"{prefix}FaceProjected")
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = img
+    tex.extension = "EXTEND"
+    uvn = nt.nodes.new("ShaderNodeUVMap")
+    uvn.uv_map = "RefUV"
+    mask = nt.nodes.new("ShaderNodeAttribute")
+    mask.attribute_name = "FaceMask"
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    col = hx("#%02x%02x%02x" % tuple(skin_rgb)) if skin_rgb else COL["skin"]
+    mix.inputs[6].default_value = col
+    nt.links.new(uvn.outputs["UV"], tex.inputs["Vector"])
+    nt.links.new(mask.outputs["Fac"], mix.inputs[0])
+    nt.links.new(tex.outputs["Color"], mix.inputs[7])
+    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    # The painting already carries its own light and shade: let part of it glow
+    # through as-is (inside the oval) so the 3D lighting doesn't wash it out.
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = 1.0
+    nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+    blend = nt.nodes.new("ShaderNodeMath")              # mostly the painting's own shading, a little 3D light on top
+    blend.operation = "MULTIPLY"
+    blend.inputs[1].default_value = 0.8
+    nt.links.new(mask.outputs["Fac"], blend.inputs[0])
+    mixsh = nt.nodes.new("ShaderNodeMixShader")
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    nt.links.new(blend.outputs[0], mixsh.inputs[0])
+    nt.links.new(b.outputs[0], mixsh.inputs[1])
+    nt.links.new(em.outputs[0], mixsh.inputs[2])
+    nt.links.new(mixsh.outputs[0], out.inputs["Surface"])
+    b.inputs["Roughness"].default_value = 0.8
+    if "Specular IOR Level" in b.inputs:
+        b.inputs["Specular IOR Level"].default_value = 0.1
+    me.materials.clear()
+    me.materials.append(m)
+    if skin_rgb:                                    # ears, neck, hands take the same fill colour
+        for mname in ("FR_g_skin", "g_skin"):
+            mm = bpy.data.materials.get(mname)
+            if mm and mm.node_tree:
+                bb = next((n for n in mm.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+                if bb:
+                    bb.inputs["Base Color"].default_value = col
+    if hide_features:
+        for o in bpy.data.objects:
+            if o.name.startswith(prefix) and o.name[len(prefix):].startswith(FACE_FEATURE_PARTS) and o.parent == rig:
+                o.hide_render = True
+    return M
+
+
 def golden_hour(scene, cam, subject, focus=None, fstop=1.8, set_dressing=True):
     """Low-sun 'golden hour' look (replaces the studio set):
       - warm key: a big golden-peach area light off frame left;

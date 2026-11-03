@@ -165,6 +165,23 @@ def build_girl():
     return rig, parts
 
 
+# Reference-face look-dev: paint a reference face image onto her sculpted head.
+# Landmarks are measured in the image's pixels (the tennis-street "Thanks"
+# still: 1199 x 716): her cheek edges at eye level, chin tip, hairline centre.
+REF_FACE_LANDMARKS = {"cheek_l": (918, 285), "cheek_r": (697, 285), "chin": (808, 415), "hairline": (808, 140)}
+REF_FACE_OVAL = (808, 280, 110, 140)            # face area kept from the image (cx, cy, rx, ry)
+REF_FACE_SKIN = (220, 132, 102)                 # fill colour sampled from her cheek
+
+
+def impose_reference_face(g_rig, image_path, landmarks=None, oval=None, skin=None):
+    """Cut the face out of a reference image, impose it on her head (front
+    projection fitted to the head outline), fill the rest with the sampled skin
+    tone and hide the 3D eyes/brows/mouth it replaces. A still-frame look:
+    the painted face does not animate expressions."""
+    return fr.project_face_image(g_rig, "G_", image_path, landmarks or REF_FACE_LANDMARKS, oval or REF_FACE_OVAL,
+                                 skin_rgb=skin or REF_FACE_SKIN)
+
+
 # ---------------------------------------------------------------------------
 # The street (road runs along Y; he rides toward -Y; she crosses along -X)
 # ---------------------------------------------------------------------------
