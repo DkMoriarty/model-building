@@ -6,6 +6,7 @@ a synchronized score and sound design, and every frame checked.
 
 - [`alan_pipeline/`](./alan_pipeline): the studio (episodes, tools, docs).
 - [`.claude/skills/storyline-to-film/`](./.claude/skills/storyline-to-film): the full production method, as a Claude Code skill.
+- [`.claude/agents/`](./.claude/agents) + [`.claude/skills/toon-city-pipeline/`](./.claude/skills/toon-city-pipeline): a Toon City-style studio pipeline with one agent per department (story/animatic, rigging, layout, backgrounds, physics, key animation, in-between/clean-up, lip sync, compositing/VFX, sound, QC, delivery), shot board and review-note hand-offs.
 
 Episodes: **FIRST GAME** (`render:game`), **FIRST LIGHT** (`render:light`),
 **The Entangled Blade** (`render:space`).
