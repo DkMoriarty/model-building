@@ -347,6 +347,9 @@ JOINTS = [
     ("Leg_Lower_R", (472, 1600), (437, 1835), "Leg_Upper_R", True, True),
     ("Leg_Upper_L", (660, 1330), (700, 1600), "Torso", True, False),
     ("Leg_Lower_L", (700, 1600), (732, 1835), "Leg_Upper_L", True, True),
+    # Snowboard control: the feet (IK targets) ride on it, so lifting or
+    # tilting the board folds her legs. Lies flat under the boots.
+    ("Board", (590, 2250), (700, 2250), "Root", False, False),
 ]
 
 
@@ -356,9 +359,14 @@ def build_rig(collection=None):
     # Front-view legs: each knee bends outward (pole outside the knee).
     tk.add_leg_ik(rig, "L", pole_dir=1)
     tk.add_leg_ik(rig, "R", pole_dir=-1)
-    # The boots ride on the IK targets, so the targets must deform.
-    for s in "LR":
-        rig.data.bones[f"IK_Target_{s}"].use_deform = True
+    # The boots ride on the IK targets, so the targets must deform; the
+    # targets ride on the Board bone.
+    eb = tk._edit(rig)
+    for side in "LR":
+        eb[f"IK_Target_{side}"].parent = eb["Board"]
+    tk._object_mode()
+    for side in "LR":
+        rig.data.bones[f"IK_Target_{side}"].use_deform = True
     return rig
 
 
