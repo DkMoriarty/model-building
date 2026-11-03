@@ -734,7 +734,7 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
     skin_flat = skin
     for sx in (1, -1):
         surf = head_surface(hc, size, sx * L["eye_ux"], L["eye_uz"])
-        eye = surf + Vector((0, eye_r * 0.55, 0))
+        eye = surf + Vector((0, eye_r * L.get("eye_sink", 0.55), 0))
         if eye_shape == "almond":
             almond_eye(add, prefix, sx, eye, eye_r, iris_col, liner, wing, ah=L.get("almond_h"))
         else:
@@ -831,16 +831,17 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     fine lower line. Openness is the eyeball's height (see FaceRig)."""
     W, H = 1.3 * r, (ah or ALMOND_H) * r
     eyeball = add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
-    front = eye + Vector((0, -r * 0.95, 0))
-    iris_ob = add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, (r * 0.6 * LAYOUT.get("iris", 1.0)) if "eye_k" in LAYOUT else H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
+    front = eye + Vector((0, -r * (0.99 if "eye_k" in LAYOUT else 0.95), 0))   # proud of the white: no speckle
+    ix = LAYOUT.get("iris_x", -0.1)                  # iris sideways offset (outer +): centre it in the visible white
+    iris_ob = add(blob(f"{prefix}Iris{sx}", front + Vector((sx * r * ix, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, (r * 0.6 * LAYOUT.get("iris", 1.0)) if "eye_k" in LAYOUT else H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
              subdiv=1, segments=24), "Head")
     pk = 1.0 + 0.4 * LAYOUT.get("soft", 0.0)        # bigger, softer pupils
-    pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, (r * 0.3 * pk) if "eye_k" in LAYOUT else H * 0.58 * pk), mat("iris", 0.1),
+    pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((sx * r * ix, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, (r * 0.3 * pk) if "eye_k" in LAYOUT else H * 0.58 * pk), mat("iris", 0.1),
              subdiv=1), "Head")
     soft = LAYOUT.get("soft", 0.0)                 # warm, friendly eyes: big catch-lights
     gl = r * (0.12 + 0.08 * soft) * (0.6 if "eye_k" in LAYOUT else 1.0)
     gz = H * 0.35 if "eye_k" not in LAYOUT else H * 0.2
-    add(blob(f"{prefix}Glint{sx}", front + Vector((-sx * r * 0.1 + r * 0.18, -r * 0.12, gz)), (gl, r * 0.04, gl),
+    add(blob(f"{prefix}Glint{sx}", front + Vector((sx * r * ix + r * 0.18, -r * 0.12, gz)), (gl, r * 0.04, gl),
              mat("eye_white", 0.02), subdiv=1, segments=12), "Head")
     if soft and "eye_k" not in LAYOUT:
         add(blob(f"{prefix}Glint2{sx}", front + Vector((sx * r * 0.2, -r * 0.1, -H * 0.3)), (r * 0.07, r * 0.03, r * 0.07),
@@ -1175,9 +1176,9 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 # Mapped from the reference (front crop, 1 unit = half face width horizontally,
 # skull-top-to-centre vertically): eyes 0.37 below brows, wide-set; nose tip and
 # mouth low; small rounded chin; hairline high; ears level with the eyes.
-HER_LAYOUT = dict(eye_ux=0.46, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
-                  mouth_w=0.23, almond_h=0.82, liner=1.0, pout=0.65, iris=1.08, oval=0.3, soft=1.0, brow_drop=-0.07,
-                  hairline=0.74, chin_w=0.12, eye_k=(0.8, 1.1, 0.12))
+HER_LAYOUT = dict(eye_ux=0.41, eye_uz=-0.1, nose_z=-0.42, mouth_z=-0.62, chin_z=-0.9, ear_uz=0.0, ear_h=0.55,
+                  mouth_w=0.23, almond_h=0.7, liner=1.0, pout=0.65, iris=0.78, oval=0.3, soft=1.0, brow_drop=-0.07,
+                  hairline=0.74, chin_w=0.12, eye_k=(0.8, 1.1, 0.36), eye_sink=0.4, iris_x=0.12)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
                   jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
