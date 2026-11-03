@@ -2497,9 +2497,28 @@ def shoot(scene, path):
     print("rendered", path, flush=True)
 
 
-def build(pct=50):
+def clear_scene():
+    """Empty the open file without resetting the UI (safe from Blender's Text editor)."""
+    for coll in (bpy.data.objects, bpy.data.meshes, bpy.data.curves, bpy.data.armatures, bpy.data.materials,
+                 bpy.data.lights, bpy.data.cameras, bpy.data.collections, bpy.data.images):
+        for item in list(coll):
+            try:
+                coll.remove(item)
+            except Exception:
+                pass
+    _MAT.clear()
+    _HEAD_BVH.clear()
+    FACE_INFO.clear()
+
+
+def build(pct=50, reset=True):
+    """reset=True: factory-reset first (command line). reset=False: just clear
+    the open file - use this when running inside the Blender UI."""
     global COLL
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    if reset:
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+    else:
+        clear_scene()
     scene = bpy.context.scene
     COLL = scene.collection
     rig = build_rig()
