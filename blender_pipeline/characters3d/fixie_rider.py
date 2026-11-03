@@ -493,7 +493,15 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             x = math.copysign(plane + (abs(x) - plane) * (0.5 if not toon else 0.7), x)
         if y < -0.82 and z > 0.15:                  # flat forehead plane
             y = -0.82 + (y + 0.82) * 0.35
-        if z < 0:                                   # jaw tapering to the chin (angular when jaw is low)
+        oval = LAYOUT.get("oval", 0.0) if toon else 0.0
+        if z < 0 and oval:
+            # Perfect elongated oval: the lower face is a stretched half-ellipse -
+            # no jaw corner, no flat planes, a softly rounded chin at the bottom.
+            zz = -z
+            x *= math.sqrt(max(0.0, 1 - 0.55 * oval * zz ** 2)) / math.sqrt(max(1e-6, 1 - 0.0 * zz))
+            y = y * (1 - 0.12 * zz) if y > 0 else y
+            z = z * (1 + 0.16 * oval * zz)                # elongate the jaw downward, more toward the chin
+        elif z < 0:                                 # jaw tapering to the chin (angular when jaw is low)
             k = 1 - 0.4 * jaw * (-z) ** 1.2
             if jaw < 0.6:                           # keep a squarer jaw corner, then narrow hard to the chin
                 k = 1 - 0.18 * (-z) - 0.55 * max(0.0, -z - 0.55) ** 1.1
@@ -740,7 +748,7 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
             add(part, "Head")
     pts = [head_surface(hc, size, ux, smirk_line(ux, smirk * 0.5)) + Vector((0, -0.003, 0))
            for ux in (-0.27, -0.13, 0.0, 0.14, 0.28)]
-    if L.get("wedge"):
+    if L.get("slit"):
         # A crisp, blocky slit (flat ends, even weight) with a short carved crease
         # flicking up at the smirk corner and a faint tuck at the other.
         add(tube(f"{prefix}Smile", pts, [0.0014, 0.0017, 0.0018, 0.0017, 0.0014], mat("mouth_dark", 0.5),
@@ -1091,8 +1099,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-0.97, ear_uz=-0.3, ear_h=0.55,
-                  wedge=1.0, diamond=1.0)   # sharp wedge jaw + planar cheeks, diamond-plane nose
+HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.3, ear_h=0.55,
+                  oval=1.0, diamond=1.0, slit=1.0)   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
 
 def messy_hair(add, hc, size, material, n=80, seed=21):
