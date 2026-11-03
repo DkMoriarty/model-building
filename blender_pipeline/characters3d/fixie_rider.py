@@ -1093,6 +1093,146 @@ def messy_hair(add, hc, size, material, n=80, seed=21):
         add(tube(f"HairFly{i}", pts, [0.002, 0.0018, 0.0014, 0.0006], material, subdiv=1, ring=6), "Head")
 
 
+def strand_hair(add, hc, size, material, guides=120, per=70, seed=7, scalp=None):
+    """Real hair: Blender hair curves, ~5,000 fine strands grown in clumps.
+
+    Guide locks are spread over the scalp (a golden-angle spiral; lower at
+    the back and sides, a hairline at the front). Each guide lifts off the
+    head for volume, then falls with gravity, waving sideways and curling at
+    the end; it is kept outside the skull, and fringe locks stop at the
+    brows. Every guide grows a clump of strands around it that gather toward
+    the tip (clumping), with fine waves and frizz; a few loose flyaways."""
+    import random as _r
+    rnd = _r.Random(seed)
+    sx, sy, sz = size
+    brow_z = hc.z + (LAYOUT["eye_uz"] + 0.22) * sz
+    down = Vector((0, 0, -1))
+
+    def outside(p, k=1.07):            # push a point out of the skull ellipsoid
+        q = Vector(((p.x - hc.x) / sx, (p.y - hc.y) / sy, (p.z - hc.z) / sz))
+        if q.length < k:
+            q = q.normalized() * k
+            return Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz))
+        return p
+
+    guides_pts = []
+    golden = math.pi * (3 - math.sqrt(5))
+    i = 0
+    while len(guides_pts) < guides and i < guides * 6:
+        i += 1
+        zz = 1 - 1.25 * (i / (guides * 1.6))              # spiral from the crown down
+        th = i * golden
+        ph = zz
+        if ph < -0.35:
+            continue
+        rr = math.sqrt(max(0.0, 1 - ph * ph))
+        n = Vector((math.sin(th) * rr, math.cos(th) * rr, ph))
+        front = n.y < -0.35
+        if front and ph < 0.45:                             # hairline: no roots on the forehead
+            continue
+        if abs(n.x) > 0.55 and n.y < 0.2 and ph < -0.05:  # leave the face/temples clear
+            continue
+        root = Vector((hc.x + n.x * sx * 1.02, hc.y + n.y * sy * 1.02, hc.z + n.z * sz * 1.02))
+        out = (root - hc).normalized()
+        tdown = down - out * out.dot(down)
+        tdown = tdown.normalized() if tdown.length > 1e-3 else Vector((math.sin(th), math.cos(th), 0)).normalized()
+        side = out.cross(tdown).normalized()
+        crown = ph > 0.75
+        sidecut = abs(n.x) > 0.62 and n.y < 0.45            # shorter over the ears so they show
+        L = rnd.uniform(0.12, 0.17)
+        if front:                                           # fringe: falls down the forehead to the brows
+            L = rnd.uniform(0.1, 0.14)
+        if sidecut:
+            L = rnd.uniform(0.06, 0.09)
+        wave = rnd.uniform(0.7, 1.2) * rnd.choice((-1, 1))
+        lift = rnd.uniform(0.2, 0.3) if crown else rnd.uniform(0.08, 0.18)    # a little volume on top, hugging at the sides
+        pts, p, d = [root], root.copy(), (out * lift + tdown * (1 - lift) + side * rnd.uniform(-0.25, 0.25)).normalized()
+        segs = 16
+        for k in range(1, segs + 1):
+            t = k / segs
+            here = (p - hc).normalized()
+            tdn = down - here * here.dot(down)              # gravity along the head's surface where the lock is now
+            tdn = tdn.normalized() if tdn.length > 1e-3 else tdown
+            # Waves: an S along the lock, then a curl that turns back on itself at the end.
+            d = (d + tdn * 0.32 * t + side * wave * 0.11 * math.sin(t * 4.5) + here * 0.02).normalized()
+            if t > 0.7:                                     # a soft curl at the end
+                d = (d + side * wave * 0.16 + here * 0.08).normalized()
+            p = outside(p + d * L / segs)
+            if front and p.z < brow_z:
+                p.z = brow_z + 0.002
+            pts.append(p.copy())
+        guides_pts.append((pts, side, out, front))
+
+    total = len(guides_pts) * per + 60
+    hair = bpy.data.hair_curves.new("HairStrands")
+    seg = 17
+    hair.add_curves([seg] * total)
+    pos, rad = [], []
+    for pts, side, out, front in guides_pts:
+        up = side.cross(out).normalized()
+        for _ in range(per):
+            a = rnd.uniform(0, 2 * math.pi)
+            r0 = 0.019 * math.sqrt(rnd.random())
+            off = side * math.cos(a) * r0 + up * math.sin(a) * r0
+            ph1, ph2 = rnd.uniform(0, 6.28), rnd.uniform(0, 6.28)
+            for k, gp in enumerate(pts):
+                t = k / (len(pts) - 1)
+                clump = 1 - 0.75 * t ** 1.3                 # strands gather toward the tip
+                frizz = 0.0025 * t * (math.sin(t * 14 + ph1) * side + math.cos(t * 11 + ph2) * up)
+                q = gp + off * clump + frizz
+                pos.extend(q)
+                rad.append(0.0011 * (1 - 0.75 * t) + 0.0002)
+    for _ in range(60):                                     # flyaways
+        pts, side, out, front = guides_pts[rnd.randrange(len(guides_pts))]
+        base = pts[rnd.randrange(2, 5)]
+        d = (out + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(0, 1)))).normalized()
+        for k in range(seg):
+            t = k / (seg - 1)
+            q = base + d * 0.06 * t + side * 0.02 * math.sin(t * 4) + Vector((0, 0, -0.02 * t * t))
+            pos.extend(q)
+            rad.append(0.0006 * (1 - 0.7 * t) + 0.0001)
+    hair.position_data.foreach_set("vector", pos)
+    ra = hair.attributes.get("radius") or hair.attributes.new("radius", "FLOAT", "POINT")
+    ra.data.foreach_set("value", rad)
+    hair.materials.append(material)
+    ob = _link(bpy.data.objects.new("HairStrands", hair))
+    add(ob, "Head")
+    if scalp is not None:                                   # a dark mass under the strands: no scalp shows through
+        import bmesh
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=24, radius=1.0)
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < 0.3 - 1.2 * max(0.0, v.co.y)], context="VERTS")
+        for v in bm.verts:
+            v.co = Vector((hc.x + v.co.x * sx * 1.03, hc.y + v.co.y * sy * 1.03, hc.z + v.co.z * sz * 1.03))
+        me = bpy.data.meshes.new("HairScalp")
+        bm.to_mesh(me)
+        bm.free()
+        me.materials.append(scalp)
+        so = _link(bpy.data.objects.new("HairScalp", me))
+        _smooth(so, 1)
+        add(so, "Head")
+    return ob
+
+
+def hair_material(col_root, col_tip):
+    """Hair shading: dark at the root, a touch warmer at the tips, soft sheen."""
+    m = bpy.data.materials.new("HairStrandMat")
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    info = nt.nodes.new("ShaderNodeHairInfo")
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = col_root
+    ramp.color_ramp.elements[1].color = col_tip
+    nt.links.new(info.outputs["Intercept"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+    b.inputs["Roughness"].default_value = 0.5
+    if "Specular IOR Level" in b.inputs:
+        b.inputs["Specular IOR Level"].default_value = 0.28
+    return m
+
+
 def cap_crown(name, center, size, material):
     """Cloth crown that collapses against the head: a half-dome slouched at
     the back, slightly asymmetric, with a soft pinch at the front panels."""
@@ -1288,6 +1428,10 @@ def build_character(rig):
                brows="straight", wing=0.2, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
     if HAIR == "messy":
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
+        return parts
+    if HAIR == "strands":
+        strand_hair(add, hc, (0.108, 0.118, 0.15), hair_material(hx("#060508"), hx("#1d1716")),
+                    scalp=mat("hair", 0.6))
         return parts
     # Short twists peeking out under the cap.
     import random
