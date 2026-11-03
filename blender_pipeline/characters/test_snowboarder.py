@@ -30,7 +30,8 @@ check("every layer exists, in draw order", names == [n for n, _ in sb.LAYERS], f
 check("every layer is bound to its bone", all(b in art.vertex_groups for _, b in sb.LAYERS))
 check("eyes draw over the goggle lens", names.index("Eyes") > names.index("Goggles"))
 check("collar draws over the chin", names.index("Collar") > names.index("Face"))
-check("mouth library has 9 visemes", len(art.data.layers["Mouth"].frames) == 9)
+check("mouth library: 9 visemes + GRIT + SMIRK", len(art.data.layers["Mouth"].frames) == 11)
+check("eye library: 4 expressions", len(art.data.layers["Eyes"].frames) == len(sb.EXPRESSIONS))
 for side in "LR":
     rest = rig.matrix_world @ rig.data.bones[f"Leg_Lower_{side}"].tail_local
     drift = (rig.matrix_world @ rig.pose.bones[f"Leg_Lower_{side}"].tail - rest).length
@@ -53,6 +54,15 @@ check("walk: body dips on contact, rises on the pass", t1 > t0 + 0.01, f"{t0:.3f
 frames = sb.talk(art, [(0.0, "REST"), (0.5, "MBP")])
 s.frame_set(frames[1])
 check("talk: MBP on its frame", art.modifiers["Mouth Swap"].offset == tk.VISEMES.index("MBP") + 1)
+
+sb.express(art, 30, eyes="SQUINT", mouth="GRIT")
+s.frame_set(30)
+check("express: squint + gritted grin on its frame",
+      art.modifiers["Eye Swap"].offset == 4 and art.modifiers["Mouth Swap"].offset == 10)
+bpy.ops.wm.read_factory_settings(use_empty=True)
+rig2, art2, _ = sb.build(look="sheet2")
+check("sheet2 look builds with its own materials",
+      any(m.name.startswith("SB_sheet2_Metal") for m in bpy.data.materials) and len(art2.data.layers) == len(sb.LAYERS))
 
 print(f"\n{sum(results)}/{len(results)} checks passed")
 sys.exit(0 if all(results) else 1)

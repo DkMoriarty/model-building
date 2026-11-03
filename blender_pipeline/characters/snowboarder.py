@@ -74,6 +74,48 @@ COL = {
 }
 
 
+# Looks: the same character in each model sheet's costume. Only colours and a
+# few costume shapes differ; the rig, layers and animation are shared.
+BASE_COL = dict(COL)
+LOOKS = {
+    "sheet1": {},  # white puffer, white boots with yellow cuffs (first sheet)
+    "sheet2": {    # blue-grey puffer with metal tube cuffs, cream/tan boots (second sheet)
+        "ink": hx("#261a1b"),
+        "white": hx("#d9dee4"),
+        "cloth_shade": hx("#9ea7bb"),
+        "sheen": hx("#f3f5f2"),
+        "metal": hx("#c9ced3"),
+        "metal_dark": hx("#2b2b30"),
+        "shorts": hx("#2d2f3a"),
+        "shorts_light": hx("#4a4e60"),
+        "boot": hx("#ebe3cf"),
+        "boot_shade": hx("#c9bfa8"),
+        "boot_panel": hx("#c49a68"),
+        "cuff": hx("#c49a68"),
+        "cuff_shade": hx("#9a7350"),
+        "skin": hx("#d39066"),
+        "skin_shade": hx("#b0714f"),
+        "paper": hx("#e1d7cb"),
+    },
+}
+LOOK = "sheet1"
+
+
+def use_look(name):
+    """Switch the palette (and costume details) before drawing."""
+    global LOOK
+    if name not in LOOKS:
+        raise ValueError(f"unknown look {name!r}; have {list(LOOKS)}")
+    LOOK = name
+    COL.clear()
+    COL.update(BASE_COL)
+    COL.setdefault("boot", BASE_COL["white"])
+    COL.setdefault("boot_shade", BASE_COL["cloth_shade"])
+    COL.setdefault("paper", hx("#f4efe6"))
+    COL.update(LOOKS[name])
+    _MATS.clear()
+
+
 def P(px, py):
     """Sheet pixel -> picture-plane (x, z) in Blender units."""
     return ((px - CX) / S, (GROUND - py) / S)
@@ -132,7 +174,7 @@ _MATS = {}
 def mat(name, fill=None, line=True, line_color=None):
     """Materials are cached by name: 'Jacket' = white fill + ink line, etc."""
     if name not in _MATS:
-        _MATS[name] = tk.gp_material(f"SB_{name}", stroke=(line_color or COL["ink"]) if line else None, fill=fill)
+        _MATS[name] = tk.gp_material(f"SB_{LOOK}_{name}", stroke=(line_color or COL["ink"]) if line else None, fill=fill)
     return _MATS[name]
 
 
@@ -277,20 +319,59 @@ def draw_head(ob):
     draw_eyes(ob)
 
 
+EXPRESSIONS = ("GLARE", "HAPPY", "SIDE", "SQUINT")  # eye library frames 1-4
+
+
 def draw_eyes(ob):
+    for i, e in enumerate(EXPRESSIONS, start=1):
+        draw_eye_set(ob, e, i)
+    mod = ob.modifiers.new("Eye Swap", "GREASE_PENCIL_TIME")
+    mod.mode = "FIX"
+    mod.tree_node_filter = "Eyes"
+    mod.offset = 1
+    return mod
+
+
+def draw_eye_set(ob, expr, frame):
     """Eyes and brows seen through the tinted lens (colours pre-tinted, drawn
-    over the lens), with the determined, cocky look from the sheet."""
+    over the lens). GLARE: the cocky scowl-grin. HAPPY: wide, brows up.
+    SIDE: half-lidded sideways glance (the smirk head). SQUINT: shut tight
+    in a laugh (the gritted-grin head)."""
+    E = dict(frame=frame)
+    if expr == "SQUINT":
+        for cx, cy, d in ((550, 535, 1), (662, 538, -1)):
+            ink(ob, "Eyes", [(cx - 28 * d, cy - 14), (cx + 18 * d, cy), (cx - 28 * d, cy + 12)], width=8, **E)
+        ink(ob, "Eyes", [(512, 505), (552, 512), (590, 526)], width=10, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(628, 526), (666, 512), (704, 506)], width=10, color=COL["brow_tint"], name="Brow", **E)
+        return
+    lid = {"GLARE": 1.0, "HAPPY": 1.25, "SIDE": 0.6}[expr]
+    look = 11 if expr == "SIDE" else 0
     for cx, cy, rx, ry in ((550, 532, 34, 22), (662, 536, 30, 20)):
-        eye = [(cx - rx, cy + 4), (cx - rx * 0.4, cy - ry), (cx + rx * 0.5, cy - ry * 0.9), (cx + rx, cy - 2),
-               (cx + rx * 0.3, cy + ry * 0.85), (cx - rx * 0.5, cy + ry * 0.8)]
-        shape(ob, "Eyes", eye, COL["eye_white_tint"], "EyeWhite", width=5)
-        shape(ob, "Eyes", tk.circle_points(cx + 5, cy + 2, 14, 12), COL["iris_tint"], "Iris", width=3)
-        shape(ob, "Eyes", tk.circle_points(cx + 6, cy + 3, 7, 10), COL["pupil"], "Pupil", line=False)
-        shape(ob, "Eyes", tk.circle_points(cx + 1, cy - 3, 4, 8), COL["eye_white_tint"], "Glint", line=False)
-        ink(ob, "Eyes", [(cx - rx - 4, cy - 2), (cx - rx * 0.3, cy - ry - 3), (cx + rx * 0.6, cy - ry), (cx + rx + 4, cy - 4)],
-            width=7)  # heavy upper lid
-    ink(ob, "Eyes", [(510, 497), (552, 500), (592, 516)], width=10, color=COL["brow_tint"], name="Brow")
-    ink(ob, "Eyes", [(628, 515), (666, 501), (704, 499)], width=10, color=COL["brow_tint"], name="Brow")
+        ry *= lid
+        cy0 = cy + (ry * (1 - lid) if lid < 1 else 0)
+        eye = [(cx - rx, cy + 4), (cx - rx * 0.4, cy0 - ry), (cx + rx * 0.5, cy0 - ry * 0.9), (cx + rx, cy - 2),
+               (cx + rx * 0.3, cy + 20 * 0.85), (cx - rx * 0.5, cy + 20 * 0.8)]
+        shape(ob, "Eyes", eye, COL["eye_white_tint"], "EyeWhite", width=5, **E)
+        shape(ob, "Eyes", tk.circle_points(cx + 5 + look, cy + 2, 14 if lid >= 1 else 12, 12), COL["iris_tint"], "Iris",
+              width=3, **E)
+        shape(ob, "Eyes", tk.circle_points(cx + 6 + look, cy + 3, 7, 10), COL["pupil"], "Pupil", line=False, **E)
+        shape(ob, "Eyes", tk.circle_points(cx + 1 + look, cy - 3, 4, 8), COL["eye_white_tint"], "Glint", line=False, **E)
+        ink(ob, "Eyes", [(cx - rx - 4, cy - 2), (cx - rx * 0.3, cy0 - ry - 3), (cx + rx * 0.6, cy0 - ry), (cx + rx + 4, cy - 4)],
+            width=7, **E)  # heavy upper lid
+    if expr == "HAPPY":
+        ink(ob, "Eyes", [(512, 492), (550, 480), (588, 492)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(630, 494), (666, 482), (702, 492)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        return
+    if expr == "SIDE":
+        ink(ob, "Eyes", [(512, 500), (552, 503), (590, 512)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        ink(ob, "Eyes", [(628, 505), (666, 494), (704, 488)], width=9, color=COL["brow_tint"], name="Brow", **E)
+        return
+    _glare_brows(ob, E)
+
+
+def _glare_brows(ob, E):
+    ink(ob, "Eyes", [(510, 497), (552, 500), (592, 516)], width=10, color=COL["brow_tint"], name="Brow", **E)
+    ink(ob, "Eyes", [(628, 515), (666, 501), (704, 499)], width=10, color=COL["brow_tint"], name="Brow", **E)
 
 
 def draw_goggles(ob):
@@ -303,8 +384,9 @@ def draw_goggles(ob):
             (510, 580), (490, 550)]
     shape(ob, "Goggles", lens, COL["lens"], "Lens", width=4, seed=9)
     glint = mat("LensGlint", alpha(hx("#efe6df"), 1.0), line=False)
-    stroke(ob, "Goggle_Glint", [(645, 488), (688, 492), (668, 548), (634, 545)], glint, closed=True)
-    stroke(ob, "Goggle_Glint", [(698, 495), (708, 497), (688, 548), (678, 547)], glint, closed=True)
+    # Thin streaks at the lens's outer edge, clear of the eye.
+    stroke(ob, "Goggle_Glint", [(694, 492), (706, 494), (690, 540), (681, 538)], glint, closed=True)
+    stroke(ob, "Goggle_Glint", [(711, 500), (716, 501), (704, 532), (700, 531)], glint, closed=True)
 
 
 def draw_jacket(ob):
@@ -317,6 +399,10 @@ def draw_jacket(ob):
         ink(ob, "Jacket", [(410, y), (500, y + 12), (590, y + 16), (680, y + 12), (785, y)], width=4, seed=y)
     ink(ob, "Jacket", [(592, 800), (594, 1000), (592, 1285)], width=4)
     ink(ob, "Jacket", [(470, 1080), (500, 1120)], width=5)
+    if LOOK == "sheet2":
+        for pts in (((470, 860), (520, 850), (560, 858)), ((640, 870), (690, 862), (730, 875)),
+                    ((480, 1000), (530, 995))):
+            ink(ob, "Jacket", list(pts), width=12, color=COL["sheen"], name="Sheen")
     ink(ob, "Jacket", [(715, 1080), (690, 1120)], width=5)
 
     collar = [(400, 640), (455, 618), (520, 650), (575, 700), (612, 712), (660, 690), (705, 655), (728, 672),
@@ -340,12 +426,22 @@ def draw_arm(ob, side):
     shape(ob, f"Arm_Lower_{side}", lower, COL["white"], "Cloth", width=8, seed=13)
     shape(ob, f"Arm_Lower_{side}", crescent(lower, (0.0, 0.4) if side == "L" else (0.6, 1.0), 0.8),
           COL["cloth_shade"], "ClothShade", line=False)
-    shape(ob, f"Arm_Lower_{side}", cuff, COL["white"], "Cloth", width=6)
+    if LOOK == "sheet2":  # metal tube cuff with a dark opening
+        tube = m([(318, 1255), (412, 1255), (418, 1325), (312, 1325)])
+        shape(ob, f"Arm_Lower_{side}", tube, COL["metal"], "Metal", width=6)
+        shape(ob, f"Arm_Lower_{side}", m([(322, 1312), (408, 1312), (402, 1330), (328, 1330)]), COL["metal_dark"],
+              "MetalDark", width=4)
+        ink(ob, f"Arm_Lower_{side}", m([(330, 1270), (334, 1305)]), width=5, color=COL["sheen"], name="Sheen")
+    else:
+        shape(ob, f"Arm_Lower_{side}", cuff, COL["white"], "Cloth", width=6)
     ink(ob, f"Arm_Lower_{side}", m([(250, 1185), (360, 1205), (465, 1190)]), width=4)
     shape(ob, f"Arm_Upper_{side}", upper, COL["white"], "Cloth", width=8, seed=14)
     shape(ob, f"Arm_Upper_{side}", crescent(upper, (0.2, 0.6), 0.8, bias=(0, 8)),
           COL["cloth_shade"], "ClothShade", line=False)
     ink(ob, f"Arm_Upper_{side}", m([(232, 960), (360, 990), (490, 975)]), width=4)
+    if LOOK == "sheet2":  # nylon sheen
+        ink(ob, f"Arm_Upper_{side}", m([(300, 870), (350, 850), (410, 852)]), width=12, color=COL["sheen"], name="Sheen")
+        ink(ob, f"Arm_Lower_{side}", m([(275, 1110), (285, 1160)]), width=10, color=COL["sheen"], name="Sheen")
 
 
 def draw_legs(ob):
@@ -379,8 +475,15 @@ def draw_boots(ob):
          [(640, 2205), (850, 2220), (992, 2200)], [(660, 2050), (780, 2060), (900, 2070)]),
     ):
         layer = f"Boot_{side}"
-        shape(ob, layer, boot, COL["white"], "Cloth", width=8, seed=18)
-        shape(ob, layer, crescent(boot, (0.25, 0.55), 0.8, bias=(0, 8)), COL["cloth_shade"], "ClothShade", line=False)
+        shape(ob, layer, boot, COL["boot"], "Boot", width=8, seed=18)
+        shape(ob, layer, crescent(boot, (0.25, 0.55), 0.8, bias=(0, 8)), COL["boot_shade"], "BootShade", line=False)
+        if LOOK == "sheet2":  # tan toe cap and ankle strap
+            cap = ([(255, 2088), (278, 2150), (286, 2240), (198, 2230), (190, 2158)] if side == "R" else
+                   [(905, 2078), (962, 2097), (988, 2162), (984, 2228), (900, 2242), (884, 2150)])
+            shape(ob, layer, cap, COL["boot_panel"], "BootPanel", width=5)
+            bx = (boot[0][0] + boot[1][0]) / 2
+            shape(ob, layer, [(bx - 100, 1985), (bx + 100, 1985), (bx + 105, 2030), (bx - 100, 2030)], COL["boot_panel"],
+                  "BootPanel", width=5)
         ink(ob, layer, sole, width=5)
         ink(ob, layer, crease, width=4)
         shape(ob, layer, cuff, COL["cuff"], "Cuff", width=7, seed=19)
@@ -406,7 +509,10 @@ VISEME_SHAPES = {
     "WQ": (38, 22, 1.0, None, False),
     "FV": (96, 14, 0.0, "top", False),
     "REST": (122, 24, 0.0, "both", False),  # her signature toothy smirk
+    "GRIT": (130, 34, 0.0, "grit", False),  # gritted laugh (frame 10)
+    "SMIRK": (96, 0, 0.0, None, False),     # closed side smirk (frame 11)
 }
+MOUTH_EXTRAS = ("GRIT", "SMIRK")
 
 
 def mouth_curves(w, h, rnd, smirk=10, n=13):
@@ -427,9 +533,21 @@ def mouth_curves(w, h, rnd, smirk=10, n=13):
 
 def draw_mouth(ob, viseme, frame):
     w, h, rnd, teeth, tongue = VISEME_SHAPES[viseme]
-    top, bot = mouth_curves(w, h, rnd, smirk=14 if viseme in ("REST", "E", "A_I") else 8)
+    top, bot = mouth_curves(w, h, rnd, smirk=14 if viseme in ("REST", "E", "A_I", "GRIT") else 8)
+    if viseme == "SMIRK":
+        top = [(x, y - 0.6 * max(0, x - MOUTH_C[0])) for x, y in top]  # one corner pulled up
+        ink(ob, "Mouth", top, width=7, frame=frame)
+        ink(ob, "Mouth", [top[-1], (top[-1][0] + 8, top[-1][1] - 10)], width=4, frame=frame)
+        return
     if h == 0:
         ink(ob, "Mouth", top, width=6, frame=frame)
+        return
+    if teeth == "grit":  # teeth fill the mouth, a zig-zag bite line
+        shape(ob, "Mouth", top + bot[::-1], COL["white"], "Teeth", width=7, frame=frame)
+        mid = [(x, (yt + yb) / 2 + (4 if i % 2 else -4)) for i, ((x, yt), (_, yb)) in enumerate(zip(top, bot))]
+        ink(ob, "Mouth", mid[1:-1], width=3, frame=frame)
+        for (x, yt), (_, yb) in list(zip(top, bot))[2:-2:2]:
+            ink(ob, "Mouth", [(x, yt + 3), (x, yb - 3)], width=2, frame=frame)
         return
     shape(ob, "Mouth", top + bot[::-1], COL["mouth"], "Mouth", width=6, frame=frame)
     if tongue:
@@ -447,7 +565,7 @@ def draw_mouth(ob, viseme, frame):
 
 
 def build_mouth_library(ob):
-    for i, v in enumerate(tk.VISEMES, start=1):
+    for i, v in enumerate(tk.VISEMES + MOUTH_EXTRAS, start=1):
         draw_mouth(ob, v, i)
     mod = ob.modifiers.new("Mouth Swap", "GREASE_PENCIL_TIME")
     mod.mode = "FIX"
@@ -489,9 +607,11 @@ def build_board(collection=None):
 # Assembly and poses
 # ---------------------------------------------------------------------------
 
-def build(collection=None, with_board=True):
-    """Build the rig and the drawing, bind them, add the mouth library.
-    Returns (rig, art, board)."""
+def build(collection=None, with_board=True, look="sheet1"):
+    """Build the rig and the drawing, bind them, add the mouth and eye
+    libraries. look: 'sheet1' (white) or 'sheet2' (blue-grey, tube cuffs,
+    cream/tan boots). Returns (rig, art, board)."""
+    use_look(look)
     rig = build_rig(collection)
     coll = rig.users_collection[0]
     art = tk.new_gp_object("CH_Snowboarder_Art", coll)
@@ -541,6 +661,20 @@ def walk(rig, start=1, length=24):
     alternating knee lifts, a bounce, small arm swings, ponytail trailing."""
     reset_pose(rig)
     return tk.walk_front(rig, start=start, length=length, H=0.32)
+
+
+def express(art, frame, eyes=None, mouth=None):
+    """Key an expression: eyes in EXPRESSIONS, mouth a viseme or GRIT/SMIRK.
+    Constant interpolation, so faces swap like drawings."""
+    if eyes:
+        art.modifiers["Eye Swap"].offset = EXPRESSIONS.index(eyes) + 1
+        art.keyframe_insert('modifiers["Eye Swap"].offset', frame=frame)
+    if mouth:
+        art.modifiers["Mouth Swap"].offset = (tk.VISEMES + MOUTH_EXTRAS).index(mouth) + 1
+        art.keyframe_insert('modifiers["Mouth Swap"].offset', frame=frame)
+    for fc in tk.fcurves(art):
+        for k in fc.keyframe_points:
+            k.interpolation = "CONSTANT"
 
 
 def talk(art, line_cues, fps=24):
