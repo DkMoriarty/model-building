@@ -132,8 +132,10 @@ def P(px, py):
 # Line tools: smooth curves and a brushy, tapered ink line
 # ---------------------------------------------------------------------------
 
-def catmull(pts, closed=True, per_seg=8):
-    """Smooth a control polygon (sheet px) with a Catmull-Rom spline."""
+def catmull(pts, closed=True, per_seg=8, sharp=()):
+    """Smooth a control polygon (sheet px) with a Catmull-Rom spline. Points
+    whose index is in `sharp` stay crisp corners (chin point, hair tips): the
+    curve arrives and leaves them without rounding (like the Pinch brush)."""
     n = len(pts)
     out = []
     segs = n if closed else n - 1
@@ -141,6 +143,10 @@ def catmull(pts, closed=True, per_seg=8):
         p0 = pts[(i - 1) % n] if closed else pts[max(i - 1, 0)]
         p1, p2 = pts[i], pts[(i + 1) % n]
         p3 = pts[(i + 2) % n] if closed else pts[min(i + 2, n - 1)]
+        if i % n in sharp:
+            p0 = p1
+        if (i + 1) % n in sharp:
+            p3 = p2
         for k in range(per_seg):
             t = k / per_seg
             t2, t3 = t * t, t * t * t
@@ -157,12 +163,13 @@ def _wobble(i, n, seed):
     return 0.5 + 0.25 * math.sin(2 * math.pi * (1.3 * t + seed * 0.37)) + 0.25 * math.sin(2 * math.pi * (3.1 * t + seed * 1.7))
 
 
-def stroke(ob, layer, pts, mat, width=7.0, closed=True, taper=False, smooth=True, per_seg=8, seed=0, frame=1):
+def stroke(ob, layer, pts, mat, width=7.0, closed=True, taper=False, smooth=True, per_seg=8, seed=0, frame=1,
+           sharp=()):
     """Draw one stroke from sheet-px control points.
 
     width is the ink width in sheet px; closed shapes swell between 70% and
     130% of it, open lines also taper to a point at both ends (brush ink)."""
-    curve = catmull(pts, closed, per_seg) if smooth and len(pts) > 2 else list(pts)
+    curve = catmull(pts, closed, per_seg, sharp) if smooth and len(pts) > 2 else list(pts)
     xz = [P(*p) for p in curve]
     st = tk.draw_stroke(ob, layer, frame, xz, radius=width / S / 2, material=mat, cyclic=closed)
     for p, r in zip(st.points, line_profile(curve, closed, seed, taper)):
@@ -223,15 +230,15 @@ def mat(name, fill=None, line=True, line_color=None):
     return _MATS[name]
 
 
-def shape(ob, layer, pts, fill, name, width=7.0, seed=0, line=True, frame=1, smooth=True):
+def shape(ob, layer, pts, fill, name, width=7.0, seed=0, line=True, frame=1, smooth=True, sharp=()):
     return stroke(ob, layer, pts, mat(name, fill, line), width=width, closed=True, seed=seed, frame=frame,
-                  smooth=smooth)
+                  smooth=smooth, sharp=sharp)
 
 
-def shade(ob, layer, pts, tone="cloth", frame=1, smooth=True):
+def shade(ob, layer, pts, tone="cloth", frame=1, smooth=True, sharp=()):
     """A crisp cel-shadow shape on the part's Multiply shadow layer."""
     return stroke(ob, f"{layer}_Shd", pts, mat(f"Shd_{tone}", COL[f"shd_{tone}"], False), closed=True,
-                  frame=frame, smooth=smooth)
+                  frame=frame, smooth=smooth, sharp=sharp)
 
 
 def lock(root_a, root_b, tip, bend=0.0, n=8):
@@ -309,6 +316,12 @@ def spikes(root, tips, valley=0.55, base=()):
     return [*base[:1], *pts, *base[1:]]
 
 
+def spike_tips(tips, base=((), ())):
+    """Indices of the tips in a `spikes()` outline (for sharp=)."""
+    off = 1 if base[0] else 0
+    return {off + 2 * i for i in range(len(tips))}
+
+
 def mirror(pts, axis=595.0):
     return [(2 * axis - x, y) for x, y in pts]
 
@@ -377,12 +390,12 @@ SMOOTH_CHAINS = [("Leg_R", ["Leg_Upper_R", "Leg_Lower_R", "IK_Target_R"]),
 
 def draw_hair(ob):
     # Ponytail: a fan of spikes from the tie (455, 340).
-    back = spikes((485, 345), [(290, 440), (215, 300), (300, 200), (380, 120), (470, 120)],
-                  valley=0.6, base=[(500, 320), (480, 380)])
-    shape(ob, "Ponytail", back, COL["hair_dark"], "HairDark", width=7, seed=0)
-    pony = spikes((485, 345), [(330, 410), (240, 340), (255, 250), (330, 170), (420, 115), (505, 150), (575, 240)],
-                  valley=0.55, base=[(500, 330), (478, 375)])
-    shape(ob, "Ponytail", pony, COL["hair"], "Hair", width=7, seed=1)
+    tips_b = [(290, 440), (215, 300), (300, 200), (380, 120), (470, 120)]
+    back = spikes((485, 345), tips_b, valley=0.6, base=[(500, 320), (480, 380)])
+    shape(ob, "Ponytail", back, COL["hair_dark"], "HairDark", width=9, seed=0, sharp={1 + 2 * i for i in range(5)})
+    tips_f = [(330, 410), (240, 340), (255, 250), (330, 170), (420, 115), (505, 150), (575, 240)]
+    pony = spikes((485, 345), tips_f, valley=0.55, base=[(500, 330), (478, 375)])
+    shape(ob, "Ponytail", pony, COL["hair"], "Hair", width=9, seed=1, sharp={1 + 2 * i for i in range(7)})
     for a, b in (((440, 340), (320, 330)), ((440, 310), (330, 260)), ((450, 290), (390, 200)),
                  ((465, 280), (462, 175)), ((480, 300), (525, 220))):
         ink(ob, "Ponytail", [a, ((a[0] + b[0]) / 2 + 8, (a[1] + b[1]) / 2), b], width=6, color=COL["hair_light"], name="HairLight")
@@ -409,7 +422,7 @@ def draw_hair(ob):
                               ((728, 425), (770, 470), (796, 545), 0.05),
                               ((724, 470), (752, 500), (760, 600), 0.1),
                               ((462, 405), (540, 392), (488, 488), 0.2)):    # left fringe
-        shape(ob, "Hair_Front", lock(ra, rb, tip, bend), H, "Hair", width=7, smooth=False)
+        shape(ob, "Hair_Front", lock(ra, rb, tip, bend), H, "Hair", width=9, smooth=False)
     shade(ob, "Hair_Front", [(470, 455), (560, 440), (650, 446), (725, 462), (700, 470), (600, 462), (500, 470)],
           "hair")
     for pts in (((540, 345), (575, 390), (590, 440)), ((640, 335), (660, 390), (665, 440)),
@@ -419,40 +432,42 @@ def draw_hair(ob):
     # Chunky, overlapping bangs over the goggles' top edge (wide roots, curved).
     for ra, rb, tip, bend in (((508, 392), (604, 376), (560, 486), 0.18), ((580, 384), (668, 390), (620, 474), -0.08),
                               ((640, 388), (722, 418), (698, 480), -0.2)):
-        shape(ob, "Hair_Over", lock(ra, rb, tip, bend), H, "Hair", width=8, smooth=False)
+        shape(ob, "Hair_Over", lock(ra, rb, tip, bend), H, "Hair", width=9, smooth=False)
     for pts in (((560, 400), (566, 440), (562, 470)), ((630, 402), (626, 440), (620, 462))):
         ink(ob, "Hair_Over", list(pts), width=5, color=COL["hair_light"], name="HairLight")
     # Long locks down the cheeks, falling over the collar.
     for ra, rb, tip, bend in (((470, 560), (498, 568), (498, 712), 0.08), ((712, 560), (738, 545), (742, 655), -0.05),
                               ((726, 600), (746, 590), (736, 705), 0.1)):
-        shape(ob, "Hair_Locks", lock(ra, rb, tip, bend), H, "Hair", width=7, smooth=False)
+        shape(ob, "Hair_Locks", lock(ra, rb, tip, bend), H, "Hair", width=9, smooth=False)
 
 
 def draw_head(ob):
     # Neck in shadow inside the collar opening.
     shape(ob, "Face", [(545, 640), (650, 640), (655, 735), (540, 735)], COL["skin_shade"], "SkinShade", width=6)
     ear = [(456, 535), (426, 522), (404, 545), (402, 588), (424, 612), (458, 606)]
-    shape(ob, "Face", ear, COL["skin"], "Skin", width=7, seed=7)
-    ink(ob, "Face", [(442, 545), (420, 566), (434, 592)], width=6)
-    ink(ob, "Face", [(446, 562), (436, 578)], width=4)
+    shape(ob, "Face", ear, COL["skin"], "Skin", width=10, seed=7)
+    ink(ob, "Face", [(442, 545), (420, 566), (434, 592)], width=4)   # inner details stay fine
+    ink(ob, "Face", [(446, 562), (436, 578)], width=3)
     # Face: cheek under the goggles, a pointed chin, jaw rising to the right.
-    face = [(470, 440), (540, 405), (630, 392), (705, 410), (726, 470), (722, 565), (702, 602), (680, 632), (646, 662),
-            (610, 676), (592, 682), (572, 674), (540, 660), (512, 634), (494, 598), (472, 562)]
-    shape(ob, "Face", face, COL["skin"], "Skin", width=8, seed=6)
+    # A wedge, not a ball: flat cheeks under the goggles, straight jaw lines
+    # tapering to a crisp chin point (index 7), a corner at each jaw angle.
+    face = [(472, 440), (540, 405), (630, 392), (705, 410), (722, 470), (716, 560), (694, 604),
+            (590, 692),
+            (520, 640), (494, 600), (474, 560)]
+    shape(ob, "Face", face, COL["skin"], "Skin", width=11, seed=6, sharp={6, 7, 9})
     # Cel shadows: under the goggles, left cheek, under the jaw line.
     # Shadow cast by the goggles across both cheeks (clear of the nose tip),
     # under the hairline, and down the left jaw.
     shade(ob, "Face", [(490, 592), (598, 596), (604, 606), (640, 610), (660, 600), (712, 596), (700, 622), (668, 626),
                        (640, 618), (600, 616), (560, 622), (512, 620)], "skin")
     shade(ob, "Face", [(520, 420), (700, 410), (712, 445), (640, 432), (560, 440), (522, 452)], "skin")
-    shade(ob, "Face", [(494, 598), (512, 610), (528, 640), (556, 664), (590, 682), (560, 676), (520, 650), (500, 620)],
-          "skin")
+    shade(ob, "Face", [(494, 600), (520, 640), (588, 690), (548, 668), (510, 634), (500, 612)], "skin", sharp=(2,))
     # Rosy cheek, pointed nose with a pink tip, nostril.
     shape(ob, "Face", [(668, 612), (700, 604), (706, 624), (676, 632)], COL["blush"], "Blush", line=False)
     nose = [(606, 572), (630, 574), (642, 596), (630, 607), (609, 604)]
-    shape(ob, "Face", nose, COL["skin"], "Skin", width=6, seed=8)
+    shape(ob, "Face", nose, COL["skin"], "Skin", width=4, seed=8, sharp={2})
     shape(ob, "Face", [(622, 588), (639, 594), (632, 604), (619, 600)], COL["nose_tip"], "NoseTip", line=False)
-    ink(ob, "Face", [(604, 600), (616, 605)], width=5)
+    ink(ob, "Face", [(604, 600), (616, 605)], width=4)
     draw_eyes(ob)
 
 
@@ -516,19 +531,24 @@ def _glare_brows(ob, E):
 
 def draw_goggles(ob):
     # Strap behind the ear, frame, tinted lens over the eyes, glint.
-    shape(ob, "Goggles", [(400, 470), (478, 468), (478, 530), (402, 525)], COL["slate"], "Slate", width=6)
-    frame = [(466, 466), (590, 455), (722, 470), (733, 540), (712, 598), (650, 602), (622, 576), (592, 590),
-             (498, 598), (466, 560)]
-    shape(ob, "Goggles", frame, COL["slate"], "Slate", width=7, seed=8)
-    lens = [(492, 487), (590, 475), (712, 488), (718, 540), (700, 578), (652, 582), (612, 560), (575, 582),
-            (510, 580), (490, 550)]
+    # Heavy strap slicing back through the hair toward the ear.
+    shape(ob, "Goggles", [(388, 462), (470, 470), (468, 552), (392, 540)], COL["slate"], "Slate", width=10)
+    ink(ob, "Goggles", [(400, 506), (462, 512)], width=4, color=COL["ink"])
+    # Bigger, wrapping frame: the top arcs over the brow, the outer corners
+    # sweep up and back toward the ears, a deep notch over the nose.
+    frame = [(456, 486), (500, 458), (600, 444), (700, 452), (744, 478), (750, 540), (732, 604), (668, 614),
+             (626, 582), (594, 600), (508, 610), (466, 578)]
+    shape(ob, "Goggles", frame, COL["slate"], "Slate", width=11, seed=8, sharp={0, 4, 8})
+    lens = [(486, 492), (520, 474), (600, 464), (690, 472), (724, 490), (728, 540), (712, 584), (668, 594),
+            (624, 562), (592, 584), (514, 590), (488, 566)]
     shape(ob, "Goggles", lens, COL["lens"], "Lens", width=4, seed=9)
-    shape(ob, "Goggles", [(650, 484), (712, 488), (718, 540), (700, 578), (652, 582), (640, 530)], COL["lens_light"],
-          "LensLight", line=False)
+    shape(ob, "Goggles", [(652, 474), (690, 472), (724, 490), (728, 540), (712, 584), (668, 594), (648, 540)],
+          COL["lens_light"], "LensLight", line=False)
+    ink(ob, "Goggles", [(500, 470), (600, 456), (700, 462)], width=4, color=COL["shorts_light"], name="GoggleRim")
     glint = mat("LensGlint", alpha(hx("#efe6df"), 1.0), line=False)
     # Thin streaks at the lens's outer edge, clear of the eye.
-    stroke(ob, "Goggle_Glint", [(694, 492), (706, 494), (690, 540), (681, 538)], glint, closed=True)
-    stroke(ob, "Goggle_Glint", [(711, 500), (716, 501), (704, 532), (700, 531)], glint, closed=True)
+    stroke(ob, "Goggle_Glint", [(700, 486), (713, 490), (697, 544), (687, 541)], glint, closed=True)
+    stroke(ob, "Goggle_Glint", [(718, 498), (723, 500), (711, 536), (707, 535)], glint, closed=True)
 
 
 def draw_jacket(ob):
