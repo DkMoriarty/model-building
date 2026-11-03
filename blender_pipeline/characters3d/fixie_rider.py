@@ -1203,7 +1203,7 @@ HER_LAYOUT = dict(eye_ux=0.47, eye_uz=-0.08, nose_z=-0.47, mouth_z=-0.66, chin_z
                   mouth_w=0.24, almond_h=0.66, liner=1.2, iris=0.78, soft=1.0, brow_drop=-0.04, hairline=0.74,
                   eye_k=(0.8, 1.05, 0.55), eye_sink=0.4, iris_x=0.12, shield=1.0, slit=1.0, pout=0.55)
 HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
-                  jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
+                  jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # tennis reference: straight long jawline to a broad forward chin
 
 
 def messy_hair(add, hc, size, material, n=80, seed=21):

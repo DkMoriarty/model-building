@@ -146,7 +146,7 @@ def build_girl():
     # Neck, head: oval face, big lashed eyes, small nose, soft lips.
     add(tube("G_Neck", [(0, 0.01, 1.38), (0, 0.0, 1.6)], [0.025, 0.022], skin), "Neck")   # long, thin, elegant
     hc = Vector((0, -0.005, 1.70))
-    size = (0.118, 0.118, 0.15)         # young: a rounder, shorter face        # a long, narrow oval head on a long slender neck          # wide cheeks tapering to a small chin
+    size = (0.118, 0.118, 0.15)         # shield head: wide upper face; the jaw outline is set in sculpt_head (shield)
     # Sculpted face: a delicate nose, sharper chin, lashed eyes, a soft closed smile.
     # Face measured from the reference: a long narrow oval with a small rounded
     # chin, wide-set dark almond eyes with a light liner, thin high arched
