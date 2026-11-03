@@ -36,7 +36,7 @@ def hx(c, a=1.0):
 COL = {
     "fence": hx("#3b3a38"),
     "foliage": hx("#6d7a3a"),
-    "skin": hx("#bd7c54"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
+    "skin": hx("#a9643c"), "skin_dark": hx("#7d4a30"), "lip": hx("#5a2a22"),
     "hair": hx("#141116"), "eye_white": hx("#f3efe9"), "iris": hx("#120c0a"),
     "shirt": hx("#8ea383"), "shirt_seam": hx("#6f8566"),
     "shorts": hx("#2c2c31"), "sock": hx("#f1efea"), "shoe": hx("#e7e1d3"), "sole": hx("#b88654"),
@@ -440,8 +440,8 @@ def skin_paint_material(name, skin, blush, lip, stubble=None):
     nt.links.new(lipa.outputs["Fac"], rough.inputs["Value"])
     nt.links.new(rough.outputs["Result"], bsdf.inputs["Roughness"])
     if "Subsurface Weight" in bsdf.inputs:
-        bsdf.inputs["Subsurface Weight"].default_value = 0.35
-        bsdf.inputs["Subsurface Radius"].default_value = (0.9, 0.35, 0.2)
+        bsdf.inputs["Subsurface Weight"].default_value = 0.2
+        bsdf.inputs["Subsurface Radius"].default_value = (0.8, 0.4, 0.25)
         if "Subsurface Scale" in bsdf.inputs:
             bsdf.inputs["Subsurface Scale"].default_value = 0.012
     if "Specular IOR Level" in bsdf.inputs:
@@ -1310,8 +1310,12 @@ def matte_hair_material(col):
     if "Specular IOR Level" in b.inputs:
         b.inputs["Specular IOR Level"].default_value = 0.0
     if "Subsurface Weight" in b.inputs:
-        b.inputs["Subsurface Weight"].default_value = 0.15
-        b.inputs["Subsurface Radius"].default_value = (1.0, 0.2, 0.1)
+        b.inputs["Subsurface Weight"].default_value = 0.03          # near-black, not brown, in warm light
+        b.inputs["Subsurface Radius"].default_value = (0.6, 0.5, 0.5)
+    if "Sheen Weight" in b.inputs:                                   # bright cream edge where the rim grazes the locks
+        b.inputs["Sheen Weight"].default_value = 0.0
+        b.inputs["Sheen Roughness"].default_value = 0.6
+        b.inputs["Sheen Tint"].default_value = (1.0, 0.92, 0.8, 1)
         if "Subsurface Scale" in b.inputs:
             b.inputs["Subsurface Scale"].default_value = 0.01
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -1689,7 +1693,7 @@ def build_character(rig):
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
         return parts
     if HAIR == "ribbons":
-        ribbon_hair(add, hc, (0.108, 0.118, 0.15), matte_hair_material(hx("#151116")))
+        ribbon_hair(add, hc, (0.108, 0.118, 0.15), matte_hair_material(hx("#050406")))
         return parts
     if HAIR == "strands":
         strand_hair(add, hc, (0.108, 0.118, 0.15), hair_material(hx("#060508"), hx("#1d1716")),
@@ -1726,7 +1730,7 @@ def build_character(rig):
 
 EXPRESSIONS = {
     # his
-    "COOL":    dict(lid=0.68, lid_low=0.2, brow_l=-0.001, brow_r=0.004, ang_l=-4, ang_r=-6, mouth="SMIRK"),
+    "COOL":    dict(lid=0.6, lid_low=0.2, brow_l=-0.001, brow_r=0.004, ang_l=-4, ang_r=-6, mouth="SMIRK"),
     "HAPPY":   dict(lid=1.0, lid_low=0.35, brow_l=0.006, brow_r=0.007, ang_l=-6, ang_r=6, mouth="GRIN"),
     "NOTICE":  dict(lid=1.15, lid_low=0.0, brow_l=0.002, brow_r=0.007, ang_l=0, ang_r=-6, mouth="FLAT", gaze=(0.35, 0.0)),
     "SHOCK":   dict(lid=1.5, lid_low=0.0, brow_l=0.011, brow_r=0.011, ang_l=12, ang_r=-12, mouth="GASP", pupil=0.55,
@@ -1737,7 +1741,7 @@ EXPRESSIONS = {
                     sparkle=0.7, blush=1.0, gaze=(0.0, 0.25)),
     "SMUG":    dict(lid=0.62, lid_low=0.35, brow_l=-0.003, brow_r=-0.001, ang_l=-10, ang_r=8, mouth="GRIN",
                     gaze=(0.0, 0.05)),
-    "SIDEEYE": dict(lid=0.62, lid_low=0.3, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
+    "SIDEEYE": dict(lid=0.5, lid_low=0.25, brow_l=0.0, brow_r=0.002, ang_l=-3, ang_r=-2, mouth="SMIRK", gaze=(0.55, 0.0)),
     # hers
     "CALM":    dict(lid=0.95, lid_low=0.1, mouth="SMIRK"),
     "STARTLED": dict(lid=1.4, lid_low=0.0, brow_l=0.009, brow_r=0.009, ang_l=10, ang_r=-10, mouth="O", pupil=0.75),
