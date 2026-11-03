@@ -37,5 +37,8 @@ exits non-zero if any check fails. Verified on Blender 5.0.1.
 | 17 | delivery | preview / phone / PNG / EXR outputs | `set_output(scene, mode, path)` |
 | 18 | coordinator | asset library, link + override | `mark_character_asset()`, `register_asset_library()`, `link_character()` |
 
+Characters in a designed (non-stick) style live in [`characters/`](characters): the first is the
+snowboarder from the user's model sheet, a rigged cut-out puppet with a front walk and lip sync.
+
 The manual (UI) steps and where they differ in current Blender are in
 [`docs/BLENDER_GUIDE.md`](docs/BLENDER_GUIDE.md).

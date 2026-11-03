@@ -290,7 +290,30 @@ def build_biped_armature(name="CH_Hero_Rig", H=0.5, collection=None):
     return arm_ob
 
 
-def add_leg_ik(arm_ob, side="L", pole_distance=None, auto_pole=True):
+def build_armature_from_joints(name, bones, collection=None):
+    """Build a skeleton from traced joints.
+
+    bones: [(name, head, tail, parent_or_None, deform, connect)], where head
+    and tail are (x, z) in the picture plane. Use this for designed characters
+    traced from a model sheet; bone names follow `build_biped_armature`
+    (Root, Torso, Leg_Upper_L ...) so IK, walk and binding helpers work."""
+    arm_data = bpy.data.armatures.new(name)
+    arm_ob = bpy.data.objects.new(name, arm_data)
+    (collection or bpy.context.scene.collection).objects.link(arm_ob)
+    arm_ob.show_in_front = True
+    eb = _edit(arm_ob)
+    for n, head, tail, parent, deform, connect in bones:
+        b = eb.new(n)
+        b.head, b.tail = Vector((head[0], 0, head[1])), Vector((tail[0], 0, tail[1]))
+        if parent:
+            b.parent = eb[parent]
+            b.use_connect = connect
+        b.use_deform = deform
+    _object_mode()
+    return arm_ob
+
+
+def add_leg_ik(arm_ob, side="L", pole_distance=None, auto_pole=True, pole_dir=1):
     """IK for one leg: an unparented foot target at the ankle, a pole target in
     front of the knee, and an IK constraint (chain 2) on the shin. The pole
     angle is solved automatically so the rest pose does not move."""
@@ -304,8 +327,8 @@ def add_leg_ik(arm_ob, side="L", pole_distance=None, auto_pole=True):
     t.parent, t.use_deform = eb["Root"], False  # follows the character, not the leg
     pole = eb.new(pole_name)
     d = pole_distance or 0.6 * leg_len
-    pole.head = knee + Vector((d, 0, 0))  # in front of the knee
-    pole.tail = pole.head + Vector((0.1 * leg_len, 0, 0))
+    pole.head = knee + Vector((pole_dir * d, 0, 0))  # profile: in front of the knee; front view: outside it
+    pole.tail = pole.head + Vector((pole_dir * 0.1 * leg_len, 0, 0))
     pole.parent, pole.use_deform = eb["Root"], False
     _object_mode()
 
@@ -562,6 +585,45 @@ def walk_cycle(arm_ob, start=1, length=24, stride=None, bob=None, H=0.5):
         })
         key_swings(arm_ob, frame, {"Arm_Upper_L": -arm, "Arm_Upper_R": arm})  # arms oppose legs
     return [k[0] for k in keys]
+
+
+def walk_front(arm_ob, start=1, length=24, lift=None, bob=None, H=0.5, swing_deg=10.0,
+               follow=("Ponytail",), follow_deg=8.0, follow_lag=2):
+    """Walk in place for a character drawn from the front (toward camera):
+    each foot lifts in turn (knees bend outward through the IK poles), the
+    torso dips on each contact and rises on each pass, the arms swing a
+    little against the legs, and `follow` bones (hair, tails) trail the
+    bounce by `follow_lag` frames: overlapping action."""
+    lift = lift or 0.45 * H
+    bob = bob or 0.08 * H
+    h = length // 2
+    q = h // 2
+    # frame offset: (R foot lift, L foot lift, torso dz, arm swing sign)
+    beats = [
+        (0, 0.0, 0.0, -bob, 0.0),            # contact, weight drops
+        (q // 2, lift * 0.6, 0.0, 0.0, 1.0),  # R foot rising
+        (q, lift, 0.0, bob, 1.0),            # R passing: highest
+        (q + q // 2, lift * 0.5, 0.0, 0.0, 0.5),
+        (h, 0.0, 0.0, -bob, 0.0),            # contact
+        (h + q // 2, 0.0, lift * 0.6, 0.0, -1.0),
+        (h + q, 0.0, lift, bob, -1.0),
+        (h + q + q // 2, 0.0, lift * 0.5, 0.0, -0.5),
+        (length, 0.0, 0.0, -bob, 0.0),
+    ]
+    frames = []
+    for off, r_up, l_up, dz, arm in beats:
+        f = start + off
+        key_offsets(arm_ob, f, {"IK_Target_R": (0, 0, r_up), "IK_Target_L": (0, 0, l_up), "Torso": (0, 0, dz)})
+        a = math.radians(swing_deg) * arm
+        key_swings(arm_ob, f, {"Arm_Upper_R": a, "Arm_Upper_L": a, "Head": -0.25 * a})
+        frames.append(f)
+    for bone in follow:
+        if bone not in arm_ob.pose.bones:
+            continue
+        for off, *_, in beats:
+            dz = next(b[3] for b in beats if b[0] == off)
+            key_swings(arm_ob, start + off + follow_lag, {bone: math.radians(follow_deg) * (dz / bob if bob else 0)})
+    return frames
 
 
 # ---------------------------------------------------------------------------
