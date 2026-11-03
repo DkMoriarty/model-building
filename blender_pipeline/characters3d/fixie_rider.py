@@ -416,7 +416,7 @@ def soft_features(x, z, nose=1.0, chin=1.0, smirk=1.0, lips=1.0):
     low = _plateau(z - (zl - 0.045 * lips), 0.04 * lips, 0.016) * _g(x, 0, 0.16 * lips ** 0.5) ** 0.6
     d += 0.045 * lips * up + 0.065 * lips * low
     d -= 0.024 * _plateau(x, 0.28 * lips ** 0.5, 0.05) * _tent(z - zl, 0.016)                     # parting line
-    d += 0.07 * chin * _g(x, 0, 0.13) * _g(z, L["chin_z"], 0.1)                                    # chin
+    d += 0.07 * chin * _g(x, 0, 0.13 + 0.07 * L.get("jaw_ref", 0)) * _g(z, L["chin_z"], 0.1 + 0.03 * L.get("jaw_ref", 0))   # chin
     return d, max(up, low)
 
 
@@ -494,7 +494,19 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         if y < -0.82 and z > 0.15:                  # flat forehead plane
             y = -0.82 + (y + 0.82) * 0.35
         oval = LAYOUT.get("oval", 0.0) if toon else 0.0
-        if z < 0 and oval:
+        jref = LAYOUT.get("jaw_ref", 0.0) if toon else 0.0
+        if z < 0 and jref:
+            # Reference jaw: full cheeks down to the mouth, then a long STRAIGHT
+            # jawline from under the ear to a broad, rounded-square chin
+            # (about half the face width) that juts slightly forward.
+            zz = -z
+            t = max(0.0, min(1.0, (zz - 0.15) / 0.85))
+            x *= 1 - 0.4 * t                                    # linear taper = straight jaw lines
+            if zz > 0.8 and y < 0.1:                            # chin bottom: flattened, corners stay round
+                z = -0.8 - (zz - 0.8) * 0.6
+            y = y * (1 - 0.15 * zz) if y > 0 else y
+            z = z * (1 + 0.12 * zz)                             # long lower face
+        elif z < 0 and oval:
             # Perfect elongated oval: the lower face is a stretched half-ellipse -
             # no jaw corner, no flat planes, a softly rounded chin at the bottom.
             zz = -z
@@ -542,8 +554,8 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         if paint:
             skin_c, blush_c, lip_c, stub_c = [Vector(c[:3]) if c else None for c in paint]
             fr_ = max(0.0, -y)
-            bw = (sum(_g(x, e, 0.17) for e in (0.48, -0.48)) * _g(z, LAYOUT["eye_uz"] - 0.22, 0.15) * 0.85
-                  + 1.0 * _g(x, 0, 0.1) * _g(z, LAYOUT["nose_z"], 0.09)) * fr_
+            bw = (sum(_g(x, e, 0.22) for e in (0.5, -0.5)) * _g(z, LAYOUT["eye_uz"] - 0.25, 0.2) * 1.0
+                  + 1.1 * _g(x, 0, 0.12) * _g(z, LAYOUT["nose_z"], 0.1)) * fr_
             c = skin_c.lerp(Vector(blush_c), min(0.9, bw * 1.35))
             if stub_c is not None and z < -0.28 and abs(x) < 0.82 and lipw < 0.2:
                 sw = min(1.0, (-0.28 - z) / 0.15) * (0.55 + 0.45 * rs.random()) * (1 if rs.random() < 0.55 else 0.3)
@@ -734,6 +746,9 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
         elif brows == "angry":
             spec = ((0.1, 0.15), (0.25, 0.215), (0.42, 0.265), (0.62, 0.235))  # dive toward the nose, low over the eyes
             radii = [(0.006, 0.013), (0.006, 0.014), (0.005, 0.011), (0.003, 0.004)]
+        elif brows == "bushy":    # reference: thick, dark, low over the eyes, a soft arch, heavy at the inner end
+            spec = ((0.1, 0.17), (0.24, 0.215), (0.4, 0.235), (0.56, 0.22), (0.68, 0.17))
+            radii = [(0.0045, 0.008), (0.0055, 0.0105), (0.005, 0.0095), (0.0038, 0.007), (0.001, 0.0015)]
         elif brows == "wedge":     # thin dark wedge: heavy hooked head low by the nose, tilting up and out to a needle tip
             spec = ((0.08, 0.1), (0.13, 0.15), (0.24, 0.2), (0.39, 0.245), (0.54, 0.26), (0.68, 0.23))
             radii = [(0.003, 0.004), (0.004, 0.0085), (0.0038, 0.0075), (0.003, 0.0058), (0.0022, 0.0035), (0.0004, 0.0005)]
@@ -747,12 +762,12 @@ def build_toon_face(add, hc, size, skin, iris_col, brow_col, lip_col, prefix, no
                               size[2] * L["ear_h"], sx, skin_flat):
             add(part, "Head")
     pts = [head_surface(hc, size, ux, smirk_line(ux, smirk * 0.5)) + Vector((0, -0.003, 0))
-           for ux in (-0.27, -0.13, 0.0, 0.14, 0.28)]
+           for ux in [u * L.get("mouth_w", 0.28) / 0.28 for u in (-0.27, -0.13, 0.0, 0.14, 0.28)]]
     if L.get("slit"):
         # A crisp, blocky slit (flat ends, even weight) with a short carved crease
         # flicking up at the smirk corner and a faint tuck at the other.
-        add(tube(f"{prefix}Smile", pts, [0.0014, 0.0017, 0.0018, 0.0017, 0.0014], mat("mouth_dark", 0.5),
-                 side=Vector((0, 1, 0)), subdiv=0, ring=4), "Head")
+        add(tube(f"{prefix}Smile", pts, [0.0007, 0.0012, 0.0013, 0.0012, 0.0008], mat("mouth_dark", 0.5),
+                 side=Vector((0, 1, 0)), subdiv=1, ring=8), "Head")
         c = pts[-1]
         add(tube(f"{prefix}Dimple", [c, c + Vector((0.0025, -0.0005, 0.0018)), c + Vector((0.0045, -0.0008, 0.0055))],
                  [0.0011, 0.0008, 0.0002], mat("mouth_dark", 0.5), subdiv=0, ring=6), "Head")
@@ -791,7 +806,7 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing):
     W, H = 1.3 * r, ALMOND_H * r
     add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * 0.95, 0))
-    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.5, r * 0.08, H * 0.96), mat(iris_col, 0.15),
+    add(blob(f"{prefix}Iris{sx}", front + Vector((-sx * r * 0.1, 0, 0)), (r * 0.6, r * 0.08, H * 0.96), mat(iris_col, 0.15),
              subdiv=1, segments=24), "Head")
     add(blob(f"{prefix}Pupil{sx}", front + Vector((-sx * r * 0.1, -r * 0.04, 0)), (r * 0.3, r * 0.05, H * 0.58), mat("iris", 0.1),
              subdiv=1), "Head")
@@ -1099,8 +1114,8 @@ HAIR = "cap"    # "cap" (rust cap over twists) or "messy" (voluminous black hair
 
 # His feature layout, measured from the reference frame (head units:
 # skull height ~ 285 px; centre at the mid-skull). See README.
-HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.3, ear_h=0.55,
-                  oval=1.0, diamond=1.0, slit=1.0)   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
+HIS_LAYOUT = dict(eye_ux=0.37, eye_uz=-0.09, nose_z=-0.36, mouth_z=-0.6, chin_z=-1.06, ear_uz=-0.24, ear_h=0.72,
+                  jaw_ref=1.0, slit=1.0, mouth_w=0.2)   # reference: straight long jawline to a broad forward chin   # smooth elongated oval jaw, diamond-plane nose, crisp mouth slit
 
 
 def messy_hair(add, hc, size, material, n=80, seed=21):
@@ -1667,9 +1682,9 @@ def build_character(rig):
     # Measured from the reference: a long face, narrow heavy-lidded eyes set
     # below mid-skull, thick level brows, a long nose with a rosy tip, a thin
     # closed smirk, a long defined chin, big low ears.
-    build_face(add, hc, (0.108, 0.118, 0.15), skin, "iris", "hair", "lip_toon", nose=1.2, chin=1.0, cheek=1.0, jaw=0.45,
+    build_face(add, hc, (0.108, 0.118, 0.15), skin, "iris", "hair", "lip_toon", nose=1.45, chin=1.2, cheek=1.0, jaw=0.45,
                eye_r=0.024, smirk=0.4, style="toon", lips=0.45, paint=("skin", "blush_toon", "lip_toon", None),
-               brows="wedge", wing=0.6, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
+               brows="bushy", wing=0.35, eye_shape="almond", grin="crescent", layout=HIS_LAYOUT)
     if HAIR == "messy":
         messy_hair(add, hc, (0.1, 0.118, 0.15), mat("hair", 0.45, sheen=0.3))
         return parts
@@ -2078,7 +2093,7 @@ def golden_hour(scene, cam, subject, focus=None, fstop=1.8, set_dressing=True):
         o.location = loc
         o.rotation_euler = (subject - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         return o
-    light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 900, (1.0, 0.56, 0.3), size=2.0)
+    light("GH_Key", "AREA", subject + side * 2.2 + to_cam * 1.0 + Vector((0, 0, 0.5)), 520, (1.0, 0.52, 0.26), size=2.0)
     light("GH_Rim", "AREA", subject + side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.1)), 2600, (1.0, 0.95, 0.85), size=0.5)
     light("GH_RimHair", "AREA", subject - side * 0.4 - to_cam * 0.8 + Vector((0, 0, 0.55)), 900, (1.0, 0.9, 0.75), size=0.4)
     light("GH_Fill", "AREA", subject - side * 2.0 + to_cam * 1.2, 70, (0.7, 0.68, 0.92), size=3.0)
