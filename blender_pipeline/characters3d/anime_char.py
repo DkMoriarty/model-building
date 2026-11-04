@@ -421,9 +421,21 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
     fr.COL.setdefault("blush_line", fr.hx("#ec8c84"))
     m_brow, m_nose, m_blush_line = fr.mat("brow_ink", 0.15), fr.mat("nose_shadow", 0.15), fr.mat("blush_line", 0.15)
 
+    bvh_ = fr._HEAD_BVH.get((round(hc.x, 4), round(hc.y, 4), round(hc.z, 4)))
+
     def P(ux, uz, layer):
-        """A face-surface point in head units, lifted toward the camera by `layer`."""
-        return fr.head_surface(hc, size, ux, uz) + Vector((0, -0.0005 - 0.00045 * layer, 0))
+        """A face-surface point in head units, lifted off the skin along the surface
+        normal by `layer` (not toward the camera, so drawn lines never stick out
+        past the face's edge in profile)."""
+        lift = 0.0005 + 0.00045 * layer
+        if bvh_ is not None:
+            hit = bvh_.ray_cast(Vector((hc.x + ux * size[0], hc.y - 1.0, hc.z + uz * size[2])), Vector((0, 1, 0)))
+            if hit[0] is not None:
+                n = hit[1].normalized()
+                if n.y > 0:
+                    n = -n
+                return hit[0] + n * lift
+        return fr.head_surface(hc, size, ux, uz) + Vector((0, -lift, 0))
 
     def decal(name, polys, layer, bone="Head", origin=None):
         """polys: [(material, [(ux, uz), ...]), ...] -> one flat-on-the-face mesh."""

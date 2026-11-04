@@ -1678,8 +1678,13 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
                  0.25, 4.0, k=1.07, puff=0.07, flick=0.4, curl=0.0, tilt=0.0)
         for sgn in (1, -1):                                  # sides past the ears, tips flicking forward
             for i in range(2):
-                lock(f"HairSide{sgn}_{i}", (sgn * 0.8, 0.12 + 0.25 * i, 0.55), (sgn * 0.1, 0.2 + 0.15 * i, -1.0),
-                     0.19, 3.6, k=1.06, puff=0.06, flick=0.3, curl=sgn * 0.25, tilt=sgn * 0.3)
+                lock(f"HairSide{sgn}_{i}", (sgn * 0.8, 0.38 + 0.22 * i, 0.58), (sgn * 0.1, 0.35 + 0.15 * i, -1.0),
+                     0.19, 3.2, k=1.06, puff=0.06, flick=0.3, curl=sgn * 0.25, tilt=sgn * 0.3)
+            # sideburn: a pointed lock in front of the ear down to the lobe (frames the cheek in profile)
+            lock(f"HairBurn{sgn}", (sgn * 0.84, -0.18, 0.5), (sgn * 0.05, 0.1, -1.0), 0.13, 2.4, k=1.04, puff=0.03,
+                 flick=0.05, curl=0.0, tilt=sgn * 0.2)
+            lock(f"HairTemple{sgn}", (sgn * 0.6, 0.15, 0.85), (sgn * 0.9, 0.35, -0.6), 0.16, 3.4, k=1.07, puff=0.05,
+                 flick=0.1, curl=0.0, tilt=sgn * 0.2)
         for i in range(6):                                   # back to the nape
             a = -1.1 + i * 0.44
             lock(f"HairBack{i}", (math.sin(a) * 0.7, 0.75, 0.55), (math.sin(a) * 0.4, 0.45, -1.0), 0.23, 4.0, k=1.07,
