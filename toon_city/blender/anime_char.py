@@ -905,7 +905,7 @@ def build_leather(add, rig):
     an open jacket with a tall stand-up collar, silver zipper teeth along both front
     edges and the collar, shoulder straps with a buckle and rivets, a black
     turtleneck rolled high up the neck, a fine silver chain."""
-    build_jacket(add, rig, body_col="#8c2a24", trim_col="#5a1714", collar_h=0.1)
+    build_jacket(add, rig, body_col="#8c2a24", trim_col="#5a1714", collar_h=0.1, closed=True)
     jm = fr.mat("jacket", 0.85)
     for sx in (1, -1):                                   # big folded leather collar flaps
         add(fr.tube(f"CollarFlap{sx}", [(sx * 0.07, -0.06, 1.5), (sx * 0.12, -0.1, 1.44), (sx * 0.15, -0.14, 1.37),
@@ -926,18 +926,6 @@ def build_leather(add, rig):
         add(fr.torus(f"TurtleRoll{k}", Vector((0, 0.012, z0)), r0, 0.011, t_m, axis="Z"), "Neck")
     add(fr.tube("TurtleNeck", [(0, 0.012, 1.4), (0, 0.012, 1.54)], [0.056, 0.049], t_m, caps=False, ring=24), "Neck")
     for sx in (1, -1):
-        # zipper teeth: a silver dashed line along each lapel's outer edge
-        lap = bpy.data.objects.get(f"Lapel{sx}")
-        if lap:
-            vs = [lap.matrix_world @ v.co for v in lap.data.vertices]
-            for k in range(12):
-                z = 1.12 + k * 0.024
-                band = [v for v in vs if abs(v.z - z) < 0.01]
-                if band:
-                    q = min(band, key=lambda v: v.y)
-                    edge = max(band, key=lambda v: sx * v.x)
-                    add(fr.box(f"Zip{sx}_{k}", Vector((edge.x, q.y - 0.002, z)), (0.006, 0.003, 0.007), s_m, bevel=0.001),
-                        "Spine")
         # shoulder strap (epaulette) with a buckle and rivets
         sho = fr.jp("sho_L" if sx > 0 else "sho_R")
         top = Vector((sx * 0.06, 0.0, 1.46))
@@ -949,10 +937,22 @@ def build_leather(add, rig):
         for r_ in (0.2, 0.65):
             add(fr.blob(f"Rivet{sx}{r_}", top.lerp(tip, r_) + Vector((0, -0.012, 0.012)), (0.005, 0.005, 0.004), s_m, subdiv=1),
                 "Spine")
-    # fine silver chain hanging on the turtleneck
-    chain = [Vector((0.04 * math.sin(a), -0.115 - 0.02 * math.cos(a), 1.42 - 0.13 * math.cos(a / 2) ** 2))
-             for a in [-math.pi / 2 + math.pi * i / 14 for i in range(15)]]
-    add(fr.tube("Chain", chain, [0.0018] * len(chain), s_m, subdiv=0, ring=6), "Spine")
+    # centre zip: silver teeth down the closed front, a pull tab near the top
+    from mathutils.bvhtree import BVHTree
+    jk = bpy.data.objects.get("Jacket")
+    if jk is not None:
+        bpy.context.view_layer.update()
+        bvh = BVHTree.FromPolygons([jk.matrix_world @ v.co for v in jk.data.vertices], [tuple(p.vertices) for p in jk.data.polygons])
+        for k in range(26):
+            z = 0.975 + k * 0.017
+            hit = bvh.ray_cast(Vector((0.0, -1.0, z)), Vector((0, 1, 0)))
+            if hit[0] is not None:
+                add(fr.box(f"Zip_{k}", hit[0] + Vector((0.0025 * (1 if k % 2 else -1), -0.009, 0)), (0.007, 0.003, 0.006), s_m,
+                           bevel=0.001), "Spine")
+        hit = bvh.ray_cast(Vector((0.0, -1.0, 1.36)), Vector((0, 1, 0)))
+        if hit[0] is not None:
+            add(fr.box("ZipPull", hit[0] + Vector((0.006, -0.013, -0.012)), (0.008, 0.003, 0.024), s_m, bevel=0.002), "Spine")
+    # (the chain sits under the closed jacket - left out)
 
 
 def build_tee(add, rig, colour="#f2f2ee"):
@@ -1066,7 +1066,7 @@ def rip_jeans(add, skin):
                         bone)
 
 
-def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06):
+def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06, closed=False):
     """An open anime jacket over the vest: a dark body with the front left open
     (lapels turned back in the red lining colour), a tall stand collar open at the
     throat, sleeves that bend with the arms (skinned to the arm bones) ending in
@@ -1080,11 +1080,11 @@ def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06
     ys = [0.012, 0.006, 0.0, -0.004, -0.004, 0.0, 0.004]
     body = fr.tube("Jacket", [(0, y, z) for y, z in zip(ys, zs)], [(a * 1.04, b * 1.04) for a, b in rr], jm, caps=False,
                    ring=48, rows=30, subdiv=2)
-    _pecs(body, depth=0.016)
-    _jacked_outline(body, 1.0)                          # follows the lats/waist/obliques underneath
+    _pecs(body, depth=0.0 if closed else 0.016)         # closed: a smooth leather front, no chest bulge
+    _jacked_outline(body, 0.6 if closed else 1.0)       # follows the lats/waist/obliques underneath
     bm = bmesh.new()
     bm.from_mesh(body.data)
-    gone = [f for f in bm.faces if f.calc_center_median().y < -0.05
+    gone = [] if closed else [f for f in bm.faces if f.calc_center_median().y < -0.05
             and abs(f.calc_center_median().x) < 0.045 + 0.06 * max(0.0, (1.3 - f.calc_center_median().z) / 0.35)]
     bmesh.ops.delete(bm, geom=gone, context="FACES")
     bm.to_mesh(body.data)
@@ -1094,7 +1094,7 @@ def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06
     if hasattr(m, "material_offset_rim"):
         pass
     add(body, "Spine")
-    for sx in (1, -1):                                  # lapels folded back, red lining showing
+    for sx in ((1, -1) if not closed else ()):          # lapels folded back, red lining showing
         add(fr.tube(f"Lapel{sx}", [(sx * 0.05, -0.145, 1.39), (sx * 0.075, -0.15, 1.31), (sx * 0.095, -0.15, 1.2),
                                    (sx * 0.1, -0.145, 1.1)],
                     [(0.004, 0.022), (0.004, 0.03), (0.004, 0.024), (0.003, 0.012)], tm, side=Vector((0, 1, 0)), subdiv=1),
@@ -1114,7 +1114,7 @@ def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06
                   ring=40, subdiv=1)
     bm = bmesh.new()
     bm.from_mesh(hem.data)                              # open at the front like the jacket
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.05
+    bmesh.ops.delete(bm, geom=[] if closed else [f for f in bm.faces if f.calc_center_median().y < -0.05
                                 and abs(f.calc_center_median().x) < 0.105], context="FACES")
     bm.to_mesh(hem.data)
     bm.free()
