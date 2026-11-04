@@ -52,7 +52,7 @@ NO_OUTLINE = ("FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "N
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
-def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="illustrated"):
+def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"):
     """outfit: 'vest' (white ribbed vest), 'bare' (bare torso: abs, obliques, back inked), 'jacket' (open anime jacket over the vest)."""
     global FACE
     FACE = FACE_STYLES[face]
@@ -185,7 +185,7 @@ FACE_STYLES = {
                     face_w=[(-0.3, 0.97), (-0.45, 0.9), (-0.6, 0.8), (-0.7, 0.72), (-0.85, 0.44), (-0.98, 0.17), (-1.06, 0.06)],
                     chin_drop=0.18, chin_fwd=0.5, head_size=(0.085, 0.106, 0.148), cheek=0.0)),
 }
-FACE = FACE_STYLES["illustrated"]
+FACE = FACE_STYLES["anime"]
 
 
 def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
@@ -1077,7 +1077,7 @@ def main(argv):
     ap.add_argument("--size", type=int, default=900)
     ap.add_argument("--outfit", default="vest", choices=("vest", "bare", "jacket"))
     ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
-    ap.add_argument("--face", default="illustrated", choices=tuple(FACE_STYLES))
+    ap.add_argument("--face", default="anime", choices=tuple(FACE_STYLES))
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     scene, rig, bike = build_anime(100, outfit=a.outfit, hand=a.hand, face=a.face)

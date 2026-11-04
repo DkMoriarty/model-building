@@ -13,7 +13,7 @@ import sys
 
 OUTFIT = "vest"          # "vest" | "bare" | "jacket"
 HAND = "relaxed"         # "relaxed" | "fist" | "open"
-FACE = "illustrated"     # "illustrated" (from your references) | "anime" (big anime eyes)
+FACE = "anime"           # "anime" (our anime face, default) | "illustrated" (reference study)
 EXPRESSION = "COOL"      # COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE
 FOLDER = r"C:\Users\Dhiraj Office\Downloads\toon_chars"
 
