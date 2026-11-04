@@ -542,7 +542,8 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                         for (z0, f0), (z1, f1) in zip(fw, fw[1:]):
                             if z1 <= z <= z0:
                                 u_ = (z0 - z) / (z0 - z1)
-                                u_ = (1 - math.cos(math.pi * u_)) / 2
+                                if not LAYOUT.get("face_lin"):          # linear = straight jaw lines, no waves
+                                    u_ = (1 - math.cos(math.pi * u_)) / 2
                                 frac = f0 + (f1 - f0) * u_
                                 break
                     x *= wt * frac / sw

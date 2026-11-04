@@ -1,5 +1,7 @@
 # Anime face - feature definitions (baseline to refine from)
 
+**Status: all 14 features approved (2 corrected).**
+
 Default face of the anime character (`blender_pipeline/characters3d/anime_char.py`,
 `FACE_STYLES["anime"]` + `ANIME_LAYOUT`). Units: head units (x: half face width,
 z: from head centre, + up). Every feature is a drawn shape laid on the face surface.
@@ -8,7 +10,7 @@ Tell the agent "feature N: change X" and it edits the matching value.
 | # | Feature | Definition now | Where (anime_char.py) |
 |---|---|---|---|
 | 1 | Head | narrow, long: size (0.096, 0.11, 0.145) m; shallow eye sockets | `size`, `socket` |
-| 2 | Face outline | full cheekbone -> soft jaw angle at mouth level -> straight line -> narrow pointed chin, chin forward of the neck, inked 1.6 mm | `face_w`, `chin_drop`, `chin_fwd`, `add_outline(head, 0.0016)` |
+| 2 | Face outline | FINAL: full cheekbone, gentle curve into straight jaw lines meeting in a sharp V chin (linear profile, no notches), chin forward of the neck, inked 1.6 mm | `face_w`, `face_lin`, `chin_drop`, `chin_fwd`, `add_outline(head, 0.0016)` |
 | 3 | Eye placement | centres at x = +/-0.43, z = -0.20 | `eye_ux`, `eye_uz` |
 | 4 | Eye shape | half-width 0.22; upper lid rises steeply from the inner corner, runs flat, drops to a sharp outer corner; shallow lower lid; height x1.4 | `EYE_TOP`, `EYE_BOT`, `EYE_HW`, `EYE_VZ` |
 | 5 | Iris | tall blue (#2f74d0) ellipse 0.44 x 0.128, cut by the upper lid; lighter lens low (#5aa3ef) | `iris`, `iris_lo` |
