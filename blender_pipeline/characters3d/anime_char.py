@@ -72,10 +72,18 @@ def build_anime(pct=100, reset=True):
                   paint=("skin", "blush_toon", "lip_toon", None), brows="sharp", wing=0.6, eye_shape="almond",
                   layout=ANIME_LAYOUT)
     fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.COL["hair"]), seed=21, style="anime")
-    # A slimmer anime neck.
-    for o in [o for o in bpy.data.objects if o.name == "Neck"]:
+    # A slimmer anime neck that tapers the right way: slim under the jaw,
+    # flaring at the base into the traps; its two diagonal muscles sit inside
+    # the silhouette (behind the ears -> the notch above the breastbone).
+    body_skin = next((o.data.materials[0] for o in bpy.data.objects if o.name == "Neck" and o.data.materials), skin)
+    for o in [o for o in bpy.data.objects if o.name == "Neck" or o.name.startswith("NeckMuscle")]:
         bpy.data.objects.remove(o)
-    add(fr.tube("Neck", [(0, 0.01, 1.42), (0, 0.0, fr.HEAD_Z - 0.08)], [0.04, 0.036], skin), "Neck")
+    add(fr.tube("Neck", [(0, 0.012, 1.395), (0, 0.006, 1.45), (0, 0.002, 1.52), (0, 0.0, fr.HEAD_Z - 0.08)],
+                [0.068, 0.046, 0.037, 0.034], body_skin), "Neck")
+    for sx in (1, -1):
+        add(fr.tube(f"NeckMuscle{sx}", [(sx * 0.026, 0.004, fr.HEAD_Z - 0.1), (sx * 0.022, -0.026, 1.5),
+                                        (sx * 0.011, -0.046, 1.43)],
+                    [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
     return scene, rig, bike
 
 
