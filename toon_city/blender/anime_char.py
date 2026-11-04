@@ -52,9 +52,13 @@ NO_OUTLINE = ("BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
-def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed"):
+def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="illustrated"):
     """outfit: 'vest' (white ribbed vest), 'bare' (bare torso: abs, obliques, back inked), 'jacket' (open anime jacket over the vest)."""
+    global FACE
+    FACE = FACE_STYLES[face]
     for k, v in ANIME_COL.items():
+        fr.COL[k] = fr.hx(v)
+    for k, v in FACE["colors"].items():
         fr.COL[k] = fr.hx(v)
     fr.HAIR = "ribbons"
     # Broad anime-male frame: shoulder joints (and so the arms) moved out.
@@ -79,12 +83,14 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed"):
         parts.append(ob)
         return ob
     hc = Vector((0, -0.01, fr.HEAD_Z))
-    size = (0.096, 0.11, 0.145)        # a narrower, longer anime male head
+    size = FACE["layout"].get("head_size", (0.096, 0.11, 0.145))     # narrower, longer anime/illustrated male head
     skin = fr.mat("skin", 0.6)
-    fr.build_face(add, hc, size, skin, "anime_iris", "hair", "lip_toon", nose=0.35, chin=0.4, cheek=0.6, jaw=0.75,
+    lay = dict(ANIME_LAYOUT)
+    lay.update(FACE["layout"])
+    fr.build_face(add, hc, size, skin, "anime_iris", "hair", "lip_toon", nose=FACE["nose"], chin=0.4, cheek=FACE["layout"].get("cheek", 0.6), jaw=0.75,
                   eye_r=0.036, smirk=0.15, style="toon", lips=0.2,
                   paint=("skin", "blush_toon", "lip_toon", None), brows="sharp", wing=0.6, eye_shape="almond",
-                  layout=ANIME_LAYOUT)
+                  layout=lay)
     build_anime_face(add, hc, size)
     fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.COL["hair"]), seed=21, style="anime")
     # A slimmer anime neck that tapers the right way: slim under the jaw,
@@ -145,6 +151,31 @@ EYE_BOT = [(-1.0, -0.004), (-0.5, -0.04), (0.0, -0.052), (0.5, -0.04), (1.0, 0.0
 EYE_HW = 0.22           # half-width in head units
 EYE_VZ = 1.4            # vertical scale of the eye outline
 
+# Face styles. "anime": big sharp anime eyes. "illustrated": studied from the user's
+# feature-illustration references (long angular face, long wedge nose, narrow
+# heavy-lidded eyes with small dark irises, thick angular brows, warm tan skin,
+# brown hair) - the default.
+FACE_STYLES = {
+    "anime": dict(top=EYE_TOP, bot=EYE_BOT, hw=EYE_HW, vz=EYE_VZ, iris=(0.05, 0.006, 0.44, 0.128), iris_lo=True,
+                  pupil=(0.18, 0.066), glint=(0.27, 0.048, 0.03, 0.034), glint2=True, lash_k=1.0, low=(0.15, 0.45, 0.75, 0.98),
+                  brow=[(-0.15, 0.15), (-0.02, 0.18), (0.12, 0.193), (0.24, 0.184)], brow_w=[0.0028, 0.0026, 0.0019, 0.0005],
+                  nose=0.35, colors={}, layout={}),
+    "illustrated": dict(
+        top=[(-1.0, -0.004), (-0.6, 0.034), (-0.1, 0.05), (0.4, 0.049), (0.8, 0.033), (1.0, 0.012)],
+        bot=[(-1.0, -0.004), (-0.4, -0.027), (0.1, -0.033), (0.6, -0.023), (1.0, 0.006)],
+        hw=0.21, vz=1.65, iris=(0.12, 0.002, 0.42, 0.074 * 1.65), iris_lo=False, pupil=(0.2, 0.075),
+        glint=(0.32, 0.04, 0.024, 0.026), glint2=False, lash_k=1.45, low=(0.55, 0.8, 0.98),
+        brow=[(-0.16, 0.1), (-0.04, 0.13), (0.1, 0.146), (0.23, 0.12)], brow_w=[0.0044, 0.0047, 0.0037, 0.0008],
+        nose=0.0,
+        colors={"anime_iris": "#3b2416", "anime_iris_hi": "#6b4428", "hair": "#6e3f22", "brow_ink": "#3b2214",
+                "skin": "#ebb892", "blush_toon": "#eeb196", "skin_cel_lit": "#ebb892", "skin_cel_shadow": "#c98a6a",
+                "skin_cel_rim": "#fde3cc", "nose_shadow": "#cf916f", "skin_shade": "#d99d7c", "blush_line": "#d9776c"},
+        layout=dict(eye_ux=0.4, eye_uz=-0.15, nose_z=-0.52, wedge_nose=2.4, jaw_plane=0.5,
+                    face_w=[(-0.3, 0.97), (-0.45, 0.9), (-0.6, 0.8), (-0.7, 0.72), (-0.85, 0.44), (-0.98, 0.17), (-1.06, 0.06)],
+                    chin_drop=0.18, chin_fwd=0.5, head_size=(0.09, 0.108, 0.148), cheek=0.0)),
+}
+FACE = FACE_STYLES["illustrated"]
+
 
 def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
     """Sharp anime face features as thin shapes on the face surface (so they are
@@ -158,12 +189,12 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
     for o in [o for o in bpy.data.objects if o.name.startswith(tuple(prefix + n for n in (
             "Eye", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Lid")))]:
         bpy.data.objects.remove(o)
-    fr.COL["anime_iris_hi"] = fr.hx(iris_hi)
-    fr.COL["brow_ink"] = fr.hx("#1a1b2c")
-    fr.COL["nose_shadow"] = fr.hx("#e0a593")
+    fr.COL.setdefault("anime_iris_hi", fr.hx(iris_hi))
+    fr.COL.setdefault("brow_ink", fr.hx("#1a1b2c"))
+    fr.COL.setdefault("nose_shadow", fr.hx("#e0a593"))
     m_white, m_iris, m_iris_hi = fr.mat("eye_white", 0.15), fr.mat("anime_iris", 0.15), fr.mat("anime_iris_hi", 0.15)
     m_pupil, m_glint, m_ink = fr.mat("iris", 0.15), fr.mat("eye_white", 0.15), fr.mat("liner", 0.15)
-    fr.COL["blush_line"] = fr.hx("#ec8c84")
+    fr.COL.setdefault("blush_line", fr.hx("#ec8c84"))
     m_brow, m_nose, m_blush_line = fr.mat("brow_ink", 0.15), fr.mat("nose_shadow", 0.15), fr.mat("blush_line", 0.15)
 
     def P(ux, uz, layer):
@@ -219,13 +250,13 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
         ex, ez = sx * L["eye_ux"], L["eye_uz"]
 
         def X(u):
-            return ex + sx * u * EYE_HW
+            return ex + sx * u * FACE["hw"]
 
         def top(u):
-            return ez + _smooth_interp(EYE_TOP, u) * EYE_VZ
+            return ez + _smooth_interp(FACE["top"], u) * FACE["vz"]
 
         def bot(u):
-            return ez + _smooth_interp(EYE_BOT, u) * EYE_VZ
+            return ez + _smooth_interp(FACE["bot"], u) * FACE["vz"]
 
         def clip(poly):
             out = []
@@ -240,32 +271,38 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
         white = [(X(-1 + 2 * i / N), top(-1 + 2 * i / N)) for i in range(N + 1)] + \
                 [(X(1 - 2 * i / N), bot(1 - 2 * i / N)) for i in range(1, N)]
         decal(f"Eye{sx}", [(m_white, white)], 0, origin=centre)
-        ic_u, ic_z, iru, irz = 0.05, ez + 0.006, 0.44, 0.128
+        ic_u, dz_, iru, irz = FACE["iris"]
+        ic_z = ez + dz_
         iris = clip(ellipse(ic_u, ic_z, iru, irz))
-        iris_lo = clip(ellipse(ic_u, ic_z - 0.05, iru * 0.66, irz * 0.4))          # one clean lighter lens low in the iris
-        decal(f"Iris{sx}", [(m_iris, iris, 1), (m_iris_hi, iris_lo, 1.6)], 1, origin=centre)
-        decal(f"Pupil{sx}", [(m_pupil, clip(ellipse(ic_u, ic_z + 0.01, 0.18, 0.066)))], 2.3, origin=centre)
-        g1 = [(X(0.27) + 0.03 * math.cos(a), ez + 0.048 + 0.034 * math.sin(a)) for a in
-              [2 * math.pi * i / 20 for i in range(20)]]
-        g2 = [(X(-0.18) + 0.014 * math.cos(a), ez - 0.038 + 0.014 * math.sin(a)) for a in
-              [2 * math.pi * i / 14 for i in range(14)]]
+        polys = [(m_iris, iris, 1)]
+        if FACE["iris_lo"]:
+            polys.append((m_iris_hi, clip(ellipse(ic_u, ic_z - 0.05, iru * 0.66, irz * 0.4)), 1.6))   # lighter lens low in the iris
+        decal(f"Iris{sx}", polys, 1, origin=centre)
+        pru, prz = FACE["pupil"]
+        decal(f"Pupil{sx}", [(m_pupil, clip(ellipse(ic_u, ic_z + 0.006, pru, prz)))], 2.3, origin=centre)
+        gu, gz_, grx, grz = FACE["glint"]
+        g1 = [(X(gu) + grx * math.cos(a), ez + gz_ + grz * math.sin(a)) for a in [2 * math.pi * i / 20 for i in range(20)]]
         decal(f"Glint{sx}", [(m_glint, g1)], 3, origin=centre)
-        decal(f"Glint2{sx}", [(m_glint, g2)], 3, origin=centre)
+        if FACE["glint2"]:
+            g2 = [(X(-0.18) + 0.014 * math.cos(a), ez - 0.038 + 0.014 * math.sin(a)) for a in
+                  [2 * math.pi * i / 14 for i in range(14)]]
+            decal(f"Glint2{sx}", [(m_glint, g2)], 3, origin=centre)
         # Upper lash line: thin at the inner corner, heavy over the outer half, ending in a flick.
         us = [-1.0, -0.7, -0.35, 0.0, 0.35, 0.7, 0.95]
         lash = [(X(u), top(u) + 0.005) for u in us] + [(X(1.13), top(1.0) + 0.02)]
-        ink(f"LidLiner{sx}", lash, [0.0006, 0.0014, 0.002, 0.0024, 0.0028, 0.003, 0.0025, 0.0006], m_ink, 4,
+        lk = FACE["lash_k"]
+        ink(f"LidLiner{sx}", lash, [w * lk for w in (0.0006, 0.0014, 0.002, 0.0024, 0.0028, 0.003, 0.0025, 0.0006)], m_ink, 4,
             origin=centre)
-        low = [(X(u), bot(u) - 0.003) for u in (0.15, 0.45, 0.75, 0.98)]
-        ink(f"LowLiner{sx}", low, [0.0003, 0.0008, 0.0009, 0.0003], m_ink, 4, origin=centre)
+        low = [(X(u), bot(u) - 0.003) for u in FACE["low"]]
+        lw_ = [0.0003] + [0.0008] * (len(low) - 2) + [0.0003]
+        ink(f"LowLiner{sx}", low, lw_, m_ink, 4, origin=centre)
         crease = [(X(u), top(u) + 0.042) for u in (-0.35, 0.05, 0.45, 0.8)]
         ink(f"Crease{sx}", crease, [0.0002, 0.0006, 0.0006, 0.0002], m_ink, 4)
         # Sharp brow: low and heavy at the inner end, rising to a fine outer point.
-        brow = [(ex - sx * 0.15, ez + 0.15), (ex - sx * 0.02, ez + 0.18), (ex + sx * 0.12, ez + 0.193),
-                (ex + sx * 0.24, ez + 0.184)]
+        brow = [(ex + sx * du, ez + dz) for du, dz in FACE["brow"]]
         # Drawn over the bangs (anime convention): lifted clear of the hair in front.
         bw = [P(u, z, 3) + Vector((0, -0.03, 0)) for u, z in brow]
-        bo = fr.tube(prefix + f"Brow{sx}", bw, [0.0028, 0.0026, 0.0019, 0.0005], m_brow, subdiv=1, ring=8)
+        bo = fr.tube(prefix + f"Brow{sx}", bw, FACE["brow_w"], m_brow, subdiv=1, ring=8)
         o_ = P(ex, ez + 0.175, 3) + Vector((0, -0.03, 0))
         bo.data.transform(Matrix.Translation(-o_))
         bo.location = o_
@@ -323,7 +360,7 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
             o.scale = o.scale * 0.001
     # The shadow the bangs throw: one clean band with pointed teeth echoing the
     # fringe tips, painted on (the hair itself casts no messy shadows on the face).
-    fr.COL["skin_shade"] = fr.hx("#e6b2a1")
+    fr.COL.setdefault("skin_shade", fr.hx("#e6b2a1"))
     m_shade = fr.mat("skin_shade", 0.15)
     ez0 = L["eye_uz"]
     me_v, me_f = [], []
@@ -340,7 +377,8 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
     me.materials.append(m_shade)
     add(fr._link(bpy.data.objects.new(prefix + "BangShadow", me)), "Head")
     info = fr.FACE_INFO.setdefault(prefix, {})
-    info.update(dict(hc=hc.copy(), size=size, eye_r=0.0113 * EYE_VZ, almond=True, ah=1.0, decal=True))
+    info.update(dict(hc=hc.copy(), size=size, eye_r=0.0113 * FACE["vz"] * max(0.6, _smooth_interp(FACE["top"], 0.0) / 0.07),
+                     almond=True, ah=1.0, decal=True))
 
 
 def restore_frame():
@@ -1006,9 +1044,10 @@ def main(argv):
     ap.add_argument("--size", type=int, default=900)
     ap.add_argument("--outfit", default="vest", choices=("vest", "bare", "jacket"))
     ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
+    ap.add_argument("--face", default="illustrated", choices=tuple(FACE_STYLES))
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
-    scene, rig, bike = build_anime(100, outfit=a.outfit, hand=a.hand)
+    scene, rig, bike = build_anime(100, outfit=a.outfit, hand=a.hand, face=a.face)
     for o in bpy.data.objects:          # character only
         if o.name.startswith(("TopTube", "DownTube", "SeatTube", "HeadTube", "ChainStay", "SeatStay", "Fork", "Stem",
                               "Bar", "Grip", "SeatPost", "Saddle", "Cog", "Chain", "Wheel", "Tire", "Rim", "Hub",

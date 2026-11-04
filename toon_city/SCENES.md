@@ -57,3 +57,12 @@ Body (anime only, the base body is untouched): wider frame (shoulder/arm joints 
 moves the IK hand targets). Outfits: `bare`, `vest` (knit shows the forms softly),
 `jacket` (open dark jacket, red lapels/lining, stand collar, skinned sleeves, cuffs,
 shoulder yoke).
+
+### Face styles (`--face illustrated | anime`)
+
+`illustrated` (default) is studied from the user's feature-illustration references
+(umbrella/rose shorts, reels): long angular face, a long triangular wedge nose that
+reads in profile (`wedge_nose`), narrow heavy-lidded eyes with small dark irises and
+one catch-light, thick angular brows close to the eyes, warm tan skin, brown hair,
+blush strokes, pointed chin forward of the neck. `anime` keeps the big blue anime eyes.
+Both draw the features on the face surface (`build_anime_face`), driven by `FACE_STYLES`.

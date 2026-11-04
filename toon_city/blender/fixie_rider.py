@@ -401,7 +401,21 @@ def soft_features(x, z, nose=1.0, chin=1.0, smirk=1.0, lips=1.0):
     L = LAYOUT
     nz, ez = L["nose_z"], L["eye_uz"]
     span = max(0.12, ez - nz)
-    if L.get("diamond"):
+    if L.get("wedge_nose"):
+        # Illustrated wedge nose: a long straight bridge rising from between the
+        # eyes to a triangular tip, widening as it goes; the underside cuts back
+        # quickly to the face (a clear triangle in profile and 3/4).
+        k = L["wedge_nose"]
+        z_top = ez + 0.05
+        if nz - 0.06 < z < z_top:
+            ramp = (z_top - z) / (z_top - nz)                       # 0 at the brow line -> 1 at the tip
+            if z < nz:                                              # under the tip: cut back to the face
+                ramp = max(0.0, 1 - (nz - z) / 0.06) ** 1.5
+            w = 0.035 + 0.075 * min(1.0, ramp)
+            d += 0.17 * k * min(1.0, ramp) ** 1.15 * _tent(x, w) ** 0.9
+        for sx in (1, -1):                                          # small nostril wings at the base
+            d += 0.03 * k * _g(x, sx * 0.075, 0.03) * _g(z, nz - 0.03, 0.03)
+    elif L.get("diamond"):
         # Flattened planes: a knife-edge bridge (tent, not bell) widening into a
         # diamond tip - flat facets meeting in crisp ridges.
         dm = L["diamond"]
@@ -541,7 +555,7 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                         side_ = min(1.0, max(0.0, (abs(x) - 0.12) / 0.25))   # only under the jaw's sides, never the chin
                         zj = -0.42 - 0.7 * max(0.0, min(1.0, (0.35 - y) / 0.95))
                         if z < zj and side_ > 0:
-                            z = z + (zj - z) * 0.78 * side_
+                            z = z + (zj - z) * LAYOUT["jaw_plane"] * side_
                 elif vj:
                     # Anime contour: the cheek line runs nearly straight down to a
                     # defined jaw angle, then straight lines close to a pointed chin.
