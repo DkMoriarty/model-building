@@ -546,6 +546,17 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                                     u_ = (1 - math.cos(math.pi * u_)) / 2
                                 frac = f0 + (f1 - f0) * u_
                                 break
+                    jc = LAYOUT.get("jaw_corner", 0.0)
+                    if jc:
+                        # the V narrows the FRONT; at the back the jaw stays wide down to a
+                        # corner under the ear, then the underside flattens - a defined jaw
+                        b_ = min(1.0, max(0.0, (y + 0.25) / 0.35)) * jc
+                        cz0 = LAYOUT.get("corner_z", -0.72)
+                        cw_ = LAYOUT.get("corner_w", 0.76)
+                        cwid = cw_ if z > cz0 else cw_ * max(0.0, 1 - (cz0 - z) / 0.12)
+                        frac = frac + (max(frac, cwid) - frac) * b_
+                        if z < cz0 - 0.08:
+                            z = (cz0 - 0.08) + (z - (cz0 - 0.08)) * (1 - 0.85 * b_)
                     x *= wt * frac / sw
                     z -= LAYOUT.get("chin_drop", 0.05) * shield * t ** 2
                     if y < 0.25:                               # the chin sits forward of the neck, not over it
@@ -557,6 +568,15 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                         zj = -0.42 - 0.7 * max(0.0, min(1.0, (0.35 - y) / 0.95))
                         if z < zj and side_ > 0:
                             z = z + (zj - z) * LAYOUT["jaw_plane"] * side_
+                    rk = LAYOUT.get("ramus", 0.0)
+                    if rk and z < -0.3 and y > -0.2:
+                        # Defined jaw corner: the back edge of the jaw drops from below the
+                        # ear to a corner; everything behind/below it steps in to the neck,
+                        # so the jaw reads as a clear shelf over the neck.
+                        behind = min(1.0, max(0.0, (y + 0.05) / 0.25))           # behind the ramus line
+                        below = min(1.0, max(0.0, (-0.3 - z) / 0.15))
+                        k_ = 1.0 - rk * 0.28 * behind * below
+                        x *= k_
                 elif vj:
                     # Anime contour: the cheek line runs nearly straight down to a
                     # defined jaw angle, then straight lines close to a pointed chin.
@@ -672,6 +692,29 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
             paint_cols.append((c, lipw))
         y -= d
         v.co = Vector((hc.x + x * sx, hc.y + y * sy, hc.z + z * sz))
+    jb = LAYOUT.get("jaw_box", 0.0) if toon else 0.0
+    if jb:
+        # Defined jaw (as in illustrated references): the underside of the jaw runs
+        # nearly LEVEL from beside the chin back to a clear corner under the ear,
+        # then the back edge rises steeply - instead of one long diagonal.
+        U = [((v.co.x - hc.x) / sx, (v.co.y - hc.y) / sy, (v.co.z - hc.z) / sz) for v in bm.verts]
+        bins = {}
+        for ux, uy, uz in U:
+            if abs(ux) > 0.12 and uz < -0.3:
+                b_ = round(uy * 20)
+                bins[b_] = min(bins.get(b_, 0.0), uz)
+        level = LAYOUT.get("jaw_level", -0.8)
+        for v, (ux, uy, uz) in zip(bm.verts, U):
+            if uz >= -0.3 or abs(ux) < 0.08 or not (-0.75 < uy < 0.42):
+                continue
+            zb = bins.get(round(uy * 20))
+            if zb is None or zb <= level:
+                continue
+            w = min(1.0, (abs(ux) - 0.08) / 0.2)                         # sides only (chin untouched)
+            w *= min(1.0, (0.42 - uy) / 0.12)                            # fades out behind the corner -> the step
+            s_ = (level + 0.3) / (zb + 0.3)
+            nz = -0.3 + (uz + 0.3) * s_
+            v.co.z = hc.z + (uz + (nz - uz) * jb * w) * sz
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()

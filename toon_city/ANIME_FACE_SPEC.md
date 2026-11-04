@@ -22,6 +22,7 @@ Tell the agent "feature N: change X" and it edits the matching value.
 | 11 | Blush | three short pink strokes per cheek + soft painted cheek colour | `BlushLine`, `blush_toon` |
 | 12 | Shading | flat face (cel terminator 0.015), one painted shadow band under the bangs, hair casts no shadow on the face | `cel_material`, `BangShadow` |
 | 13 | Colours | skin #f6d3bd, hair #20223a, iris #2f74d0, ink #141522 | `ANIME_COL` |
+| 16 | Jawline | defined like the references: the V narrows the front only; at the back the jaw stays wide down to a corner under the ear (`corner_z`, `corner_w`), underside flattened -> a clear jaw angle in profile and 3/4 | `jaw_corner`, `corner_z`, `corner_w` |
 | 15 | Side profile | brow ridge, eyes set back, small pointed nose, dip under it, lips, recess, chin forward to a point; crisp jaw underside back to the ear | `profile`, `jaw_plane` |
 | 14 | Ears | small, at z = -0.12, set out from the skull so they show in 3/4 and profile | `ear_uz`, `ear_h`, `ear_x`, `ear_flare` |
 
