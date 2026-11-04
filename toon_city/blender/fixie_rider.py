@@ -515,7 +515,34 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                 sw = max(0.3, math.sqrt(max(0.0, 1 - z * z)))
                 wt = (1 + 0.1 * shield) * math.sqrt(max(0.0, 1 - top * top))
                 vj = LAYOUT.get("vjaw")
-                if vj:
+                fw = LAYOUT.get("face_w")
+                if fw:
+                    # Designed outline: half-width as a fraction of the cheek width at
+                    # given heights, smoothly interpolated (cheekbone -> taper -> jaw
+                    # angle -> straight line -> narrow chin with a small flat tip).
+                    if z >= fw[0][0]:
+                        frac = fw[0][1]
+                    elif z <= fw[-1][0]:
+                        frac = fw[-1][1]
+                    else:
+                        for (z0, f0), (z1, f1) in zip(fw, fw[1:]):
+                            if z1 <= z <= z0:
+                                u_ = (z0 - z) / (z0 - z1)
+                                u_ = (1 - math.cos(math.pi * u_)) / 2
+                                frac = f0 + (f1 - f0) * u_
+                                break
+                    x *= wt * frac / sw
+                    z -= LAYOUT.get("chin_drop", 0.05) * shield * t ** 2
+                    if y < 0.25:                               # the chin sits forward of the neck, not over it
+                        y -= LAYOUT.get("chin_fwd", 0.0) * t ** 1.5 * min(1.0, (0.25 - y) / 0.5)
+                    # Crisp underside of the jaw: a plane from below the ear (back, high)
+                    # to the chin (front, low) so the jawline reads at 3/4 and in profile.
+                    if LAYOUT.get("jaw_plane") and y < 0.45 and z < -0.3:
+                        side_ = min(1.0, max(0.0, (abs(x) - 0.12) / 0.25))   # only under the jaw's sides, never the chin
+                        zj = -0.42 - 0.7 * max(0.0, min(1.0, (0.35 - y) / 0.95))
+                        if z < zj and side_ > 0:
+                            z = z + (zj - z) * 0.78 * side_
+                elif vj:
                     # Anime contour: the cheek line runs nearly straight down to a
                     # defined jaw angle, then straight lines close to a pointed chin.
                     jz, jw, cw = vj                                # jaw-angle height, width there, chin width (x wt)

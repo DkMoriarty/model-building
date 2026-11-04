@@ -42,9 +42,11 @@ ANIME_COL = {
     "sole": "#3a3f55", "cap": "#c8313a", "cap_seam": "#9a2229", "bag": "#2a2b33",
 }
 
-ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=-1.0, ear_uz=-0.22, ear_h=0.55,
+ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=-1.0, ear_uz=-0.12, ear_h=0.46,
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
-                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15, vjaw=(-0.62, 0.72, 0.15))
+                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15,
+                    face_w=[(-0.3, 1.0), (-0.42, 0.95), (-0.54, 0.86), (-0.64, 0.75), (-0.8, 0.48), (-0.94, 0.21), (-1.04, 0.07)],
+                    chin_drop=0.1, chin_fwd=0.42)
 
 NO_OUTLINE = ("BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
@@ -77,7 +79,7 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed"):
         parts.append(ob)
         return ob
     hc = Vector((0, -0.01, fr.HEAD_Z))
-    size = (0.105, 0.11, 0.14)
+    size = (0.096, 0.11, 0.145)        # a narrower, longer anime male head
     skin = fr.mat("skin", 0.6)
     fr.build_face(add, hc, size, skin, "anime_iris", "hair", "lip_toon", nose=0.35, chin=0.4, cheek=0.6, jaw=0.75,
                   eye_r=0.036, smirk=0.15, style="toon", lips=0.2,
@@ -91,8 +93,8 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed"):
     body_skin = next((o.data.materials[0] for o in bpy.data.objects if o.name == "Neck" and o.data.materials), skin)
     for o in [o for o in bpy.data.objects if o.name == "Neck" or o.name.startswith("NeckMuscle")]:
         bpy.data.objects.remove(o)
-    add(fr.tube("Neck", [(0, 0.012, 1.395), (0, 0.006, 1.45), (0, 0.002, 1.52), (0, 0.0, fr.HEAD_Z - 0.08)],
-                [0.068, 0.046, 0.037, 0.034], body_skin), "Neck")
+    add(fr.tube("Neck", [(0, 0.014, 1.395), (0, 0.012, 1.45), (0, 0.014, 1.52), (0, 0.016, fr.HEAD_Z - 0.08)],
+                [0.07, 0.05, 0.043, 0.041], body_skin), "Neck")
     for sx in (1, -1):
         add(fr.tube(f"NeckMuscle{sx}", [(sx * 0.026, 0.004, fr.HEAD_Z - 0.1), (sx * 0.022, -0.026, 1.5),
                                         (sx * 0.011, -0.046, 1.43)],
