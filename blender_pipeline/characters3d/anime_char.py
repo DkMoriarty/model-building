@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
 
-NO_OUTLINE = ("Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -54,7 +54,18 @@ def build_anime(pct=100, reset=True):
     for k, v in ANIME_COL.items():
         fr.COL[k] = fr.hx(v)
     fr.HAIR = "ribbons"
-    scene, rig, bike = fr.build(pct, reset=reset)
+    # Broad anime-male frame: shoulder joints (and so the arms) moved out.
+    saved_j = dict(fr.J)
+    for side, sx in (("L", 1), ("R", -1)):
+        for j, dx in (("sho", 0.04), ("elb", 0.045), ("wri", 0.045), ("hand", 0.045)):
+            x, y, z = fr.J[f"{j}_{side}"]
+            fr.J[f"{j}_{side}"] = (x + sx * dx, y, z)
+    try:
+        scene, rig, bike = fr.build(pct, reset=reset)
+    finally:
+        pass                                 # J stays widened while this character is posed; restored by restore_frame()
+    global _SAVED_J
+    _SAVED_J = saved_j
     # Replace his face with the anime face: remove everything on the Head bone, rebuild.
     for o in [o for o in bpy.data.objects if o.parent == rig and o.parent_bone == "Head"]:
         bpy.data.objects.remove(o)
@@ -84,8 +95,95 @@ def build_anime(pct=100, reset=True):
         add(fr.tube(f"NeckMuscle{sx}", [(sx * 0.026, 0.004, fr.HEAD_Z - 0.1), (sx * 0.022, -0.026, 1.5),
                                         (sx * 0.011, -0.046, 1.43)],
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
+    build_chest(add, body_skin)
     build_shoulders(add, body_skin)
     return scene, rig, bike
+
+
+_SAVED_J = None
+
+
+def restore_frame():
+    """Put the shared rig joints back (only needed if other characters are built after this one)."""
+    if _SAVED_J:
+        fr.J.clear()
+        fr.J.update(_SAVED_J)
+
+
+def _pecs(ob, depth=0.022, cz=1.3, cx=0.075, top=0.065, under=0.045):
+    """Push two pectoral masses out of a torso/vest loft (vertices in world space):
+    broad and soft above, ending in a crisp horizontal shelf underneath, with a
+    shallow valley down the sternum between them."""
+    for v in ob.data.vertices:
+        x, y, z = v.co
+        if y > 0.02:
+            continue
+        front = min(1.0, max(0.0, (-y - 0.02) / 0.06))
+        w = 0.0
+        for c in (cx, -cx):
+            gx = math.exp(-((x - c) / 0.068) ** 2)
+            if z >= cz:
+                gz = math.exp(-((z - cz) / top) ** 2)
+            else:                                   # the under-pec shelf: holds full, then drops fast
+                gz = max(0.0, min(1.0, (z - (cz - under)) / 0.014)) * (1.0 if z > cz - under + 0.014 else 1.0)
+            w = max(w, gx * gz)
+        v.co.y -= depth * w * front
+
+
+def build_chest(add, skin):
+    """A broad V-shaped chest: wide at the pecs and lats, tapering to a narrower
+    waist; two pectoral masses with a crisp shelf underneath (the cel shading
+    throws a hard shadow line under each pec, through the vest too)."""
+    vest_mat = None
+    for name in ("Vest", "Torso"):
+        o = bpy.data.objects.get(name)
+        if o:
+            if name == "Vest":
+                vest_mat = o.data.materials[0] if o.data.materials else None
+            bpy.data.objects.remove(o)
+    for o in [o for o in bpy.data.objects if o.name.startswith("VestRib")]:
+        bpy.data.objects.remove(o)
+    zs = [0.95, 1.01, 1.07, 1.15, 1.22, 1.28, 1.33, 1.37, 1.395]
+    body = [(0.132, 0.096), (0.138, 0.1), (0.142, 0.104), (0.158, 0.108), (0.19, 0.118), (0.214, 0.124),
+            (0.218, 0.122), (0.205, 0.112), (0.19, 0.104)]
+    ys = [0.012, 0.01, 0.008, 0.004, 0.0, -0.004, -0.004, 0.0, 0.004]
+    torso = fr.tube("Torso", [(0, y, z) for y, z in zip(ys, zs)], [(a * 0.97, b * 0.97) for a, b in body], skin,
+                    ring=40, rows=34, subdiv=2)
+    _pecs(torso, depth=0.03)
+    add(torso, "Spine")
+    if vest_mat is not None:
+        vest = fr.tube("Vest", [(0, y, z) for y, z in zip(ys[:-1], zs[:-1])], body[:-1], vest_mat, caps=False,
+                       ring=40, rows=32, subdiv=2)
+        _pecs(vest, depth=0.032)
+        add(vest, "Spine")
+        # Anime chest lines inked on the vest: the curve under each pec and a short
+        # stroke down the breastbone (placed by ray-casting the reshaped vest).
+        from mathutils.bvhtree import BVHTree
+        me = vest.data
+        bvh = BVHTree.FromPolygons([vest.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+        liner = fr.mat("liner", 0.4)
+
+        def on_vest(x, z):
+            hit = bvh.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
+            return (hit[0] + Vector((0, -0.0025, 0))) if hit[0] is not None else Vector((x, -0.13, z))
+        for sx in (1, -1):
+            pts = [on_vest(sx * xx, zz) for xx, zz in ((0.028, 1.262), (0.06, 1.252), (0.095, 1.256), (0.125, 1.272),
+                                                      (0.145, 1.292))]
+            add(fr.tube(f"PecLine{sx}", pts, [0.0008, 0.0022, 0.0026, 0.002, 0.0006], liner, subdiv=1, ring=6), "Spine")
+        add(fr.tube("SternumLine", [on_vest(0.0, 1.335), on_vest(0.0, 1.3), on_vest(0.0, 1.27)], [0.0006, 0.0016, 0.0006],
+                    liner, subdiv=1, ring=6), "Spine")
+        # Knit ribs down the front panel, following the new chest.
+        for k in range(9):
+            xk = -0.12 + 0.03 * k
+            path = []
+            for z in (1.0, 1.1, 1.2, 1.29):
+                i = min(range(len(zs)), key=lambda n: abs(zs[n] - z))
+                rx, ry = body[i]
+                y = -ry * math.sqrt(max(0.0, 1 - (xk / rx) ** 2)) + ys[i] - 0.0015
+                path.append((xk, y, z))
+            rib = fr.tube(f"VestRib{k}", path, [0.0022] * 4, vest_mat, subdiv=0, ring=6)
+            _pecs(rib, depth=0.022)
+            add(rib, "Spine")
 
 
 def build_shoulders(add, skin):
@@ -108,9 +206,9 @@ def build_shoulders(add, skin):
                     mats[0] if mats else skin)
         add(t, "Spine")
     # Top-line samples across the body: (|x|, top z, vertical half-size, depth half-size, y offset)
-    spec = [(0.0, 1.47, 0.08, 0.07, 0.012), (0.05, 1.465, 0.078, 0.078, 0.012), (0.1, 1.448, 0.072, 0.092, 0.012),
-            (0.15, 1.425, 0.066, 0.092, 0.008), (0.19, 1.405, 0.062, 0.08, 0.004), (0.225, 1.38, 0.058, 0.062, 0.0),
-            (0.245, 1.35, 0.048, 0.045, 0.0)]
+    spec = [(0.0, 1.47, 0.08, 0.07, 0.012), (0.05, 1.465, 0.078, 0.08, 0.012), (0.1, 1.45, 0.074, 0.095, 0.012),
+            (0.16, 1.428, 0.068, 0.098, 0.008), (0.21, 1.408, 0.064, 0.088, 0.004), (0.25, 1.385, 0.06, 0.07, 0.0),
+            (0.28, 1.355, 0.05, 0.05, 0.0)]
     pts, radii = [], []
     for sgn in (-1, 1):
         rows = spec if sgn > 0 else list(reversed(spec))
