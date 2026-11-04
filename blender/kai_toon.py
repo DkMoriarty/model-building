@@ -175,16 +175,17 @@ def _link(obj):
     _COLL.objects.link(obj)
 
 
-def finish(name, bm, mat, loc=(0, 0, 0), rot=None, outline=True, width=None):
+def finish(name, bm, mat, loc=(0, 0, 0), rot=None, outline=True, width=None, smooth=True):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)  # outward, for the outline shell
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
-    try:
-        me.shade_smooth()
-    except AttributeError:
-        for p in me.polygons:
-            p.use_smooth = True
+    if smooth:
+        try:
+            me.shade_smooth()
+        except AttributeError:
+            for p in me.polygons:
+                p.use_smooth = True
     obj = bpy.data.objects.new(name, me)
     obj.location = loc
     if rot is not None:
@@ -263,7 +264,7 @@ def box(name, mat, loc, size, outline=True, width=None):
     bm = bmesh.new()
     bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.transform(bm, matrix=Matrix.Diagonal((*size, 1.0)), verts=bm.verts)
-    return finish(name, bm, mat, loc, None, outline, width)
+    return finish(name, bm, mat, loc, None, outline, width, smooth=False)
 
 
 def on_head(x, dz, lift=0.0):
@@ -443,10 +444,22 @@ def setup_render(scene):
     world = scene.world or bpy.data.worlds.new("World")
     scene.world = world
     world.use_nodes = True
-    bg = world.node_tree.nodes.get("Background")
-    if bg:
-        bg.inputs["Color"].default_value = hex_rgba(PALETTE["sky"])
-        bg.inputs["Strength"].default_value = 1.0
+    # Sky colour is seen by the camera only; it does not light the scene,
+    # so the sun alone decides where the cel shadow bands fall.
+    wn = world.node_tree.nodes
+    wn.clear()
+    sky = wn.new("ShaderNodeBackground")
+    sky.inputs["Color"].default_value = hex_rgba(PALETTE["sky"])
+    dark = wn.new("ShaderNodeBackground")
+    dark.inputs["Color"].default_value = (0, 0, 0, 1)
+    path = wn.new("ShaderNodeLightPath")
+    mix = wn.new("ShaderNodeMixShader")
+    wout = wn.new("ShaderNodeOutputWorld")
+    wl = world.node_tree.links
+    wl.new(path.outputs["Is Camera Ray"], mix.inputs["Fac"])
+    wl.new(dark.outputs["Background"], mix.inputs[1])
+    wl.new(sky.outputs["Background"], mix.inputs[2])
+    wl.new(mix.outputs["Shader"], wout.inputs["Surface"])
 
     sun = bpy.data.lights.new("Key", "SUN")
     sun.energy = 3.0
