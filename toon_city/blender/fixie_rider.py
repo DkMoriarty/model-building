@@ -562,7 +562,7 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         eux = LAYOUT["eye_ux"] if toon and "hairline" in LAYOUT else 0.37      # mapped faces: sockets follow the eyes
         euz = LAYOUT["eye_uz"] + 0.05 if toon and "hairline" in LAYOUT else 0.1
         for ex in (eux, -eux):
-            d -= 0.16 * _g(x, ex, 0.15) * _g(z, euz, 0.12) * f                    # deep eye sockets
+            d -= 0.16 * LAYOUT.get("socket", 1.0) * _g(x, ex, 0.15) * _g(z, euz, 0.12) * f   # eye sockets (anime: shallow)
             d += 0.06 * cheek * _g(x, ex * 1.45, 0.14) * _g(z, euz - 0.24, 0.14) * f    # cheekbones
         d += 0.07 * _g(z, 0.31, 0.07) * (_g(x, 0.34, 0.22) + _g(x, -0.34, 0.22)) * f  # brow ridge
         if wedge:
@@ -2175,7 +2175,12 @@ class FaceRig:
                 if k in self.obs:
                     bs = self.base_scale[k]
                     sc = (bs.x * c["pupil"], bs.y, bs.z * c["pupil"]) if not part.startswith("Glint") else bs
-                    if almond and part in ("Iris", "Pupil"):          # irises are cut by the narrowed opening
+                    if FACE_INFO[self.p].get("decal"):
+                        # drawn eyes: the iris keeps its size (only the pupil dilates); the
+                        # whole eye squashes about its centre with the lid
+                        sc = (bs.x * c["pupil"], bs.y, bs.z * c["pupil"]) if part == "Pupil" else bs
+                        sc = (sc[0], sc[1], sc[2] * min(1.0, max(0.12, c["lid"])))
+                    elif almond and part in ("Iris", "Pupil"):          # irises are cut by the narrowed opening
                         sc = (sc[0], sc[1], sc[2] * min(1.0, max(0.12, c["lid"])))
                     self._set(k, move=(gx * r * 0.35, 0, gz * r * 0.35), scale=sc)
             for k in (f"Sparkle{sx}0", f"Sparkle{sx}1"):

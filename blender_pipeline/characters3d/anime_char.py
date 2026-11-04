@@ -29,13 +29,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import bpy  # noqa: E402
-from mathutils import Vector  # noqa: E402
+from mathutils import Matrix, Vector  # noqa: E402
 
 import fixie_rider as fr  # noqa: E402
 
 # Palette: clean anime colours (Standard view transform keeps them as picked).
 ANIME_COL = {
-    "skin": "#f6d3bd", "blush_toon": "#f3b4a6", "lip_toon": "#d97b78",
+    "skin": "#f6d3bd", "blush_toon": "#f5c6b5", "lip_toon": "#d97b78",
     "skin_cel_lit": "#f6d3bd", "skin_cel_shadow": "#d9a495", "skin_cel_rim": "#fff1e6",   # body = face skin
     "anime_iris": "#2f74d0", "hair": "#20223a", "eye_white": "#ffffff", "iris": "#0e1020", "liner": "#141522",
     "shirt": "#f4f4f6", "shirt_seam": "#c9cbd6", "shorts": "#27304f", "sock": "#f4f4f6", "shoe": "#ececf0",
@@ -44,13 +44,13 @@ ANIME_COL = {
 
 ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=-1.0, ear_uz=-0.22, ear_h=0.55,
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
-                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
+                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15)
 
-NO_OUTLINE = ("DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
-def build_anime(pct=100, reset=True, outfit="vest"):
+def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed"):
     """outfit: 'vest' (white ribbed vest), 'bare' (bare torso: abs, obliques, back inked), 'jacket' (open anime jacket over the vest)."""
     for k, v in ANIME_COL.items():
         fr.COL[k] = fr.hx(v)
@@ -83,6 +83,7 @@ def build_anime(pct=100, reset=True, outfit="vest"):
                   eye_r=0.036, smirk=0.15, style="toon", lips=0.2,
                   paint=("skin", "blush_toon", "lip_toon", None), brows="sharp", wing=0.6, eye_shape="almond",
                   layout=ANIME_LAYOUT)
+    build_anime_face(add, hc, size)
     fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.COL["hair"]), seed=21, style="anime")
     # A slimmer anime neck that tapers the right way: slim under the jaw,
     # flaring at the base into the traps; its two diagonal muscles sit inside
@@ -99,7 +100,7 @@ def build_anime(pct=100, reset=True, outfit="vest"):
     build_chest(add, body_skin, outfit=outfit)
     build_shoulders(add, body_skin)
     build_arms(add, rig, body_skin, ink=outfit != "jacket")
-    build_hands(add, body_skin)
+    build_hands(add, body_skin, pose=hand)
     if outfit == "jacket":
         build_jacket(add, rig)
     return scene, rig, bike
@@ -115,6 +116,168 @@ def pose_a(rig, spread=0.085, lift=0.03, fwd=-0.02):
 
 
 _SAVED_J = None
+
+
+# ---------------------------------------------------------------------------
+# The anime face: drawn features laid on the face surface
+# ---------------------------------------------------------------------------
+
+def _smooth_interp(keys, u):
+    """Smooth (cosine) interpolation through [(u, value), ...]."""
+    if u <= keys[0][0]:
+        return keys[0][1]
+    for (u0, v0), (u1, v1) in zip(keys, keys[1:]):
+        if u <= u1:
+            t = (u - u0) / (u1 - u0)
+            t = (1 - math.cos(math.pi * t)) / 2
+            return v0 + (v1 - v0) * t
+    return keys[-1][1]
+
+
+# Eye outline in eye-local units: u from -1 (inner corner) to +1 (outer corner),
+# z offsets in head units. A sharp anime eye: the upper lid rises steeply from the
+# inner corner, runs nearly flat, and drops to a sharp outer corner; the lower lid
+# is a shallow curve meeting it there.
+EYE_TOP = [(-1.0, -0.004), (-0.65, 0.045), (-0.25, 0.07), (0.25, 0.068), (0.7, 0.05), (1.0, 0.026)]
+EYE_BOT = [(-1.0, -0.004), (-0.5, -0.04), (0.0, -0.052), (0.5, -0.04), (1.0, 0.018)]
+EYE_HW = 0.22           # half-width in head units
+EYE_VZ = 1.4            # vertical scale of the eye outline
+
+
+def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
+    """Sharp anime face features as thin shapes on the face surface (so they are
+    exactly the drawn shapes, never dark sockets or white masks): eye whites, a
+    tall iris cut by the upper lid with a lighter lower crescent, pupil, two
+    catch-lights, a heavy tapered upper lash line ending in a flick, a fine lower
+    line at the outer half, a lid crease, sharp angled brows, a tiny nose shadow
+    and blush strokes. Object names match FaceRig (Eye, Iris, Pupil, Glint, Glint2,
+    LidLiner, LowLiner, Brow) so expressions keep working."""
+    L = fr.LAYOUT
+    for o in [o for o in bpy.data.objects if o.name.startswith(tuple(prefix + n for n in (
+            "Eye", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Lid")))]:
+        bpy.data.objects.remove(o)
+    fr.COL["anime_iris_hi"] = fr.hx(iris_hi)
+    fr.COL["brow_ink"] = fr.hx("#1a1b2c")
+    fr.COL["nose_shadow"] = fr.hx("#e0a593")
+    m_white, m_iris, m_iris_hi = fr.mat("eye_white", 0.15), fr.mat("anime_iris", 0.15), fr.mat("anime_iris_hi", 0.15)
+    m_pupil, m_glint, m_ink = fr.mat("iris", 0.15), fr.mat("eye_white", 0.15), fr.mat("liner", 0.15)
+    fr.COL["blush_line"] = fr.hx("#ec8c84")
+    m_brow, m_nose, m_blush_line = fr.mat("brow_ink", 0.15), fr.mat("nose_shadow", 0.15), fr.mat("blush_line", 0.15)
+
+    def P(ux, uz, layer):
+        """A face-surface point in head units, lifted toward the camera by `layer`."""
+        return fr.head_surface(hc, size, ux, uz) + Vector((0, -0.0005 - 0.00045 * layer, 0))
+
+    def decal(name, polys, layer, bone="Head", origin=None):
+        """polys: [(material, [(ux, uz), ...]), ...] -> one flat-on-the-face mesh."""
+        verts, faces, mats, mlist = [], [], [], []
+        for entry in polys:
+            m, poly = entry[0], entry[1]
+            lay = entry[2] if len(entry) > 2 else layer
+            if len(poly) < 3:
+                continue
+            if m not in mlist:
+                mlist.append(m)
+            cu = sum(p[0] for p in poly) / len(poly)
+            cz = sum(p[1] for p in poly) / len(poly)
+            c = len(verts)
+            verts.append(P(cu, cz, lay))
+            verts += [P(u, z, lay) for u, z in poly]
+            n = len(poly)
+            for i in range(n):
+                faces.append((c, c + 1 + i, c + 1 + (i + 1) % n))
+                mats.append(mlist.index(m))
+        me = bpy.data.meshes.new(prefix + name)
+        me.from_pydata([tuple(v) for v in verts], [], faces)
+        for m in mlist:
+            me.materials.append(m)
+        for poly, mi in zip(me.polygons, mats):
+            poly.material_index = mi
+            poly.use_smooth = True
+        ob = fr._link(bpy.data.objects.new(prefix + name, me))
+        if origin is not None:
+            o = Vector(origin)
+            me.transform(Matrix.Translation(-o))
+            ob.location = o
+        add(ob, bone)
+        return ob
+
+    def ink(name, pts, widths, mat, layer, bone="Head", origin=None):
+        w3 = [P(u, z, layer) for u, z in pts]
+        ob = fr.tube(prefix + name, w3, widths, mat, subdiv=1, ring=8)
+        if origin is not None:
+            o = Vector(origin)
+            ob.data.transform(Matrix.Translation(-o))
+            ob.location = o
+        add(ob, bone)
+        return ob
+
+    N = 40
+    for sx in (1, -1):
+        ex, ez = sx * L["eye_ux"], L["eye_uz"]
+
+        def X(u):
+            return ex + sx * u * EYE_HW
+
+        def top(u):
+            return ez + _smooth_interp(EYE_TOP, u) * EYE_VZ
+
+        def bot(u):
+            return ez + _smooth_interp(EYE_BOT, u) * EYE_VZ
+
+        def clip(poly):
+            out = []
+            for u, z in poly:
+                u = max(-0.98, min(0.98, u))
+                out.append((X(u), max(bot(u) + 0.002, min(top(u) - 0.001, z))))
+            return out
+
+        def ellipse(cu, cz, ru, rz, n=N):
+            return [(cu + ru * math.cos(2 * math.pi * i / n), cz + rz * math.sin(2 * math.pi * i / n)) for i in range(n)]
+        centre = P(ex, ez, 0)
+        white = [(X(-1 + 2 * i / N), top(-1 + 2 * i / N)) for i in range(N + 1)] + \
+                [(X(1 - 2 * i / N), bot(1 - 2 * i / N)) for i in range(1, N)]
+        decal(f"Eye{sx}", [(m_white, white)], 0, origin=centre)
+        ic_u, ic_z, iru, irz = 0.05, ez + 0.006, 0.44, 0.128
+        iris = clip(ellipse(ic_u, ic_z, iru, irz))
+        iris_lo = clip([(u, z) for u, z in ellipse(ic_u, ic_z - 0.03, iru * 0.78, irz * 0.55)])
+        decal(f"Iris{sx}", [(m_iris, iris, 1), (m_iris_hi, iris_lo, 1.6)], 1, origin=centre)
+        decal(f"Pupil{sx}", [(m_pupil, clip(ellipse(ic_u, ic_z + 0.01, 0.18, 0.066)))], 2.3, origin=centre)
+        g1 = [(X(0.27) + 0.03 * math.cos(a), ez + 0.048 + 0.034 * math.sin(a)) for a in
+              [2 * math.pi * i / 20 for i in range(20)]]
+        g2 = [(X(-0.18) + 0.014 * math.cos(a), ez - 0.038 + 0.014 * math.sin(a)) for a in
+              [2 * math.pi * i / 14 for i in range(14)]]
+        decal(f"Glint{sx}", [(m_glint, g1)], 3, origin=centre)
+        decal(f"Glint2{sx}", [(m_glint, g2)], 3, origin=centre)
+        # Upper lash line: thin at the inner corner, heavy over the outer half, ending in a flick.
+        us = [-1.0, -0.7, -0.35, 0.0, 0.35, 0.7, 0.95]
+        lash = [(X(u), top(u) + 0.005) for u in us] + [(X(1.13), top(1.0) + 0.02)]
+        ink(f"LidLiner{sx}", lash, [0.0006, 0.0014, 0.002, 0.0024, 0.0028, 0.003, 0.0025, 0.0006], m_ink, 4,
+            origin=centre)
+        low = [(X(u), bot(u) - 0.003) for u in (0.15, 0.45, 0.75, 0.98)]
+        ink(f"LowLiner{sx}", low, [0.0003, 0.0008, 0.0009, 0.0003], m_ink, 4, origin=centre)
+        crease = [(X(u), top(u) + 0.042) for u in (-0.35, 0.05, 0.45, 0.8)]
+        ink(f"Crease{sx}", crease, [0.0002, 0.0006, 0.0006, 0.0002], m_ink, 4)
+        # Sharp brow: low and heavy at the inner end, rising to a fine outer point.
+        brow = [(ex - sx * 0.15, ez + 0.15), (ex - sx * 0.02, ez + 0.18), (ex + sx * 0.12, ez + 0.193),
+                (ex + sx * 0.24, ez + 0.184)]
+        # Drawn over the bangs (anime convention): lifted clear of the hair in front.
+        bw = [P(u, z, 3) + Vector((0, -0.03, 0)) for u, z in brow]
+        bo = fr.tube(prefix + f"Brow{sx}", bw, [0.0028, 0.0026, 0.0019, 0.0005], m_brow, subdiv=1, ring=8)
+        o_ = P(ex, ez + 0.175, 3) + Vector((0, -0.03, 0))
+        bo.data.transform(Matrix.Translation(-o_))
+        bo.location = o_
+        add(bo, "Head")
+        # Blush strokes: three short diagonal hatches on the cheek.
+        for k in range(3):
+            bu = ex + sx * (-0.06 + 0.06 * k)
+            ink(f"BlushLine{sx}{k}", [(bu - sx * 0.012, ez - 0.16), (bu + sx * 0.012, ez - 0.135)], [0.0006, 0.0006],
+                m_blush_line, 2)
+    # Tiny nose: a small shadow wedge under the tip on the shadow side, no bump outline.
+    nz = L["nose_z"]
+    decal("NoseShadow", [(m_nose, [(-0.0, nz - 0.005), (-0.05, nz - 0.03), (-0.01, nz - 0.04)])], 1)
+    info = fr.FACE_INFO.setdefault(prefix, {})
+    info.update(dict(hc=hc.copy(), size=size, eye_r=0.0113 * EYE_VZ, almond=True, ah=1.0, decal=True))
 
 
 def restore_frame():
@@ -482,7 +645,7 @@ def build_arms(add, rig, skin, ink=True):
                         subdiv=1, ring=6), bone)
 
 
-def build_hands(add, skin, k=1.28):
+def build_hands(add, skin, k=1.28, pose="relaxed"):
     """Strong hands to match the arms: a thick, broad palm, the thumb muscle pad
     and the outer pad, a ridge of four knuckles, thick fingers in three segments
     (bigger at the knuckles, curling toward the palm) and a heavy thumb."""
@@ -499,19 +662,34 @@ def build_hands(add, skin, k=1.28):
         add(fr.blob(f"HandOuter_{s_}", wri + d * 0.04 * k + Vector((-sx * 0.006 * k, 0.03 * k, 0)),
                     (0.012 * k, 0.012 * k, 0.026 * k), skin, subdiv=1), bone)          # outer pad
         base = wri + d * 0.085 * k
+        inward = Vector((-sx, 0, 0))                     # toward the palm side (the hand hangs palm-in)
+        axis = d.cross(inward).normalized()              # the knuckles' hinge axis
+        bends = HAND_POSES[pose]
         for i, (oy, ln) in enumerate(((-0.027, 0.052), (-0.009, 0.06), (0.009, 0.057), (0.026, 0.046))):
-            p0 = base + Vector((0, oy * k, 0))
-            p1 = p0 + d * ln * 0.42 * k + Vector((-sx * 0.003 * k, 0, 0))
-            p2 = p0 + d * ln * 0.75 * k + Vector((-sx * 0.01 * k, 0, 0))
-            p3 = p0 + d * ln * k + Vector((-sx * 0.018 * k, 0, 0))                    # curl toward the palm
-            add(fr.tube(f"Finger_{s_}{i}", [p0, p1, p2, p3], [0.0105 * k, 0.0095 * k, 0.0088 * k, 0.0068 * k], skin,
+            p0 = base + Vector((0, oy * k * (1.15 if pose == "open" else 1.0), 0))
+            pts, dirn = [p0], d.copy()
+            if pose == "open":                           # spread the fingers a little
+                dirn = (Matrix.Rotation(math.radians((i - 1.5) * 6), 3, inward) @ dirn).normalized()
+            for seg, (frac, ang) in enumerate(zip((0.42, 0.33, 0.25), bends)):
+                dirn = (Matrix.Rotation(math.radians(ang), 3, axis) @ dirn).normalized()
+                pts.append(pts[-1] + dirn * ln * frac * k)
+            add(fr.tube(f"Finger_{s_}{i}", pts, [0.0105 * k, 0.0095 * k, 0.0088 * k, 0.0068 * k], skin,
                         subdiv=1, ring=12), bone)
             add(fr.blob(f"Knuckle_{s_}{i}", p0 + Vector((sx * 0.008 * k, 0, 0.001 * k)), (0.0072 * k, 0.0085 * k, 0.0075 * k),
                         skin, subdiv=1), bone)
         t0 = wri + d * 0.032 * k + Vector((-sx * 0.007 * k, -0.036 * k, 0))
-        add(fr.tube(f"Thumb_{s_}", [t0, t0 + d * 0.03 * k + Vector((0, -0.011 * k, 0)),
-                                    t0 + d * 0.054 * k + Vector((-sx * 0.007 * k, -0.009 * k, 0))],
-                    [0.0135 * k, 0.0115 * k, 0.009 * k], skin, subdiv=1, ring=12), bone)
+        if pose == "fist":                               # thumb folded across the front of the curled fingers
+            tp = [t0, t0 + d * 0.03 * k + Vector((-sx * 0.012 * k, -0.004 * k, 0)),
+                  t0 + d * 0.05 * k + Vector((-sx * 0.022 * k, 0.012 * k, 0))]
+        elif pose == "open":
+            tp = [t0, t0 + d * 0.026 * k + Vector((0, -0.016 * k, 0)), t0 + d * 0.046 * k + Vector((0, -0.024 * k, 0))]
+        else:
+            tp = [t0, t0 + d * 0.03 * k + Vector((0, -0.011 * k, 0)), t0 + d * 0.054 * k + Vector((-sx * 0.007 * k, -0.009 * k, 0))]
+        add(fr.tube(f"Thumb_{s_}", tp, [0.0135 * k, 0.0115 * k, 0.009 * k], skin, subdiv=1, ring=12), bone)
+
+
+# Finger bend angles (knuckle, middle, tip) in degrees for each hand pose.
+HAND_POSES = {"relaxed": (14, 22, 16), "fist": (88, 95, 70), "open": (2, 4, 3)}
 
 
 def build_shoulders(add, skin):
@@ -757,9 +935,10 @@ def main(argv):
     ap.add_argument("--out", default="renders/anime")
     ap.add_argument("--size", type=int, default=900)
     ap.add_argument("--outfit", default="vest", choices=("vest", "bare", "jacket"))
+    ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
-    scene, rig, bike = build_anime(100, outfit=a.outfit)
+    scene, rig, bike = build_anime(100, outfit=a.outfit, hand=a.hand)
     for o in bpy.data.objects:          # character only
         if o.name.startswith(("TopTube", "DownTube", "SeatTube", "HeadTube", "ChainStay", "SeatStay", "Fork", "Stem",
                               "Bar", "Grip", "SeatPost", "Saddle", "Cog", "Chain", "Wheel", "Tire", "Rim", "Hub",
