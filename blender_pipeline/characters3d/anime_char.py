@@ -50,7 +50,8 @@ NO_OUTLINE = ("PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "G
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
-def build_anime(pct=100, reset=True):
+def build_anime(pct=100, reset=True, outfit="vest"):
+    """outfit: 'vest' (white ribbed vest), 'bare' (bare torso: abs, obliques, back inked), 'jacket' (open anime jacket over the vest)."""
     for k, v in ANIME_COL.items():
         fr.COL[k] = fr.hx(v)
     fr.HAIR = "ribbons"
@@ -95,9 +96,20 @@ def build_anime(pct=100, reset=True):
         add(fr.tube(f"NeckMuscle{sx}", [(sx * 0.026, 0.004, fr.HEAD_Z - 0.1), (sx * 0.022, -0.026, 1.5),
                                         (sx * 0.011, -0.046, 1.43)],
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
-    build_chest(add, body_skin)
+    build_chest(add, body_skin, outfit=outfit)
     build_shoulders(add, body_skin)
+    if outfit == "jacket":
+        build_jacket(add, rig)
     return scene, rig, bike
+
+
+def pose_a(rig, spread=0.085, lift=0.03, fwd=-0.02):
+    """Relaxed A-pose: the hands (IK targets) eased out and slightly up and forward,
+    so the arms hang away from the body and the shoulder width reads."""
+    for s_, sx in (("L", 1), ("R", -1)):
+        w = fr.jp(f"wri_{s_}")
+        fr.set_ik(rig, f"IK_Hand_{s_}", w + Vector((sx * spread, fwd, lift)))
+    bpy.context.view_layer.update()
 
 
 _SAVED_J = None
@@ -130,7 +142,56 @@ def _pecs(ob, depth=0.022, cz=1.3, cx=0.075, top=0.065, under=0.045):
         v.co.y -= depth * w * front
 
 
-def build_chest(add, skin):
+def _abs_back(ob, depth=1.0):
+    """Sculpt the core and back into a torso loft (world-space vertices):
+    a six-pack (3 rows x 2 blocks, the linea alba groove between), obliques
+    swelling at the flanks above the hips with the Adonis V groove running
+    down-in toward the groin; at the back two shoulder blades and the groove of
+    the spine between the long back muscles. depth scales it (a vest shows less)."""
+    def plate(a, half, soft):
+        return max(0.0, min(1.0, (half - abs(a)) / soft))
+    for v in ob.data.vertices:
+        x, y, z = v.co
+        d = 0.0
+        if y < 0.0:                                            # front
+            fr_ = min(1.0, -y / 0.05)
+            for cx in (0.034, -0.034):
+                for cz in (1.215, 1.15, 1.085):
+                    d += 0.011 * plate(x - cx, 0.024, 0.008) * plate(z - cz, 0.024, 0.009) * fr_
+            # obliques: a soft swell at the flanks, cut by the V line down-in to the groin
+            for sx in (1, -1):
+                ob_ = math.exp(-((x - sx * 0.12) / 0.035) ** 2) * math.exp(-((z - 1.1) / 0.06) ** 2)
+                vline = abs((x - sx * 0.11) * 0.85 + sx * (z - 1.06) * 0.6)
+                d += 0.008 * ob_ * fr_ - 0.006 * math.exp(-(vline / 0.006) ** 2) * (1.0 if 0.96 < z < 1.08 else 0.0) * fr_
+            v.co.y -= d * depth
+        else:                                                  # back
+            bk = min(1.0, y / 0.05)
+            for sx in (1, -1):                                 # shoulder blades: raised flat triangles
+                u = (x - sx * 0.085)
+                tri = plate(u + sx * (z - 1.33) * 0.35, 0.045, 0.012) * plate(z - 1.31, 0.06, 0.015)
+                d += 0.012 * tri * bk
+            d -= 0.008 * math.exp(-(x / 0.012) ** 2) * (1.0 if 1.0 < z < 1.42 else 0.0) * bk     # spine groove
+            for sx in (1, -1):                                 # the long back muscles either side of it
+                d += 0.006 * math.exp(-((x - sx * 0.035) / 0.02) ** 2) * (1.0 if 1.0 < z < 1.3 else 0.0) * bk
+            v.co.y += d * depth
+
+
+def _ink_on(target, name, pts_xz, widths, add, bone="Spine", back=False):
+    """An ink stroke laid on a reshaped surface (ray-cast from the front or back)."""
+    from mathutils.bvhtree import BVHTree
+    me = target.data
+    bvh = BVHTree.FromPolygons([target.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+    pts = []
+    for x, z in pts_xz:
+        o, d = (Vector((x, 1.0, z)), Vector((0, -1, 0))) if back else (Vector((x, -1.0, z)), Vector((0, 1, 0)))
+        hit = bvh.ray_cast(o, d)
+        if hit[0] is None:
+            return None
+        pts.append(hit[0] + (Vector((0, 0.0025, 0)) if back else Vector((0, -0.0025, 0))))
+    return add(fr.tube(name, pts, widths, fr.mat("liner", 0.4), subdiv=1, ring=6), bone)
+
+
+def build_chest(add, skin, outfit="vest"):
     """A broad V-shaped chest: wide at the pecs and lats, tapering to a narrower
     waist; two pectoral masses with a crisp shelf underneath (the cel shading
     throws a hard shadow line under each pec, through the vest too)."""
@@ -150,11 +211,31 @@ def build_chest(add, skin):
     torso = fr.tube("Torso", [(0, y, z) for y, z in zip(ys, zs)], [(a * 0.97, b * 0.97) for a, b in body], skin,
                     ring=40, rows=34, subdiv=2)
     _pecs(torso, depth=0.03)
+    _abs_back(torso, 1.0)
     add(torso, "Spine")
+    if outfit == "bare":
+        for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
+            bpy.data.objects.remove(o)
+        # Anime musculature in ink: pec shelves, sternum, abs, obliques' V, shoulder blades, spine.
+        for sx in (1, -1):
+            _ink_on(torso, f"PecLine{sx}", [(sx * x, z) for x, z in ((0.028, 1.262), (0.06, 1.252), (0.095, 1.256),
+                                                                     (0.125, 1.272), (0.145, 1.292))],
+                    [0.0008, 0.0022, 0.0026, 0.002, 0.0006], add)
+            for k, cz in enumerate((1.183, 1.118)):
+                _ink_on(torso, f"AbLine{sx}{k}", [(sx * 0.014, cz + 0.002), (sx * 0.034, cz), (sx * 0.054, cz + 0.003)],
+                        [0.0006, 0.0014, 0.0005], add)
+            _ink_on(torso, f"VLine{sx}", [(sx * 0.125, 1.1), (sx * 0.1, 1.05), (sx * 0.07, 1.0)], [0.0005, 0.0016, 0.0005], add)
+            _ink_on(torso, f"BladeLine{sx}", [(sx * 0.05, 1.36), (sx * 0.045, 1.31), (sx * 0.07, 1.26), (sx * 0.12, 1.28)],
+                    [0.0005, 0.0016, 0.0016, 0.0005], add, back=True)
+        _ink_on(torso, "SternumLine", [(0.0, 1.335), (0.0, 1.3), (0.0, 1.27)], [0.0006, 0.0016, 0.0006], add)
+        _ink_on(torso, "AbCentre", [(0.0, 1.24), (0.0, 1.15), (0.0, 1.06)], [0.0006, 0.0014, 0.0006], add)
+        _ink_on(torso, "SpineLine", [(0.0, 1.4), (0.0, 1.25), (0.0, 1.08)], [0.0006, 0.0016, 0.0006], add, back=True)
+        return
     if vest_mat is not None:
         vest = fr.tube("Vest", [(0, y, z) for y, z in zip(ys[:-1], zs[:-1])], body[:-1], vest_mat, caps=False,
                        ring=40, rows=32, subdiv=2)
         _pecs(vest, depth=0.032)
+        _abs_back(vest, 0.45)                               # the fitted knit shows the core and blades softly
         add(vest, "Spine")
         # Anime chest lines inked on the vest: the curve under each pec and a short
         # stroke down the breastbone (placed by ray-casting the reshaped vest).
@@ -184,6 +265,86 @@ def build_chest(add, skin):
             rib = fr.tube(f"VestRib{k}", path, [0.0022] * 4, vest_mat, subdiv=0, ring=6)
             _pecs(rib, depth=0.022)
             add(rib, "Spine")
+
+
+def build_jacket(add, rig):
+    """An open anime jacket over the vest: a dark body with the front left open
+    (lapels turned back in the red lining colour), a tall stand collar open at the
+    throat, sleeves that bend with the arms (skinned to the arm bones) ending in
+    red-trimmed cuffs, and a hem band."""
+    import bmesh
+    fr.COL["jacket"] = fr.hx("#1f2236")
+    fr.COL["jacket_trim"] = fr.hx("#c8313a")
+    jm, tm = fr.mat("jacket", 0.85), fr.mat("jacket_trim", 0.7)
+    zs = [0.96, 1.07, 1.17, 1.26, 1.33, 1.385, 1.425]
+    rr = [(0.165, 0.125), (0.172, 0.13), (0.2, 0.138), (0.232, 0.142), (0.238, 0.14), (0.222, 0.128), (0.16, 0.112)]
+    ys = [0.012, 0.006, 0.0, -0.004, -0.004, 0.0, 0.004]
+    body = fr.tube("Jacket", [(0, y, z) for y, z in zip(ys, zs)], rr, jm, caps=False, ring=48, rows=30, subdiv=2)
+    _pecs(body, depth=0.016)
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    gone = [f for f in bm.faces if f.calc_center_median().y < -0.05
+            and abs(f.calc_center_median().x) < 0.045 + 0.06 * max(0.0, (1.3 - f.calc_center_median().z) / 0.35)]
+    bmesh.ops.delete(bm, geom=gone, context="FACES")
+    bm.to_mesh(body.data)
+    bm.free()
+    m = body.modifiers.new("Thick", "SOLIDIFY")
+    m.thickness, m.offset = 0.008, 1.0
+    if hasattr(m, "material_offset_rim"):
+        pass
+    add(body, "Spine")
+    for sx in (1, -1):                                  # lapels folded back, red lining showing
+        add(fr.tube(f"Lapel{sx}", [(sx * 0.05, -0.145, 1.39), (sx * 0.075, -0.15, 1.31), (sx * 0.095, -0.15, 1.2),
+                                   (sx * 0.1, -0.145, 1.1)],
+                    [(0.004, 0.022), (0.004, 0.03), (0.004, 0.024), (0.003, 0.012)], tm, side=Vector((0, 1, 0)), subdiv=1),
+            "Spine")
+    collar = fr.tube("JacketCollar", [(0, 0.008, 1.415), (0, 0.006, 1.475)], [(0.088, 0.078), (0.078, 0.07)], jm,
+                     caps=False, ring=40, subdiv=1)
+    bm = bmesh.new()
+    bm.from_mesh(collar.data)
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.04
+                                and abs(f.calc_center_median().x) < 0.035], context="FACES")
+    bm.to_mesh(collar.data)
+    bm.free()
+    cm = collar.modifiers.new("Thick", "SOLIDIFY")
+    cm.thickness, cm.offset = 0.006, 1.0
+    add(collar, "Neck")
+    hem = fr.tube("JacketHem", [(0, 0.012, 0.955), (0, 0.012, 0.985)], [(0.17, 0.13), (0.17, 0.13)], tm, caps=False,
+                  ring=40, subdiv=1)
+    bm = bmesh.new()
+    bm.from_mesh(hem.data)                              # open at the front like the jacket
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.05
+                                and abs(f.calc_center_median().x) < 0.105], context="FACES")
+    bm.to_mesh(hem.data)
+    bm.free()
+    add(hem, "Spine")
+    # Shoulder yoke: the jacket over the shoulder girdle and the deltoids (copies of
+    # those forms pushed out along their normals), so no skin shows at the shoulders.
+    for src_name, bone in (("Shoulders", "Spine"), ("DeltCap_L", "UpperArm_L"), ("DeltCap_R", "UpperArm_R")):
+        src = bpy.data.objects.get(src_name)
+        if src is None:
+            continue
+        me = src.data.copy()
+        me.materials.clear()
+        me.materials.append(jm)
+        ob = fr._link(bpy.data.objects.new(f"Jacket{src_name}", me))
+        ob.matrix_world = src.matrix_world.copy()
+        for v in me.vertices:
+            v.co += v.normal * (0.011 / max(1e-6, sum(src.matrix_world.to_scale()) / 3))
+        for md in src.modifiers:
+            if md.type == "SUBSURF":
+                ob.modifiers.new("Subdivision", "SUBSURF").levels = md.levels
+        ob.parent = None
+        add(ob, bone)
+    for s_, sx in (("L", 1), ("R", -1)):
+        sho, elb, wri, hand = fr.jp(f"sho_{s_}"), fr.jp(f"elb_{s_}"), fr.jp(f"wri_{s_}"), fr.jp(f"hand_{s_}")
+        path = fr.arm_path(s_, sho, elb, wri, hand)[:-1]
+        radii = [(a * 1.12 + 0.01, b * 1.12 + 0.01) for a, b in fr.arm_radii(1.0)[:-1]]
+        radii[-1] = (radii[-1][0] + 0.006, radii[-1][1] + 0.006)          # a slightly flared sleeve end
+        sl = fr.tube(f"Sleeve_{s_}", path, radii, jm, caps=False, ring=24)
+        fr.skin_chain(sl, rig, [f"UpperArm_{s_}", f"Forearm_{s_}"], blend=0.05)
+        add(fr.tube(f"Cuff_{s_}", [wri + (elb - wri).normalized() * 0.05, wri + (elb - wri).normalized() * 0.02],
+                    [0.046, 0.044], tm, caps=False, ring=20, subdiv=1), f"Forearm_{s_}")
 
 
 def build_shoulders(add, skin):
@@ -397,29 +558,34 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="renders/anime")
     ap.add_argument("--size", type=int, default=900)
+    ap.add_argument("--outfit", default="vest", choices=("vest", "bare", "jacket"))
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
-    scene, rig, bike = build_anime(100)
+    scene, rig, bike = build_anime(100, outfit=a.outfit)
     for o in bpy.data.objects:          # character only
         if o.name.startswith(("TopTube", "DownTube", "SeatTube", "HeadTube", "ChainStay", "SeatStay", "Fork", "Stem",
                               "Bar", "Grip", "SeatPost", "Saddle", "Cog", "Chain", "Wheel", "Tire", "Rim", "Hub",
                               "Spoke", "Crank", "Pedal")):
             o.hide_render = True
     fr.pose_stand(rig)
-    bpy.context.view_layer.update()
+    pose_a(rig)
     face = fr.FaceRig(rig, "")
     head = Vector((0, -0.01, fr.HEAD_Z - 0.03))
+    chest = Vector((0, 0, 1.25))
     cam = fr.camera(scene, (0, -1, 1), (0, 0, 1), lens=85)
     fr.aim(cam, head + Vector((0.35, -1.2, 0.02)), head, lens=85)
     anime_look(scene, cam, head)
-    shots = [("portrait_3q", "COOL", head + Vector((0.38, -1.15, 0.02)), head, 85, (a.size, int(a.size * 1.15))),
-             ("portrait_front", "SMUG", head + Vector((0.0, -1.2, 0.0)), head, 85, (a.size, int(a.size * 1.15))),
-             ("full_body", "COOL", Vector((0.9, -4.6, 1.05)), Vector((0, 0, 0.95)), 50, (a.size, int(a.size * 1.5)))]
+    W = a.size
+    shots = [("portrait_3q", "COOL", head + Vector((0.38, -1.15, 0.02)), head, 85, (W, int(W * 1.15))),
+             ("torso_front", "COOL", chest + Vector((0.0, -2.2, 0.05)), chest, 60, (W, int(W * 1.1))),
+             ("torso_3q", "SMUG", chest + Vector((1.2, -1.85, 0.08)), chest, 60, (W, int(W * 1.1))),
+             ("torso_back", "COOL", chest + Vector((0.9, 2.0, 0.1)), chest, 60, (W, int(W * 1.1))),
+             ("full_body", "COOL", Vector((0.9, -4.6, 1.05)), Vector((0, 0, 0.95)), 50, (W, int(W * 1.5)))]
     for name, expr, loc, tgt, lens, (w, h) in shots:
         face.pose(expr)
         scene.render.resolution_x, scene.render.resolution_y = w, h
         fr.aim(cam, loc, tgt, lens=lens)
-        fr.shoot(scene, os.path.join(a.out, f"{name}.png"))
+        fr.shoot(scene, os.path.join(a.out, f"{a.outfit}_{name}.png"))
 
 
 if __name__ == "__main__":

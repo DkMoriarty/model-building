@@ -48,4 +48,12 @@ inverted-hull ink outlines (thin on the face, none on the drawn eye/mouth parts)
 hard sun, a dim cool ambient with a flat sky for the camera, Standard view transform.
 Blender 3.3 safe (MixRGB fallback).
 
-    blender -b -P blender_pipeline/characters3d/anime_char.py -- --out renders/anime
+    blender -b -P blender_pipeline/characters3d/anime_char.py -- --out renders/anime --outfit vest|bare|jacket
+
+Body (anime only, the base body is untouched): wider frame (shoulder/arm joints out
+4 cm), one continuous shoulder girdle with teardrop deltoids, V-shaped chest with pecs
+(`_pecs`), sculpted six-pack, obliques and Adonis V, shoulder blades and spine groove
+(`_abs_back`), ink strokes laid on the surface (`_ink_on`); relaxed A-pose (`pose_a`,
+moves the IK hand targets). Outfits: `bare`, `vest` (knit shows the forms softly),
+`jacket` (open dark jacket, red lapels/lining, stand collar, skinned sleeves, cuffs,
+shoulder yoke).
