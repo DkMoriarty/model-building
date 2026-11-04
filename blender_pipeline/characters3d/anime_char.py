@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
 
-NO_OUTLINE = ("PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -398,10 +398,56 @@ def build_shoulders(add, skin):
                 sho + d * 0.07 + Vector((sx * 0.012, 0, 0)), sho + d * 0.14]
         add(fr.tube(f"DeltCap_{s_}", path, [(0.042, 0.05), (0.058, 0.062), (0.056, 0.06), (0.046, 0.052)], skin,
                     side=Vector((1, 0, 0)), ring=20, subdiv=2), f"UpperArm_{s_}")
-    # Collarbones: soft, drawn as a light crease rather than inked tubes.
+    build_collarbones(add, skin)
+
+
+def build_collarbones(add, skin):
+    """Collarbones: an S-curved bony ridge each side, from the notch at the base of
+    the throat out to the point of the shoulder - bowing forward near the middle,
+    sweeping back toward the shoulder, rising slightly at its outer end. Laid on
+    the real surface (ray-cast onto the girdle/torso), with an ink stroke along its
+    lower edge, a faint stroke in the hollow above, and the V of the throat notch."""
+    from mathutils.bvhtree import BVHTree
+    surf = [o for o in (bpy.data.objects.get("Shoulders"), bpy.data.objects.get("Torso")) if o]
+    verts, polys, off = [], [], 0
+    for o in surf:
+        me = o.data
+        verts += [o.matrix_world @ v.co for v in me.vertices]
+        polys += [tuple(i + off for i in p.vertices) for p in me.polygons]
+        off += len(me.vertices)
+    bvh = BVHTree.FromPolygons(verts, polys)
+
+    def on(x, z, lift=0.0):
+        """Surface point at (x, z); if the ray misses (above the shoulder line) slide down until it lands."""
+        for dz in (0.0, -0.004, -0.008, -0.012, -0.016, -0.02):
+            hit = bvh.ray_cast(Vector((x, -1.0, z + dz)), Vector((0, 1, 0)))
+            if hit[0] is not None and hit[0].y < -0.03:          # a front-facing hit, not the top of the girdle
+                return hit[0] + Vector((0, -lift, 0))
+        return None
+
+    def strip(pts):
+        return [p for p in pts if p is not None]
+    liner = fr.mat("liner", 0.4)
+    # (x, z) along the bone: inner end by the notch -> forward bow -> outer end at the shoulder point
+    line = [(0.022, 1.414), (0.05, 1.419), (0.085, 1.422), (0.12, 1.421), (0.155, 1.415), (0.185, 1.405), (0.205, 1.395)]
     for sx in (1, -1):
-        add(fr.tube(f"Collar{sx}", [(sx * 0.025, -0.072, 1.415), (sx * 0.09, -0.083, 1.418), (sx * 0.16, -0.07, 1.405)],
-                    [0.0035, 0.0045, 0.0035], skin, subdiv=1, ring=8), "Spine")
+        bow = [0.002, 0.004, 0.0045, 0.0035, 0.002, 0.001, 0.0]          # forward bow of the S, strongest inside
+        ridge = strip([on(sx * x, z, 0.004 + b) for (x, z), b in zip(line, bow)])
+        if len(ridge) >= 3:
+            n = len(ridge)
+            add(fr.tube(f"Clavicle{sx}", ridge, [0.0045 + 0.004 * math.sin(math.pi * (i + 0.5) / n) for i in range(n)],
+                        skin, subdiv=1, ring=10), "Spine")
+        under = strip([on(sx * x, z - 0.009, 0.0025 + b * 0.6) for (x, z), b in zip(line, bow)])
+        if len(under) >= 3:
+            n = len(under)
+            add(fr.tube(f"ClavLine{sx}", under, [0.0006 + 0.002 * math.sin(math.pi * (i + 0.5) / n) for i in range(n)],
+                        liner, subdiv=1, ring=6), "Spine")
+        hollow = strip([on(sx * x, z + 0.012, 0.0015) for x, z in ((0.06, 1.42), (0.095, 1.424), (0.13, 1.42))])
+        if len(hollow) >= 2:
+            add(fr.tube(f"ClavHollow{sx}", hollow, [0.0004, 0.001, 0.0004][:len(hollow)], liner, subdiv=1, ring=6), "Spine")
+        notch = strip([on(sx * 0.016, 1.42, 0.003), on(sx * 0.005, 1.407, 0.003)])
+        if len(notch) == 2:
+            add(fr.tube(f"ClavNotch{sx}", notch, [0.0011, 0.0005], liner, subdiv=0, ring=6), "Spine")
 
 
 # ---------------------------------------------------------------------------
