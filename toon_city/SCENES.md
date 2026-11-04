@@ -33,3 +33,19 @@ Run: `blender -b -P blender_pipeline/characters3d/street_scene.py -- --out rende
 **Blocked on:** final faces (user's order: faces → expressions/keyframes → video).
 After faces change, re-check the acting keys (eye openness/gaze ranges were tuned
 on the old faces) and her new outfit/hair in every shot.
+
+## SHARP ANIME CHARACTER — first pass
+
+`blender/anime_char.py` (canonical: `blender_pipeline/characters3d/anime_char.py`).
+An original anime boy on the shared rig and the new body (white baniyan, jeans):
+shield head to a V chin, big almond eyes with tall irises and a heavy lash line,
+sharp brows, spiky ribbon hair (`ribbon_hair(style="anime")`: pointed bangs stopping
+at the brows, crown spikes that flick out, side locks, back spikes, an ahoge),
+slimmer neck, body cel skin recoloured to the anime face tone.
+`anime_look()` turns any scene into the anime render: two-tone cel materials
+(Shader to RGB -> constant ramp, cool shadow tone; faces lit only by cast shadows),
+inverted-hull ink outlines (thin on the face, none on the drawn eye/mouth parts), one
+hard sun, a dim cool ambient with a flat sky for the camera, Standard view transform.
+Blender 3.3 safe (MixRGB fallback).
+
+    blender -b -P blender_pipeline/characters3d/anime_char.py -- --out renders/anime

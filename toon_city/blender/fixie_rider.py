@@ -865,7 +865,7 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
     eyeball = add(blob(f"{prefix}Eye{sx}", eye, (W, r, H), mat("eye_white", 0.15), subdiv=1, segments=32), "Head")
     front = eye + Vector((0, -r * (0.99 if "eye_k" in LAYOUT else 0.95), 0))   # proud of the white: no speckle
     ix = LAYOUT.get("iris_x", -0.1)                  # iris sideways offset (outer +): centre it in the visible white
-    iris_ob = add(blob(f"{prefix}Iris{sx}", front + Vector((sx * r * ix, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, (r * 0.6 * LAYOUT.get("iris", 1.0)) if "eye_k" in LAYOUT else H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
+    iris_ob = add(blob(f"{prefix}Iris{sx}", front + Vector((sx * r * ix, 0, 0)), (r * 0.6 * LAYOUT.get("iris", 1.0), r * 0.08, (r * 0.6 * LAYOUT.get("iris", 1.0) * LAYOUT.get("iris_tall", 1.0)) if "eye_k" in LAYOUT else H * 0.96), mat(iris_col, 0.15 + 0.35 * LAYOUT.get("soft", 0.0)),
              subdiv=1, segments=24), "Head")
     pk = 1.0 + 0.4 * LAYOUT.get("soft", 0.0)        # bigger, softer pupils
     pupil_ob = add(blob(f"{prefix}Pupil{sx}", front + Vector((sx * r * ix, -r * 0.04, 0)), (r * 0.3 * pk, r * 0.05, (r * 0.3 * pk) if "eye_k" in LAYOUT else H * 0.58 * pk), mat("iris", 0.1),
@@ -907,7 +907,7 @@ def almond_eye(add, prefix, sx, eye, r, iris_col, liner, wing, ah=None):
         y = -r * math.sqrt(max(0.0, 1 - (x / W) ** 2 - (z0 / H) ** 2)) - r * 0.06
         return eye + Vector((sx * x, y, z0 * tk + H * tl * x / W))
     pts = [contour(t) for t in (-1.0, -0.6, -0.15, 0.3, 0.75, 1.0)]
-    inner = pts[0] + Vector((-sx * r * 0.22, -r * 0.02, -r * 0.16))       # sharp inner point dipping toward the nose
+    inner = pts[0] + Vector((-sx * r * 0.22 * LAYOUT.get("inner_dip", 1.0), -r * 0.02, -r * 0.16 * LAYOUT.get("inner_dip", 1.0)))   # sharp inner point dipping toward the nose
     tip = pts[-1] + Vector((sx * r * 0.45 * wing, -r * 0.05, r * 0.3 * wing))
     lw = LAYOUT.get("liner", 1.0)                   # liner weight (Ink girls: a heavy cat-eye line)
     lo = tube(f"{prefix}LidLiner{sx}", [inner] + pts + [tip],
@@ -1584,6 +1584,35 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
             pts.append(Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz)))
         lock(name, (0, 0, 1), (0, 0, -1), 0, width, tilt=tilt, path=pts)
 
+    if style == "anime":
+        # Sharp anime hair: a few big pointed clumps. Bangs fall in sharp
+        # triangles between and over the eyes; crown spikes sweep back and flick
+        # out at the tips; side locks point down past the ears; back spikes.
+        eye_z = LAYOUT["eye_uz"]
+        for i in range(7):                                    # bangs
+            x0 = -0.6 + i * 0.2
+            aim = (x0 * 0.25 + rnd.uniform(-0.12, 0.12), -0.25, -1.0)
+            p0 = (x0 * 0.9, -0.45, 0.85)
+            lock(f"HairBang{i}", p0, aim, rnd.uniform(0.15, 0.19) * (1.12 if i in (2, 4) else 1.0), rnd.uniform(2.4, 2.9),
+                 k=1.07, puff=0.1, flick=0.1, curl=rnd.uniform(-0.35, 0.35), tilt=rnd.uniform(-0.2, 0.2), stop_brow=True)
+        for i in range(12):                                   # crown spikes
+            a = -math.pi * 0.9 + i * (math.pi * 1.8 / 11)
+            aim = (math.sin(a) * 1.0, 0.55 + 0.4 * abs(math.cos(a)), -0.15)
+            lock(f"HairSpike{i}", (0.0 + 0.1 * math.sin(a), -0.15, 0.98), aim, rnd.uniform(0.2, 0.26),
+                 rnd.uniform(2.8, 3.4), k=1.12, puff=0.22, flick=0.75, curl=rnd.uniform(-0.3, 0.3), tilt=rnd.uniform(-0.3, 0.3))
+        for sgn in (1, -1):                                   # side locks past the ears
+            for i in range(3):
+                lock(f"HairSide{sgn}_{i}", (sgn * 0.8, -0.25 + 0.2 * i, 0.55 - 0.05 * i), (sgn * 0.15, 0.1 * i, -1.0),
+                     rnd.uniform(0.16, 0.2), rnd.uniform(2.4, 2.9), k=1.08, puff=0.12, flick=0.35, curl=sgn * 0.3,
+                     tilt=sgn * 0.4)
+        for i in range(8):                                    # back spikes
+            a = -1.1 + i * (2.2 / 7)
+            lock(f"HairBack{i}", (math.sin(a) * 0.7, 0.75, 0.55), (math.sin(a) * 0.45, 0.45, -1.0),
+                 rnd.uniform(0.2, 0.25), rnd.uniform(2.8, 3.3), k=1.1, puff=0.15, flick=0.8, curl=rnd.uniform(-0.3, 0.3),
+                 tilt=rnd.uniform(-0.3, 0.3))
+        for i, (n_, aim) in enumerate((((0.0, 0.0, 1.0), (0.2, -0.5, 0.9)),)):   # one ahoge
+            lock(f"HairAhoge{i}", n_, aim, 0.11, 0.7, k=1.1, curl=1.6, free=True, lift=0.6)
+        return
     if style == "ponytail":
         # Centre part; hair combed from the part down both sides and back to a low
         # tie at the nape; a ponytail hanging from it; loose strands from the part
