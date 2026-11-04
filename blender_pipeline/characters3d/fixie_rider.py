@@ -632,6 +632,30 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
         if toon:
             fd, lipw = soft_features(x, z, nose, chin, smirk, lips)
             d += fd * (max(0.0, -y) ** 0.5)
+            pk = LAYOUT.get("profile", 0.0)
+            if pk and y < 0.0:
+                # Anime profile, centre line of the face (fades toward the cheeks):
+                # brow ridge forward, eyes set back under it, a small pointed nose,
+                # a dip under it, lips, a recess under the lip, a forward chin.
+                ez_, nz_, mz_, cz_ = LAYOUT["eye_uz"], LAYOUT["nose_z"], LAYOUT["mouth_z"], LAYOUT["chin_z"]
+                wx = math.exp(-(x / 0.3) ** 2)
+                fr_ = min(1.0, -y / 0.5)
+                pr = 0.0
+                pr += 0.03 * _g(z, ez_ + 0.17, 0.06)                     # brow ridge
+                pr -= 0.025 * _g(z, ez_, 0.06) * min(1.0, abs(x) / 0.25 + 0.3)  # eyes sit back under it
+                pr -= 0.02 * _g(z, nz_ - 0.09, 0.03)                     # dip under the nose
+                pr += 0.02 * _g(z, mz_ + 0.01, 0.03)                     # lips
+                pr -= 0.03 * _g(z, mz_ - 0.1, 0.035)                     # recess under the lip
+                pr += 0.07 * _g(z, cz_ + 0.03, 0.05)                     # chin forward to a point
+                d += pk * pr * wx * fr_
+                # small pointed nose: a low bridge rising to a sharp tip, cut back underneath
+                top_ = ez_ + 0.02
+                if nz_ - 0.05 < z < top_:
+                    t_ = (top_ - z) / (top_ - nz_)
+                    if z < nz_:
+                        t_ = max(0.0, 1 - (nz_ - z) / 0.05) ** 1.3
+                    t_ = min(1.0, t_)
+                    d += pk * 0.11 * t_ ** 1.6 * _tent(x, 0.03 + 0.05 * t_) ** 0.9 * fr_
             lipw *= max(0.0, -y) ** 2
         else:
             d += hard_features(x, z, nose, chin, smirk) * (max(0.0, -y) ** 0.5)   # planar nose, lips, folds

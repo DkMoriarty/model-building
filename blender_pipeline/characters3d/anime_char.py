@@ -48,7 +48,8 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     # Feature 2: one clean contour - full at the cheekbone, a gentle curve into
                     # straight jaw lines that meet in a sharp V chin (linear, so no waves/notches).
                     face_w=[(-0.25, 1.0), (-0.4, 0.97), (-0.52, 0.89), (-1.0, 0.1), (-1.06, 0.02)], face_lin=True,
-                    chin_drop=0.1, chin_fwd=0.42)
+                    chin_drop=0.1, chin_fwd=0.42,
+                    profile=2.2, jaw_plane=0.7, ear_x=1.0, ear_flare=15)   # side view: anime profile, crisp jaw underside, ears out
 
 NO_OUTLINE = ("FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")

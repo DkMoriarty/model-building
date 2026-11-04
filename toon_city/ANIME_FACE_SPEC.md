@@ -22,7 +22,8 @@ Tell the agent "feature N: change X" and it edits the matching value.
 | 11 | Blush | three short pink strokes per cheek + soft painted cheek colour | `BlushLine`, `blush_toon` |
 | 12 | Shading | flat face (cel terminator 0.015), one painted shadow band under the bangs, hair casts no shadow on the face | `cel_material`, `BangShadow` |
 | 13 | Colours | skin #f6d3bd, hair #20223a, iris #2f74d0, ink #141522 | `ANIME_COL` |
-| 14 | Ears | small, at z = -0.12, mostly behind the side hair | `ear_uz`, `ear_h` |
+| 15 | Side profile | brow ridge, eyes set back, small pointed nose, dip under it, lips, recess, chin forward to a point; crisp jaw underside back to the ear | `profile`, `jaw_plane` |
+| 14 | Ears | small, at z = -0.12, set out from the skull so they show in 3/4 and profile | `ear_uz`, `ear_h`, `ear_x`, `ear_flare` |
 
 Expressions (FaceRig): COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE.
 `--face illustrated` keeps the reference-study variant (not the default).
