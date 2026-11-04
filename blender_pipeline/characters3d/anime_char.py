@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
 
-NO_OUTLINE = ("SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -98,6 +98,8 @@ def build_anime(pct=100, reset=True, outfit="vest"):
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
     build_chest(add, body_skin, outfit=outfit)
     build_shoulders(add, body_skin)
+    build_arms(add, rig, body_skin, ink=outfit != "jacket")
+    build_hands(add, body_skin)
     if outfit == "jacket":
         build_jacket(add, rig)
     return scene, rig, bike
@@ -392,13 +394,124 @@ def build_jacket(add, rig):
         add(ob, bone)
     for s_, sx in (("L", 1), ("R", -1)):
         sho, elb, wri, hand = fr.jp(f"sho_{s_}"), fr.jp(f"elb_{s_}"), fr.jp(f"wri_{s_}"), fr.jp(f"hand_{s_}")
-        path = fr.arm_path(s_, sho, elb, wri, hand)[:-1]
-        radii = [(a * 1.12 + 0.01, b * 1.12 + 0.01) for a, b in fr.arm_radii(1.0)[:-1]]
+        path, radii, _ = anime_arm(s_)
+        path, radii = path[:-2], [(a * 1.08 + 0.011, b * 1.08 + 0.011) for a, b in radii[:-2]]
         radii[-1] = (radii[-1][0] + 0.006, radii[-1][1] + 0.006)          # a slightly flared sleeve end
         sl = fr.tube(f"Sleeve_{s_}", path, radii, jm, caps=False, ring=24)
         fr.skin_chain(sl, rig, [f"UpperArm_{s_}", f"Forearm_{s_}"], blend=0.05)
         add(fr.tube(f"Cuff_{s_}", [wri + (elb - wri).normalized() * 0.05, wri + (elb - wri).normalized() * 0.02],
                     [0.046, 0.044], tm, caps=False, ring=20, subdiv=1), f"Forearm_{s_}")
+
+
+# Upper arm (shoulder -> elbow) and forearm (elbow -> wrist) profiles:
+# (t along the segment, lateral radius, front-back radius, forward shift, outward shift)
+UPPER_ARM = [(-0.06, 0.056, 0.056, 0.0, 0.0), (0.1, 0.066, 0.064, 0.0, 0.004), (0.25, 0.06, 0.066, -0.002, 0.002),
+             (0.42, 0.056, 0.076, -0.006, 0.0), (0.58, 0.054, 0.08, -0.009, 0.0), (0.74, 0.05, 0.07, -0.007, 0.0),
+             (0.88, 0.043, 0.054, -0.002, 0.0), (1.0, 0.041, 0.046, 0.0, 0.0)]
+FOREARM = [(0.1, 0.052, 0.049, -0.002, 0.004), (0.24, 0.06, 0.052, -0.003, 0.008), (0.42, 0.053, 0.046, -0.002, 0.005),
+           (0.6, 0.044, 0.038, 0.0, 0.002), (0.8, 0.035, 0.029, 0.0, 0.0), (1.0, 0.029, 0.021, 0.0, 0.0)]
+
+
+def _arm_frame(a, b, sx):
+    d = (b - a).normalized()
+    u = Vector((sx, 0, 0))
+    u = (u - d * u.dot(d)).normalized()                       # outward
+    f = Vector((0, -1, 0))
+    f = (f - d * f.dot(d) - u * f.dot(u)).normalized()        # forward
+    return d, u, f
+
+
+def anime_arm(s_):
+    """Path + elliptical radii of one muscular arm (rest pose), and a function that
+    returns a surface point for ink strokes: (segment, t, angle 0=out 90=front)."""
+    sx = 1 if s_ == "L" else -1
+    sho, elb, wri, hand = (fr.jp(f"{j}_{s_}") for j in ("sho", "elb", "wri", "hand"))
+    pts, radii = [], []
+    for seg, (a, b), prof in (("up", (sho, elb), UPPER_ARM), ("fore", (elb, wri), FOREARM)):
+        d, u, f = _arm_frame(a, b, sx)
+        for t, rx, ry, fwd, out in prof:
+            pts.append(a.lerp(b, t) + f * fwd + u * out)
+            radii.append((rx, ry))
+    pts.append(wri + (hand - wri).normalized() * 0.022)
+    radii.append((0.027, 0.019))
+
+    def surf(seg, t, ang, lift=0.0015):
+        a, b, prof = (sho, elb, UPPER_ARM) if seg == "up" else (elb, wri, FOREARM)
+        d, u, f = _arm_frame(a, b, sx)
+        # interpolate the profile at t
+        for (t0, rx0, ry0, fw0, o0), (t1, rx1, ry1, fw1, o1) in zip(prof, prof[1:]):
+            if t0 <= t <= t1:
+                k = (t - t0) / (t1 - t0)
+                rx, ry, fw, o = rx0 + (rx1 - rx0) * k, ry0 + (ry1 - ry0) * k, fw0 + (fw1 - fw0) * k, o0 + (o1 - o0) * k
+                break
+        else:
+            _, rx, ry, fw, o = prof[-1]
+        c = a.lerp(b, t) + f * fw + u * o
+        r = math.radians(ang)
+        # subdivision pulls a loft ~4 % inward: sit the stroke on the rendered skin
+        return c + u * (math.cos(r) * rx * 0.96 + math.cos(r) * lift) + f * (math.sin(r) * ry * 0.96 + math.sin(r) * lift)
+    return pts, radii, surf
+
+
+def build_arms(add, rig, skin, ink=True):
+    """Muscular arms replacing the smooth tubes: a full deltoid, a biceps peak in
+    front and the triceps mass behind, a clear pinch at the elbow, the forearm
+    swelling near the elbow (brachioradialis) and tapering to a slim wrist - the
+    outline goes in and out. Skinned to the arm bones; ink at the separations."""
+    for o in [o for o in bpy.data.objects if o.name in ("Arm_L", "Arm_R")]:
+        bpy.data.objects.remove(o)
+    liner = fr.mat("liner", 0.4)
+    for s_ in ("L", "R"):
+        pts, radii, surf = anime_arm(s_)
+        arm = fr.tube(f"Arm_{s_}", pts, radii, skin, ring=24, rows=40)
+        fr.skin_chain(arm, rig, [f"UpperArm_{s_}", f"Forearm_{s_}"], blend=0.05)
+        if not ink:
+            continue
+        strokes = {   # name: (segment, [(t, angle)], peak width)
+            "DeltSep": ("up", [(0.18, 60), (0.28, 25), (0.36, -10), (0.38, -40)], 0.0016),     # deltoid / biceps-triceps
+            "BicepEdge": ("up", [(0.5, 125), (0.68, 115), (0.82, 105), (0.9, 95)], 0.0016),     # inner edge of the biceps
+            "BicepLow": ("up", [(0.86, 60), (0.9, 85), (0.88, 110)], 0.0013),                   # where the biceps tucks into the elbow
+            "TricepEdge": ("up", [(0.35, -100), (0.55, -95), (0.75, -80)], 0.0014),             # the triceps horseshoe
+            "ForeLine": ("fore", [(0.08, 70), (0.25, 45), (0.45, 30), (0.62, 25)], 0.0015),     # brachioradialis edge
+        }
+        for nm, (seg, spec, w) in strokes.items():
+            p = [surf(seg, t, ang) for t, ang in spec]
+            n = len(p)
+            bone = f"UpperArm_{s_}" if seg == "up" else f"Forearm_{s_}"
+            add(fr.tube(f"{nm}_{s_}", p, [0.0004 + w * math.sin(math.pi * (i + 0.5) / n) for i in range(n)], liner,
+                        subdiv=1, ring=6), bone)
+
+
+def build_hands(add, skin, k=1.28):
+    """Strong hands to match the arms: a thick, broad palm, the thumb muscle pad
+    and the outer pad, a ridge of four knuckles, thick fingers in three segments
+    (bigger at the knuckles, curling toward the palm) and a heavy thumb."""
+    for o in [o for o in bpy.data.objects if o.name.startswith(("Hand_", "Finger_", "Knuckle_", "Thumb_"))]:
+        bpy.data.objects.remove(o)
+    for s_, sx in (("L", 1), ("R", -1)):
+        wri, hand = fr.jp(f"wri_{s_}"), fr.jp(f"hand_{s_}")
+        bone = f"Hand_{s_}"
+        d = (hand - wri).normalized()
+        palm = wri + d * 0.046 * k
+        add(fr.blob(f"Hand_{s_}", palm, (0.021 * k, 0.043 * k, 0.047 * k), skin), bone)
+        add(fr.blob(f"HandThenar_{s_}", wri + d * 0.03 * k + Vector((-sx * 0.008 * k, -0.026 * k, 0)),
+                    (0.014 * k, 0.016 * k, 0.024 * k), skin, subdiv=1), bone)          # thumb muscle pad
+        add(fr.blob(f"HandOuter_{s_}", wri + d * 0.04 * k + Vector((-sx * 0.006 * k, 0.03 * k, 0)),
+                    (0.012 * k, 0.012 * k, 0.026 * k), skin, subdiv=1), bone)          # outer pad
+        base = wri + d * 0.085 * k
+        for i, (oy, ln) in enumerate(((-0.027, 0.052), (-0.009, 0.06), (0.009, 0.057), (0.026, 0.046))):
+            p0 = base + Vector((0, oy * k, 0))
+            p1 = p0 + d * ln * 0.42 * k + Vector((-sx * 0.003 * k, 0, 0))
+            p2 = p0 + d * ln * 0.75 * k + Vector((-sx * 0.01 * k, 0, 0))
+            p3 = p0 + d * ln * k + Vector((-sx * 0.018 * k, 0, 0))                    # curl toward the palm
+            add(fr.tube(f"Finger_{s_}{i}", [p0, p1, p2, p3], [0.0105 * k, 0.0095 * k, 0.0088 * k, 0.0068 * k], skin,
+                        subdiv=1, ring=12), bone)
+            add(fr.blob(f"Knuckle_{s_}{i}", p0 + Vector((sx * 0.008 * k, 0, 0.001 * k)), (0.0072 * k, 0.0085 * k, 0.0075 * k),
+                        skin, subdiv=1), bone)
+        t0 = wri + d * 0.032 * k + Vector((-sx * 0.007 * k, -0.036 * k, 0))
+        add(fr.tube(f"Thumb_{s_}", [t0, t0 + d * 0.03 * k + Vector((0, -0.011 * k, 0)),
+                                    t0 + d * 0.054 * k + Vector((-sx * 0.007 * k, -0.009 * k, 0))],
+                    [0.0135 * k, 0.0115 * k, 0.009 * k], skin, subdiv=1, ring=12), bone)
 
 
 def build_shoulders(add, skin):
