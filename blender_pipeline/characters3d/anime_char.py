@@ -44,7 +44,7 @@ ANIME_COL = {
 
 ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=-1.0, ear_uz=-0.22, ear_h=0.55,
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
-                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15)
+                    eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15, vjaw=(-0.62, 0.72, 0.15))
 
 NO_OUTLINE = ("BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
@@ -947,7 +947,7 @@ def anime_look(scene, cam, subject, outline=0.0022, face_outline=0.0012):
     """Cel shading + ink outlines + one hard sun + flat sky + Standard view."""
     for m in list(bpy.data.materials):
         # Anime faces: shaded only by cast shadows (hair), not by every sculpted bump.
-        cel_material(m, terminator=0.08 if "SkinPaint" in m.name else 0.3)
+        cel_material(m, terminator=0.015 if "SkinPaint" in m.name else 0.3)
     for ob in list(bpy.data.objects):
         on_head = ob.parent_type == "BONE" and ob.parent_bone == "Head"
         if ob.name == "Head":
@@ -955,7 +955,7 @@ def anime_look(scene, cam, subject, outline=0.0022, face_outline=0.0012):
         add_outline(ob, face_outline if on_head else outline)
     head = bpy.data.objects.get("Head")
     if head:
-        add_outline(head, 0.0006)
+        add_outline(head, 0.0016)          # the face contour: a clear inked cutout (cheek, jaw angle, chin)
     for o in list(bpy.data.objects):
         if o.type == "LIGHT" or o.name in ("Cyc",):
             o.hide_render = True

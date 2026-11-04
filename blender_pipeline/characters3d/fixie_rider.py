@@ -514,8 +514,22 @@ def sculpt_head(name, hc, size, material, nose=1.0, chin=1.0, cheek=1.0, jaw=1.0
                 # convex (U) jaw line closing into a small chin (~30% of cheek width).
                 sw = max(0.3, math.sqrt(max(0.0, 1 - z * z)))
                 wt = (1 + 0.1 * shield) * math.sqrt(max(0.0, 1 - top * top))
-                x *= (wt * (1 - 0.8 * shield * t ** 1.6)) / sw       # straighter taper to a small soft point (ref 09)
-                z -= 0.03 * shield * t * t
+                vj = LAYOUT.get("vjaw")
+                if vj:
+                    # Anime contour: the cheek line runs nearly straight down to a
+                    # defined jaw angle, then straight lines close to a pointed chin.
+                    jz, jw, cw = vj                                # jaw-angle height, width there, chin width (x wt)
+                    if z > jz:
+                        k_ = (top - z) / max(1e-6, top - jz)
+                        w = wt * (1 - (1 - jw) * k_ ** 1.4)
+                    else:
+                        k_ = min(1.0, (jz - z) / max(1e-6, jz + 1.0))
+                        w = wt * (jw - (jw - cw) * k_ ** 0.9)
+                    x *= w / sw
+                    z -= 0.06 * shield * t ** 2.5                  # a slightly longer, pointed chin
+                else:
+                    x *= (wt * (1 - 0.8 * shield * t ** 1.6)) / sw       # straighter taper to a small soft point (ref 09)
+                    z -= 0.03 * shield * t * t
             if y < -0.55:                                     # flat face front, easing out below the cheeks
                 fz = max(0.0, min(1.0, (z + 0.75) / 0.4))
                 y = -0.55 + (y + 0.55) * (1 - 0.45 * shield * fz)
