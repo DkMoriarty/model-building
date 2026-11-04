@@ -44,5 +44,5 @@ To add a character, copy `build_head()` / `build_body()` and reuse the helpers: 
 
 ## Not included yet
 
-The characters aren't rigged, so the pose is fixed in code. To animate him, add an armature (Rigify works) and parent the parts to it with automatic weights.
+The characters aren't rigged, so the pose is fixed in code. To animate one, add an armature (Rigify works) and parent the parts to it with automatic weights.
 
