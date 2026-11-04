@@ -15,10 +15,10 @@ In the built file:
 import os
 import sys
 
-OUTFIT = "leather"       # "leather" (red leather jacket + turtleneck) | "tee" | "vest" | "bare" | "jacket"
+OUTFIT = "track"         # "track" (blue/white track jacket + black tee) | "leather" | "tee" | "vest" | "bare" | "jacket"
 HAND = "relaxed"         # "relaxed" | "fist" | "open"
-FACE = "sharp"           # "sharp" (defined brows/eyes/planes, default) | "anime" | "illustrated"
-EXPRESSION = "SCOWL"     # SCOWL, COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE
+FACE = "rugged"          # "rugged" (blond, blue-grey eyes, stubble) | "sharp" | "anime" | "illustrated"
+EXPRESSION = "COOL"      # SCOWL, COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE
 FOLDER = r"C:\Users\Dhiraj Office\Downloads\toon_chars"
 
 import bpy  # noqa: E402

@@ -51,7 +51,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     chin_drop=0.1, chin_fwd=0.42,
                     profile=2.2, jaw_plane=0.7, jaw_corner=1.0, corner_z=-0.66, corner_w=0.64, ear_x=1.0, ear_flare=15)   # side view: anime profile, crisp jaw underside, ears out
 
-NO_OUTLINE = ("Zip", "Rivet", "Chain", "Pierce", "Hoop", "Plane", "Rip", "JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("AdamsApple", "Snap", "Piping", "Zip", "Rivet", "Chain", "Pierce", "Hoop", "Plane", "Rip", "JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -110,7 +110,7 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="sharp"
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
     build_chest(add, body_skin, outfit=outfit)
     build_shoulders(add, body_skin)
-    build_arms(add, rig, body_skin, ink=outfit not in ("jacket", "leather"))
+    build_arms(add, rig, body_skin, ink=outfit not in ("jacket", "leather", "track"))
     build_hands(add, body_skin, pose=hand)
     if outfit == "jacket":
         build_jacket(add, rig)
@@ -120,6 +120,10 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="sharp"
     if outfit == "leather":
         build_leather(add, rig)
         rip_jeans(add, body_skin)
+    if outfit == "track":
+        build_track(add, rig)
+    if FACE.get("adams_apple"):
+        add(fr.blob("AdamsApple", Vector((0, -0.03, 1.54)), (0.008, 0.007, 0.013), body_skin, subdiv=2), "Neck")
     add_finger_bones(rig, body_skin)
     soft_face_paint()
     # Body skin shaded exactly like the face (same colour, same cel conversion).
@@ -214,7 +218,17 @@ def soft_face_paint():
         under = max(0.0, -n.z) * max(0.0, min(1.0, (c0.z - v.co.z) / (c0.z - zmin + 1e-6)))
         k = 1.0 - 0.07 * side - 0.12 * under
         c = pa.data[v.index].color
-        pa.data[v.index].color = (c[0] * k, c[1] * (k - 0.015 * side), c[2] * (k - 0.03 * side), 1.0)
+        r_, g_, b_ = c[0] * k, c[1] * (k - 0.015 * side), c[2] * (k - 0.03 * side)
+        if FACE.get("stubble"):
+            # light stubble: a cool, slightly darker tint over the jaw, chin and upper lip
+            u = (v.co - c0)
+            uz = u.z / max(1e-6, (c0.z - zmin))
+            front = max(0.0, -n.y)
+            jaw = max(0.0, min(1.0, (-uz - 0.45) / 0.2)) * (0.4 + 0.6 * front)
+            lip = max(0.0, 1 - abs(uz + 0.5) / 0.06) * max(0.0, 1 - abs(u.x) / 0.04) * front
+            w = min(0.55, 0.45 * jaw + 0.5 * lip)
+            r_, g_, b_ = r_ * (1 - 0.28 * w), g_ * (1 - 0.24 * w), b_ * (1 - 0.16 * w)
+        pa.data[v.index].color = (r_, g_, b_, 1.0)
 
 
 FINGERS = ("Index", "Middle", "Ring", "Pinky")
@@ -418,6 +432,12 @@ FACE_STYLES = {
                     face_w=[(-0.3, 0.97), (-0.45, 0.9), (-0.6, 0.8), (-0.7, 0.72), (-0.85, 0.44), (-0.98, 0.17), (-1.06, 0.06)],
                     chin_drop=0.18, chin_fwd=0.5, head_size=(0.085, 0.106, 0.148), cheek=0.0)),
 }
+FACE_STYLES["rugged"] = dict(FACE_STYLES["sharp"], accessories=False, stubble=True, adams_apple=True,
+                             iris=(0.08, 0.012, 0.4, 0.11),
+                             colors=dict(FACE_STYLES["sharp"]["colors"], anime_iris="#6f8ea3", anime_iris_hi="#a9c3d3",
+                                         hair="#8e6c43", brow_ink="#3a281b", skin="#dba481", skin_cel_lit="#dba481",
+                                         skin_cel_shadow="#b0785b"),
+                             layout=dict(bang_k=0.6, bang_sweep=1.2))      # tousled dirty-blond hair swept up and aside
 FACE = FACE_STYLES["sharp"]
 
 
@@ -838,7 +858,7 @@ def build_chest(add, skin, outfit="vest"):
     _abs_back(torso, 1.0)
     _jacked_outline(torso, 1.0)
     add(torso, "Spine")
-    if outfit in ("tee", "leather"):        # covered torso: no vest
+    if outfit in ("tee", "leather", "track"):  # covered torso: no vest
         for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
             bpy.data.objects.remove(o)
         return
@@ -898,6 +918,49 @@ def build_chest(add, skin, outfit="vest"):
             rib = fr.tube(f"VestRib{k}", path, [0.0022] * 4, vest_mat, subdiv=0, ring=6)
             _pecs(rib, depth=0.022)
             add(rib, "Spine")
+
+
+def build_track(add, rig):
+    """Open colour-block track jacket (the reference): deep blue body and stand
+    collar, white shoulders and sleeves, a thin gold piping where they meet, a
+    silver zip down both open edges and snap buttons on the collar; a black tee
+    underneath."""
+    build_jacket(add, rig, body_col="#2b4c9b", trim_col="#24407f", collar_h=0.085, closed=False)
+    fr.COL["track_white"] = fr.hx("#e8e5dc")
+    fr.COL["tee_black"] = fr.hx("#1c1c22")
+    fr.COL["gold_pipe"] = fr.hx("#c9a24a")
+    fr.COL["silver"] = fr.hx("#c9ccd4")
+    wm, bm_, gm, sm_ = (fr.mat("track_white", 0.85), fr.mat("tee_black", 0.9), fr.mat("gold_pipe", 0.5),
+                        fr.mat("silver", 0.3))
+    for o in bpy.data.objects:                         # colour-block: white shoulders + sleeves
+        if o.name.startswith(("JacketShoulders", "JacketDeltCap", "Sleeve_")):
+            o.data.materials.clear()
+            o.data.materials.append(wm)
+        if o.name in ("Torso", "Shoulders"):           # black tee under the open jacket
+            o.data.materials.clear()
+            o.data.materials.append(bm_)
+    for o in [o for o in bpy.data.objects if o.name.startswith("Lapel")]:
+        bpy.data.objects.remove(o)
+    jk = bpy.data.objects.get("Jacket")
+    if jk is not None:
+        bpy.context.view_layer.update()
+        vs = [jk.matrix_world @ v.co for v in jk.data.vertices]
+        for sx in (1, -1):                              # zip teeth along each open front edge
+            for k in range(18):
+                z = 1.0 + k * 0.022
+                band = [v for v in vs if abs(v.z - z) < 0.006 and v.y < -0.03 and sx * v.x > 0]
+                if band:
+                    e = min(band, key=lambda v: sx * v.x)
+                    add(fr.box(f"Zip{sx}_{k}", Vector((e.x + sx * 0.002, e.y - 0.002, z)), (0.004, 0.003, 0.007), sm_,
+                               bevel=0.001), "Spine")
+            # gold piping where the white shoulder meets the blue body
+            sho = fr.jp("sho_L" if sx > 0 else "sho_R")
+            pts = [Vector((sx * 0.09, -0.12, 1.37)), Vector((sx * 0.16, -0.1, 1.38)), Vector((sho.x, -0.06, 1.36)),
+                   Vector((sho.x + sx * 0.02, 0.0, 1.32))]
+            add(fr.tube(f"Piping{sx}", pts, [0.003] * 4, gm, subdiv=1, ring=6), "Spine")
+            for z0 in (1.49, 1.44):                         # collar snaps
+                add(fr.blob(f"Snap{sx}{z0}", Vector((sx * 0.05, -0.07, z0)), (0.006, 0.004, 0.006), sm_, subdiv=1), "Neck")
+    add(fr.tube("TeeNeck", [(0, 0.01, 1.4), (0, 0.01, 1.45)], [0.058, 0.054], bm_, caps=False, ring=24), "Neck")
 
 
 def build_leather(add, rig):
@@ -1525,7 +1588,7 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="renders/anime")
     ap.add_argument("--size", type=int, default=900)
-    ap.add_argument("--outfit", default="tee", choices=("tee", "leather", "vest", "bare", "jacket"))
+    ap.add_argument("--outfit", default="tee", choices=("track", "tee", "leather", "vest", "bare", "jacket"))
     ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
     ap.add_argument("--face", default="sharp", choices=tuple(FACE_STYLES))
     a = ap.parse_args(argv)
