@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35, socket=0.15)
 
-NO_OUTLINE = ("Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -240,7 +240,7 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
         decal(f"Eye{sx}", [(m_white, white)], 0, origin=centre)
         ic_u, ic_z, iru, irz = 0.05, ez + 0.006, 0.44, 0.128
         iris = clip(ellipse(ic_u, ic_z, iru, irz))
-        iris_lo = clip([(u, z) for u, z in ellipse(ic_u, ic_z - 0.03, iru * 0.78, irz * 0.55)])
+        iris_lo = clip(ellipse(ic_u, ic_z - 0.05, iru * 0.66, irz * 0.4))          # one clean lighter lens low in the iris
         decal(f"Iris{sx}", [(m_iris, iris, 1), (m_iris_hi, iris_lo, 1.6)], 1, origin=centre)
         decal(f"Pupil{sx}", [(m_pupil, clip(ellipse(ic_u, ic_z + 0.01, 0.18, 0.066)))], 2.3, origin=centre)
         g1 = [(X(0.27) + 0.03 * math.cos(a), ez + 0.048 + 0.034 * math.sin(a)) for a in
@@ -273,9 +273,70 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
             bu = ex + sx * (-0.06 + 0.06 * k)
             ink(f"BlushLine{sx}{k}", [(bu - sx * 0.012, ez - 0.16), (bu + sx * 0.012, ez - 0.135)], [0.0006, 0.0006],
                 m_blush_line, 2)
-    # Tiny nose: a small shadow wedge under the tip on the shadow side, no bump outline.
+    # Nose: a sharp anime nose - a short ink stroke down the shadow side of the
+    # bridge into a small tick at the tip, over a faint shadow under it.
     nz = L["nose_z"]
-    decal("NoseShadow", [(m_nose, [(-0.0, nz - 0.005), (-0.05, nz - 0.03), (-0.01, nz - 0.04)])], 1)
+    decal("NoseShadow", [(m_nose, [(-0.0, nz - 0.012), (-0.04, nz - 0.03), (-0.008, nz - 0.036)])], 1)
+    ink("NoseLine", [(-0.03, nz + 0.07), (-0.024, nz + 0.03), (-0.014, nz - 0.004)], [0.0003, 0.0008, 0.0009], m_ink, 2)
+    ink("NoseTip", [(-0.014, nz - 0.004), (0.0, nz - 0.012), (0.012, nz - 0.01)], [0.0009, 0.0007, 0.0003], m_ink, 2)
+
+    # Mouths, drawn: one set of shapes per expression mouth (FaceRig swaps them by name).
+    for o in [o for o in bpy.data.objects if o.name.startswith(tuple(prefix + n for n in (
+            "Smile", "Dimple", "PoutUp", "PoutLow", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat")))]:
+        bpy.data.objects.remove(o)
+    fr.COL["mouth_in"] = fr.hx("#4a1c22")
+    fr.COL["tongue_a"] = fr.hx("#e0707a")
+    m_in, m_teeth, m_tongue = fr.mat("mouth_in", 0.15), fr.mat("eye_white", 0.15), fr.mat("tongue_a", 0.15)
+    mz = L["mouth_z"]
+    mc = P(0.0, mz, 2)
+
+    def arc(cx, cz, rx, rz, a0, a1, n=24):
+        return [(cx + rx * math.cos(math.radians(a0 + (a1 - a0) * i / (n - 1))),
+                 cz + rz * math.sin(math.radians(a0 + (a1 - a0) * i / (n - 1)))) for i in range(n)]
+    # SMIRK: a thin line rising at his left corner, a small tick there.
+    ink("Smile", [(-0.075, mz + 0.004), (-0.02, mz - 0.004), (0.04, mz - 0.002), (0.085, mz + 0.012)],
+        [0.0004, 0.001, 0.0011, 0.0005], m_ink, 2, origin=mc)
+    ink("Dimple", [(0.085, mz + 0.012), (0.096, mz + 0.026)], [0.0006, 0.0003], m_ink, 2, origin=mc)
+    # FLAT: a short straight line.
+    ink("MouthFlat", [(-0.06, mz), (0.0, mz - 0.002), (0.06, mz)], [0.0004, 0.001, 0.0004], m_ink, 2, origin=mc)
+    # GRIN: a wide open D - flat top with a row of teeth, a deep curved bottom, a tongue.
+    top = [(-0.12 + 0.24 * i / 16, mz + 0.022 - 0.006 * (1 - ((-0.12 + 0.24 * i / 16) / 0.12) ** 2)) for i in range(17)]
+    decal("MouthGrinDark", [(m_in, [(x, z) for x, z in top] + [(x, z) for x, z in arc(0.0, mz + 0.018, 0.12, 0.09, 360, 180, 26)][1:-1])], 1.0,
+          origin=mc)
+    decal("MouthGrinTeeth", [(m_teeth, [(x, z) for x, z in top] + [(x, z - 0.02) for x, z in reversed(top[2:-2])])], 1.8, origin=mc)
+    decal("MouthGrinTongue", [(m_tongue, arc(0.0, mz - 0.048, 0.06, 0.026, 0, 360, 24))], 1.5, origin=mc)
+    ink("MouthGrinLine", top, [0.0005] + [0.0011] * 15 + [0.0005], m_ink, 2.4, origin=mc)
+    # O: a small round open mouth with an ink rim.
+    o_pts = arc(0.0, mz - 0.01, 0.032, 0.042, 0, 360, 24)
+    decal("MouthO", [(m_in, o_pts)], 1.0, origin=mc)
+    ink("MouthORim", o_pts + [o_pts[0]], [0.0008] * (len(o_pts) + 1), m_ink, 2.2, origin=mc)
+    # GASP: open wide, a rounded box with the top teeth showing.
+    gasp = [(-0.075, mz + 0.018), (0.075, mz + 0.018)] + arc(0.0, mz - 0.02, 0.07, 0.06, 0, -180, 18)
+    decal("MouthGasp", [(m_in, gasp)], 1.0, origin=mc)
+    decal("MouthGaspTeeth", [(m_teeth, [(-0.07, mz + 0.016), (0.07, mz + 0.016), (0.062, mz - 0.002), (-0.062, mz - 0.002)])],
+          1.8, origin=mc)
+
+    for o in bpy.data.objects:                        # FaceRig convention: alternative mouths start hidden at 1/1000
+        if o.name.startswith(prefix + "Mouth"):
+            o.scale = o.scale * 0.001
+    # The shadow the bangs throw: one clean band with pointed teeth echoing the
+    # fringe tips, painted on (the hair itself casts no messy shadows on the face).
+    fr.COL["skin_shade"] = fr.hx("#e6b2a1")
+    m_shade = fr.mat("skin_shade", 0.15)
+    ez0 = L["eye_uz"]
+    me_v, me_f = [], []
+    xs = [-0.78 + 1.56 * i / 28 for i in range(29)]
+    for i, x in enumerate(xs):
+        tooth = 0.5 - 0.5 * math.cos(2 * math.pi * (x + 0.78) / 0.22)          # 7 teeth across the forehead
+        zb = ez0 + 0.27 + 0.07 * tooth - 0.05 * (abs(x) / 0.78) ** 2
+        me_v += [P(x, ez0 + 0.62, 0.4), P(x, zb, 0.4)]
+        if i:
+            a_, b_ = 2 * (i - 1), 2 * i
+            me_f.append((a_, b_, b_ + 1, a_ + 1))
+    me = bpy.data.meshes.new(prefix + "BangShadow")
+    me.from_pydata([tuple(v) for v in me_v], [], me_f)
+    me.materials.append(m_shade)
+    add(fr._link(bpy.data.objects.new(prefix + "BangShadow", me)), "Head")
     info = fr.FACE_INFO.setdefault(prefix, {})
     info.update(dict(hc=hc.copy(), size=size, eye_r=0.0113 * EYE_VZ, almond=True, ah=1.0, decal=True))
 
@@ -898,6 +959,13 @@ def anime_look(scene, cam, subject, outline=0.0022, face_outline=0.0012):
     for o in list(bpy.data.objects):
         if o.type == "LIGHT" or o.name in ("Cyc",):
             o.hide_render = True
+    for o in bpy.data.objects:                    # hair: no cast shadow on the face (a clean painted band instead)
+        if o.name.startswith(("Hair", "G_Hair")):
+            if hasattr(o, "visible_shadow"):
+                o.visible_shadow = False
+            for m in (o.data.materials if hasattr(o.data, "materials") else []):
+                if m and hasattr(m, "shadow_method"):
+                    m.shadow_method = "NONE"
     sun = bpy.data.lights.new("ANIME_Sun", "SUN")
     sun.energy, sun.angle = 2.2, math.radians(0.5)
     so = fr._link(bpy.data.objects.new("ANIME_Sun", sun))
