@@ -727,11 +727,11 @@ def recenter(ob):
 
 
 MOUTHS = {  # mouth shape -> its parts (names without prefix)
-    "SMIRK": ("Smile", "Dimple", "PoutUp", "PoutLow"),
+    "SMIRK": ("Smile", "Dimple", "PoutUp", "PoutLow", "LowerLip"),
     "GRIN": ("MouthGrinDark", "MouthGrinTeeth", "MouthGrinTongue", "MouthGrinLine"),
     "O": ("MouthORim", "MouthO"),
     "GASP": ("MouthGasp", "MouthGaspTeeth"),
-    "FLAT": ("MouthFlat", "PoutUp", "PoutLow"),
+    "FLAT": ("MouthFlat", "PoutUp", "PoutLow", "LowerLip"),
 }
 
 
@@ -1657,7 +1657,7 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
                  rnd.uniform(2.8, 3.4), k=1.12, puff=0.22, flick=0.75, curl=rnd.uniform(-0.3, 0.3), tilt=rnd.uniform(-0.3, 0.3))
         for sgn in (1, -1):                                   # side locks past the ears
             for i in range(3):
-                lock(f"HairSide{sgn}_{i}", (sgn * 0.8, -0.25 + 0.2 * i, 0.55 - 0.05 * i), (sgn * 0.15, 0.1 * i, -1.0),
+                lock(f"HairSide{sgn}_{i}", (sgn * 0.78, 0.08 + 0.16 * i, 0.55 - 0.05 * i), (sgn * 0.12, 0.25 + 0.1 * i, -1.0),
                      rnd.uniform(0.16, 0.2), rnd.uniform(2.4, 2.9), k=1.08, puff=0.12, flick=0.35, curl=sgn * 0.3,
                      tilt=sgn * 0.4)
         for i in range(8):                                    # back spikes
