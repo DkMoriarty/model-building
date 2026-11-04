@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
 
-NO_OUTLINE = ("Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -156,8 +156,10 @@ def _abs_back(ob, depth=1.0):
         if y < 0.0:                                            # front
             fr_ = min(1.0, -y / 0.05)
             for cx in (0.034, -0.034):
-                for cz in (1.215, 1.15, 1.085):
-                    d += 0.011 * plate(x - cx, 0.024, 0.008) * plate(z - cz, 0.024, 0.009) * fr_
+                for cz in (1.215, 1.15, 1.085):              # rounded blocks: they step out in the side profile
+                    bx = plate(x - cx, 0.025, 0.012)
+                    bz = plate(z - cz, 0.022, 0.011)
+                    d += 0.03 * (bx * bz) ** 0.6 * fr_
             # obliques: a soft swell at the flanks, cut by the V line down-in to the groin
             for sx in (1, -1):
                 ob_ = math.exp(-((x - sx * 0.12) / 0.035) ** 2) * math.exp(-((z - 1.1) / 0.06) ** 2)
@@ -176,18 +178,63 @@ def _abs_back(ob, depth=1.0):
             v.co.y += d * depth
 
 
+def _surface_bvh(objs):
+    """BVH of the surface as RENDERED (after subdivision, which pulls a loft inward),
+    so strokes and ridges laid on it sit on the skin instead of floating off it."""
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    verts, polys, off = [], [], 0
+    for o in objs:
+        saved = [(md, md.show_viewport) for md in o.modifiers if md.type == "SOLIDIFY"]
+        for md, _ in saved:
+            md.show_viewport = False
+        dg.update()
+        ev = o.evaluated_get(dg)
+        me = ev.to_mesh()
+        verts += [o.matrix_world @ v.co for v in me.vertices]
+        polys += [tuple(i + off for i in p.vertices) for p in me.polygons]
+        off += len(me.vertices)
+        ev.to_mesh_clear()
+        for md, vis in saved:
+            md.show_viewport = vis
+    return BVHTree.FromPolygons(verts, polys)
+
+
+def _jacked_outline(ob, depth=1.0):
+    """Give the torso a muscular silhouette, pushing the sides out horizontally
+    (world-space vertices): lats flaring wide under the armpits, the serratus
+    'fingers' along the ribs, a pinch at the waist, then the obliques swelling
+    over the hips before the V cuts in. Seen from the front the outline is no
+    longer a straight plane; seen from the side the abs step out (_abs_back)."""
+    for v in ob.data.vertices:
+        x, y, z = v.co
+        r = math.hypot(x, y)
+        if r < 1e-6:
+            continue
+        side = abs(x) / r                                    # 1 at the flanks, 0 at the middle front/back
+        out = 0.0
+        out += 0.04 * math.exp(-((z - 1.26) / 0.05) ** 2) * side ** 2 * (1.0 if y > -0.06 else 0.6)     # lats
+        out -= 0.014 * math.exp(-((z - 1.16) / 0.03) ** 2) * side ** 2                                  # waist pinch
+        out += 0.028 * math.exp(-((z - 1.075) / 0.032) ** 2) * side ** 3 * (1.0 if y < 0.04 else 0.5)   # obliques
+        if y < 0.0:                                          # serratus fingers on the front-side of the ribs
+            for cz in (1.24, 1.21, 1.18):
+                out += 0.006 * math.exp(-((z - cz) / 0.009) ** 2) * math.exp(-((side - 0.82) / 0.1) ** 2)
+        k = 1.0 + out * depth / r
+        v.co.x *= k
+        v.co.y *= k
+
+
 def _ink_on(target, name, pts_xz, widths, add, bone="Spine", back=False):
     """An ink stroke laid on a reshaped surface (ray-cast from the front or back)."""
-    from mathutils.bvhtree import BVHTree
-    me = target.data
-    bvh = BVHTree.FromPolygons([target.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+    bpy.context.view_layer.update()
+    bvh = _surface_bvh([target])
     pts = []
     for x, z in pts_xz:
         o, d = (Vector((x, 1.0, z)), Vector((0, -1, 0))) if back else (Vector((x, -1.0, z)), Vector((0, 1, 0)))
         hit = bvh.ray_cast(o, d)
         if hit[0] is None:
             return None
-        pts.append(hit[0] + (Vector((0, 0.0025, 0)) if back else Vector((0, -0.0025, 0))))
+        pts.append(hit[0] + (Vector((0, 0.0012, 0)) if back else Vector((0, -0.0012, 0))))
     return add(fr.tube(name, pts, widths, fr.mat("liner", 0.4), subdiv=1, ring=6), bone)
 
 
@@ -212,6 +259,7 @@ def build_chest(add, skin, outfit="vest"):
                     ring=40, rows=34, subdiv=2)
     _pecs(torso, depth=0.03)
     _abs_back(torso, 1.0)
+    _jacked_outline(torso, 1.0)
     add(torso, "Spine")
     if outfit == "bare":
         for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
@@ -224,6 +272,9 @@ def build_chest(add, skin, outfit="vest"):
             for k, cz in enumerate((1.183, 1.118)):
                 _ink_on(torso, f"AbLine{sx}{k}", [(sx * 0.014, cz + 0.002), (sx * 0.034, cz), (sx * 0.054, cz + 0.003)],
                         [0.0006, 0.0014, 0.0005], add)
+            for k, cz in enumerate((1.235, 1.205, 1.175)):       # serratus fingers
+                _ink_on(torso, f"SerratusLine{sx}{k}", [(sx * 0.15, cz + 0.006), (sx * 0.162, cz - 0.002), (sx * 0.17, cz - 0.01)],
+                        [0.0005, 0.0013, 0.0004], add)
             _ink_on(torso, f"VLine{sx}", [(sx * 0.125, 1.1), (sx * 0.1, 1.05), (sx * 0.07, 1.0)], [0.0005, 0.0016, 0.0005], add)
             _ink_on(torso, f"BladeLine{sx}", [(sx * 0.05, 1.36), (sx * 0.045, 1.31), (sx * 0.07, 1.26), (sx * 0.12, 1.28)],
                     [0.0005, 0.0016, 0.0016, 0.0005], add, back=True)
@@ -232,16 +283,17 @@ def build_chest(add, skin, outfit="vest"):
         _ink_on(torso, "SpineLine", [(0.0, 1.4), (0.0, 1.25), (0.0, 1.08)], [0.0006, 0.0016, 0.0006], add, back=True)
         return
     if vest_mat is not None:
-        vest = fr.tube("Vest", [(0, y, z) for y, z in zip(ys[:-1], zs[:-1])], body[:-1], vest_mat, caps=False,
+        vest = fr.tube("Vest", [(0, y, z) for y, z in zip(ys[:-1], zs[:-1])], [(a * 1.035, b * 1.035) for a, b in body[:-1]],
+                       vest_mat, caps=False,
                        ring=40, rows=32, subdiv=2)
         _pecs(vest, depth=0.032)
-        _abs_back(vest, 0.45)                               # the fitted knit shows the core and blades softly
+        _abs_back(vest, 1.0)                                # fitted knit: follows the core and blades (never cut by the skin)
+        _jacked_outline(vest, 1.0)
         add(vest, "Spine")
         # Anime chest lines inked on the vest: the curve under each pec and a short
         # stroke down the breastbone (placed by ray-casting the reshaped vest).
-        from mathutils.bvhtree import BVHTree
-        me = vest.data
-        bvh = BVHTree.FromPolygons([vest.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+        bpy.context.view_layer.update()
+        bvh = _surface_bvh([vest])
         liner = fr.mat("liner", 0.4)
 
         def on_vest(x, z):
@@ -279,8 +331,10 @@ def build_jacket(add, rig):
     zs = [0.96, 1.07, 1.17, 1.26, 1.33, 1.385, 1.425]
     rr = [(0.165, 0.125), (0.172, 0.13), (0.2, 0.138), (0.232, 0.142), (0.238, 0.14), (0.222, 0.128), (0.16, 0.112)]
     ys = [0.012, 0.006, 0.0, -0.004, -0.004, 0.0, 0.004]
-    body = fr.tube("Jacket", [(0, y, z) for y, z in zip(ys, zs)], rr, jm, caps=False, ring=48, rows=30, subdiv=2)
+    body = fr.tube("Jacket", [(0, y, z) for y, z in zip(ys, zs)], [(a * 1.04, b * 1.04) for a, b in rr], jm, caps=False,
+                   ring=48, rows=30, subdiv=2)
     _pecs(body, depth=0.016)
+    _jacked_outline(body, 1.0)                          # follows the lats/waist/obliques underneath
     bm = bmesh.new()
     bm.from_mesh(body.data)
     gone = [f for f in bm.faces if f.calc_center_median().y < -0.05
@@ -330,7 +384,7 @@ def build_jacket(add, rig):
         ob = fr._link(bpy.data.objects.new(f"Jacket{src_name}", me))
         ob.matrix_world = src.matrix_world.copy()
         for v in me.vertices:
-            v.co += v.normal * (0.011 / max(1e-6, sum(src.matrix_world.to_scale()) / 3))
+            v.co += v.normal * (0.016 / max(1e-6, sum(src.matrix_world.to_scale()) / 3))
         for md in src.modifiers:
             if md.type == "SUBSURF":
                 ob.modifiers.new("Subdivision", "SUBSURF").levels = md.levels
@@ -357,15 +411,7 @@ def build_shoulders(add, skin):
     for o in [o for o in bpy.data.objects if o.name.startswith(("Trap_", "Clavicle", "DeltLine", "BicepLine", "BicepFront",
                                                                    "ForearmLine", "ElbowCrease", "Vein_"))]:
         bpy.data.objects.remove(o)          # the scratchy arm ink strokes read as noise in the anime render
-    torso = bpy.data.objects.get("Torso")
-    if torso:                                      # rebuild the torso top: no pinch under the shoulders
-        mats = list(torso.data.materials)
-        bpy.data.objects.remove(torso)
-        t = fr.tube("Torso", [(0, 0.01, 0.95), (0, 0.01, 1.05), (0, 0.0, 1.16), (0, 0.0, 1.27), (0, 0.0, 1.34),
-                               (0, 0.004, 1.39)],
-                    [(0.145, 0.105), (0.148, 0.105), (0.16, 0.11), (0.186, 0.12), (0.2, 0.118), (0.19, 0.105)],
-                    mats[0] if mats else skin)
-        add(t, "Spine")
+    # (the torso itself is built - and sculpted - by build_chest; nothing to rebuild here)
     # Top-line samples across the body: (|x|, top z, vertical half-size, depth half-size, y offset)
     spec = [(0.0, 1.47, 0.08, 0.07, 0.012), (0.05, 1.465, 0.078, 0.08, 0.012), (0.1, 1.45, 0.074, 0.095, 0.012),
             (0.16, 1.428, 0.068, 0.098, 0.008), (0.21, 1.408, 0.064, 0.088, 0.004), (0.25, 1.385, 0.06, 0.07, 0.0),
@@ -407,15 +453,8 @@ def build_collarbones(add, skin):
     sweeping back toward the shoulder, rising slightly at its outer end. Laid on
     the real surface (ray-cast onto the girdle/torso), with an ink stroke along its
     lower edge, a faint stroke in the hollow above, and the V of the throat notch."""
-    from mathutils.bvhtree import BVHTree
-    surf = [o for o in (bpy.data.objects.get("Shoulders"), bpy.data.objects.get("Torso")) if o]
-    verts, polys, off = [], [], 0
-    for o in surf:
-        me = o.data
-        verts += [o.matrix_world @ v.co for v in me.vertices]
-        polys += [tuple(i + off for i in p.vertices) for p in me.polygons]
-        off += len(me.vertices)
-    bvh = BVHTree.FromPolygons(verts, polys)
+    bpy.context.view_layer.update()
+    bvh = _surface_bvh([o for o in (bpy.data.objects.get("Shoulders"), bpy.data.objects.get("Torso")) if o])
 
     def on(x, z, lift=0.0):
         """Surface point at (x, z); if the ray misses (above the shoulder line) slide down until it lands."""
