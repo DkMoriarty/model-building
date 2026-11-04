@@ -51,11 +51,11 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     chin_drop=0.1, chin_fwd=0.42,
                     profile=2.2, jaw_plane=0.7, jaw_corner=1.0, corner_z=-0.66, corner_w=0.64, ear_x=1.0, ear_flare=15)   # side view: anime profile, crisp jaw underside, ears out
 
-NO_OUTLINE = ("Rip", "JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("Zip", "Rivet", "Chain", "Pierce", "Hoop", "Plane", "Rip", "JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
-def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"):
+def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="sharp"):
     """outfit: 'vest' (white ribbed vest), 'bare' (bare torso: abs, obliques, back inked), 'jacket' (open anime jacket over the vest)."""
     global FACE
     FACE = FACE_STYLES[face]
@@ -110,12 +110,15 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
     build_chest(add, body_skin, outfit=outfit)
     build_shoulders(add, body_skin)
-    build_arms(add, rig, body_skin, ink=outfit != "jacket")
+    build_arms(add, rig, body_skin, ink=outfit not in ("jacket", "leather"))
     build_hands(add, body_skin, pose=hand)
     if outfit == "jacket":
         build_jacket(add, rig)
     if outfit == "tee":
         build_tee(add, rig)
+        rip_jeans(add, body_skin)
+    if outfit == "leather":
+        build_leather(add, rig)
         rip_jeans(add, body_skin)
     add_finger_bones(rig, body_skin)
     soft_face_paint()
@@ -385,6 +388,21 @@ FACE_STYLES = {
                   pupil=(0.18, 0.066), glint=(0.27, 0.048, 0.03, 0.034), glint2=True, lash_k=1.0, low=(0.15, 0.45, 0.75, 0.98),
                   brow=[(-0.15, 0.15), (-0.02, 0.18), (0.12, 0.193), (0.24, 0.184)], brow_w=[0.0028, 0.0026, 0.0019, 0.0005],
                   nose=0.35, colors={}, layout={}),
+    # "sharp": the reference's level of definition - heavy furrowed brows low over
+    # narrow amber eyes under a thick upper lid, shadow planes (eye sockets, under the
+    # cheekbones, beside the nose, under the lip), a firm mouth, ear hoops, brow piercing.
+    "sharp": dict(
+        top=[(-1.0, -0.004), (-0.6, 0.04), (-0.15, 0.056), (0.35, 0.054), (0.8, 0.036), (1.0, 0.014)],
+        bot=[(-1.0, -0.004), (-0.45, -0.03), (0.05, -0.036), (0.55, -0.027), (1.0, 0.008)],
+        hw=0.27, vz=1.85, iris=(0.08, 0.012, 0.42, 0.12), iris_lo=True, pupil=(0.13, 0.065),
+        glint=(0.24, 0.036, 0.018, 0.02), glint2=False, lash_k=1.9, low=(0.5, 0.75, 0.98), flick=(1.07, 0.008),
+        crease_w=0.0011,
+        brow=[(-0.2, 0.07), (-0.07, 0.115), (0.1, 0.14), (0.27, 0.12)], brow_w=[0.0062, 0.0064, 0.005, 0.0012],
+        nose=0.0, planes=True, accessories=True,
+        colors={"anime_iris": "#d9961c", "anime_iris_hi": "#f5c84f", "brow_ink": "#2a1d16", "skin": "#e3ad8a",
+                "skin_cel_lit": "#e3ad8a", "skin_cel_shadow": "#b97f62", "skin_cel_rim": "#fbe3cf",
+                "blush_toon": "#e4a98d", "skin_shade": "#d29a79", "nose_shadow": "#be8466", "blush_line": "#d4826e"},
+        layout=dict(bang_k=0.55, bang_sweep=0.9)),     # short bangs swept aside: forehead, brows and eyes show
     "illustrated": dict(
         top=[(-1.0, -0.004), (-0.6, 0.034), (-0.1, 0.05), (0.4, 0.049), (0.8, 0.033), (1.0, 0.012)],
         bot=[(-1.0, -0.004), (-0.4, -0.027), (0.1, -0.033), (0.6, -0.023), (1.0, 0.006)],
@@ -400,7 +418,7 @@ FACE_STYLES = {
                     face_w=[(-0.3, 0.97), (-0.45, 0.9), (-0.6, 0.8), (-0.7, 0.72), (-0.85, 0.44), (-0.98, 0.17), (-1.06, 0.06)],
                     chin_drop=0.18, chin_fwd=0.5, head_size=(0.085, 0.106, 0.148), cheek=0.0)),
 }
-FACE = FACE_STYLES["anime"]
+FACE = FACE_STYLES["sharp"]
 
 
 def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
@@ -547,9 +565,10 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
         # Sharp brow: low and heavy at the inner end, rising to a fine outer point.
         brow = [(ex + sx * du, ez + dz) for du, dz in FACE["brow"]]
         # Drawn over the bangs (anime convention): lifted clear of the hair in front.
-        bw = [P(u, z, 3) + Vector((0, -0.03, 0)) for u, z in brow]
+        fwd_ = 0.0 if FACE.get("planes") else 0.03                 # short bangs: brows sit on the skin
+        bw = [P(u, z, 3) + Vector((0, -fwd_, 0)) for u, z in brow]
         bo = fr.tube(prefix + f"Brow{sx}", bw, FACE["brow_w"], m_brow, subdiv=1, ring=8)
-        o_ = P(ex, ez + 0.175, 3) + Vector((0, -0.03, 0))
+        o_ = P(ex, ez + 0.175, 3) + Vector((0, -fwd_, 0))
         bo.data.transform(Matrix.Translation(-o_))
         bo.location = o_
         add(bo, "Head")
@@ -629,13 +648,45 @@ def build_anime_face(add, hc, size, prefix="", iris_hi="#5aa3ef"):
     me = bpy.data.meshes.new(prefix + "BangShadow")
     me.from_pydata([tuple(v) for v in me_v], [], me_f)
     me.materials.append(m_shade)
-    add(fr._link(bpy.data.objects.new(prefix + "BangShadow", me)), "Head")
+    bs_ = fr._link(bpy.data.objects.new(prefix + "BangShadow", me))
+    add(bs_, "Head")
+    if FACE["layout"].get("bang_k", 1.0) < 0.8:                  # short bangs cast no band on the forehead
+        bs_.hide_render = True
+        bs_.hide_viewport = True
     if FACE.get("form_shadow"):
         # One clean form shadow on the shadow side (like the references): under the
         # cheekbone, down along the jaw to the side of the chin.
         poly = [(-0.87, -0.34), (-0.74, -0.44), (-0.64, -0.6), (-0.54, -0.78), (-0.34, -0.94), (-0.2, -1.0),
                 (-0.34, -1.01), (-0.6, -0.88), (-0.8, -0.68), (-0.89, -0.5)]
         decal("FormShadow", [(m_shade, poly)], 0.3)
+    if FACE.get("planes"):
+        # Shadow planes, painted (one tone darker): eye sockets under the brows, under
+        # the cheekbones, beside the nose, under the lower lip, a firm upper-lip shadow.
+        ez, nz, mz = L["eye_uz"], L["nose_z"], L["mouth_z"]
+        ex = L["eye_ux"]
+        for sgn in (1, -1):
+            decal(f"PlaneSocket{sgn}", [(m_shade, [(sgn * (ex - 0.2), ez + 0.07), (sgn * (ex + 0.05), ez + 0.11),
+                                                    (sgn * (ex + 0.24), ez + 0.085), (sgn * (ex + 0.2), ez + 0.05),
+                                                    (sgn * (ex - 0.05), ez + 0.07), (sgn * (ex - 0.2), ez + 0.03)])], 0.2)
+            decal(f"PlaneCheek{sgn}", [(m_shade, [(sgn * 0.8, ez - 0.2), (sgn * 0.66, ez - 0.26), (sgn * 0.56, ez - 0.36),
+                                                   (sgn * 0.6, ez - 0.4), (sgn * 0.74, ez - 0.32)])], 0.2)
+        decal("PlaneNose", [(m_shade, [(-0.025, ez + 0.0), (-0.09, nz + 0.04), (-0.12, nz - 0.015), (-0.02, nz - 0.03),
+                                       (-0.03, nz + 0.12)])], 0.25)
+        decal("PlaneUnderLip", [(m_shade, [(-0.07, mz - 0.045), (0.07, mz - 0.045), (0.04, mz - 0.075), (-0.04, mz - 0.075)])], 0.25)
+        decal("PlaneUpperLip", [(m_shade, [(-0.09, mz + 0.004), (0.0, mz + 0.022), (0.09, mz + 0.004), (0.0, mz - 0.002)])], 0.3)
+    if FACE.get("accessories"):
+        # Two small silver hoops on each ear lobe, two studs through the left brow.
+        fr.COL.setdefault("silver_acc", fr.hx("#d2d4da"))
+        silver = fr.mat("silver_acc", 0.3)
+        for sgn in (1, -1):
+            lobe = hc + Vector((sgn * size[0] * L.get("ear_x", 0.88) * 1.02, 0.012, size[2] * (L["ear_uz"] - 0.42 * L["ear_h"])))
+            for k in range(2):
+                add(fr.torus(prefix + f"Hoop{sgn}{k}", lobe + Vector((0, 0.008 * k, 0.008 * k)), 0.0075, 0.0013, silver,
+                             axis="X"), "Head")
+        for k in range(2):
+            bu, bz = L["eye_ux"] + 0.2 - 0.06 * k, L["eye_uz"] + 0.2 + 0.03 * k
+            p_ = P(bu, bz, 4)
+            add(fr.blob(prefix + f"Pierce{k}", p_, (0.0024, 0.0024, 0.0024), silver, subdiv=1), "Head")
     info = fr.FACE_INFO.setdefault(prefix, {})
     info.update(dict(hc=hc.copy(), size=size, eye_r=0.0113 * FACE["vz"] * max(0.6, _smooth_interp(FACE["top"], 0.0) / 0.07),
                      almond=True, ah=1.0, decal=True))
@@ -787,7 +838,7 @@ def build_chest(add, skin, outfit="vest"):
     _abs_back(torso, 1.0)
     _jacked_outline(torso, 1.0)
     add(torso, "Spine")
-    if outfit == "tee":                     # the baggy tee covers the torso: no vest
+    if outfit in ("tee", "leather"):        # covered torso: no vest
         for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
             bpy.data.objects.remove(o)
         return
@@ -847,6 +898,61 @@ def build_chest(add, skin, outfit="vest"):
             rib = fr.tube(f"VestRib{k}", path, [0.0022] * 4, vest_mat, subdiv=0, ring=6)
             _pecs(rib, depth=0.022)
             add(rib, "Spine")
+
+
+def build_leather(add, rig):
+    """Red leather jacket over a black turtleneck (the reference's level of detail):
+    an open jacket with a tall stand-up collar, silver zipper teeth along both front
+    edges and the collar, shoulder straps with a buckle and rivets, a black
+    turtleneck rolled high up the neck, a fine silver chain."""
+    build_jacket(add, rig, body_col="#8c2a24", trim_col="#5a1714", collar_h=0.1)
+    jm = fr.mat("jacket", 0.85)
+    for sx in (1, -1):                                   # big folded leather collar flaps
+        add(fr.tube(f"CollarFlap{sx}", [(sx * 0.07, -0.06, 1.5), (sx * 0.12, -0.1, 1.44), (sx * 0.15, -0.14, 1.37),
+                                        (sx * 0.12, -0.16, 1.3)],
+                    [(0.006, 0.03), (0.007, 0.05), (0.007, 0.05), (0.005, 0.02)], jm, side=Vector((0, 1, 0)), subdiv=2),
+            "Spine")
+    fr.COL["turtle"] = fr.hx("#17161c")
+    fr.COL["silver"] = fr.hx("#c9ccd4")
+    t_m, s_m = fr.mat("turtle", 0.9), fr.mat("silver", 0.3)
+    # turtleneck: the torso and shoulder girdle themselves become the black knit
+    # (no skin can show through), plus a rolled high neck
+    for nm in ("Torso", "Shoulders"):
+        o = bpy.data.objects.get(nm)
+        if o:
+            o.data.materials.clear()
+            o.data.materials.append(t_m)
+    for k, (z0, r0) in enumerate(((1.44, 0.052), (1.48, 0.049), (1.52, 0.047))):   # rolled neck
+        add(fr.torus(f"TurtleRoll{k}", Vector((0, 0.012, z0)), r0, 0.011, t_m, axis="Z"), "Neck")
+    add(fr.tube("TurtleNeck", [(0, 0.012, 1.4), (0, 0.012, 1.54)], [0.056, 0.049], t_m, caps=False, ring=24), "Neck")
+    for sx in (1, -1):
+        # zipper teeth: a silver dashed line along each lapel's outer edge
+        lap = bpy.data.objects.get(f"Lapel{sx}")
+        if lap:
+            vs = [lap.matrix_world @ v.co for v in lap.data.vertices]
+            for k in range(12):
+                z = 1.12 + k * 0.024
+                band = [v for v in vs if abs(v.z - z) < 0.01]
+                if band:
+                    q = min(band, key=lambda v: v.y)
+                    edge = max(band, key=lambda v: sx * v.x)
+                    add(fr.box(f"Zip{sx}_{k}", Vector((edge.x, q.y - 0.002, z)), (0.006, 0.003, 0.007), s_m, bevel=0.001),
+                        "Spine")
+        # shoulder strap (epaulette) with a buckle and rivets
+        sho = fr.jp("sho_L" if sx > 0 else "sho_R")
+        top = Vector((sx * 0.06, 0.0, 1.46))
+        tip = Vector((sho.x - sx * 0.01, 0.0, sho.z + 0.06))
+        add(fr.tube(f"Strap{sx}", [top, top.lerp(tip, 0.5) + Vector((0, 0, 0.01)), tip], [(0.006, 0.022), (0.006, 0.024), (0.006, 0.02)],
+                    fr.mat("jacket_trim", 0.7), side=Vector((0, 1, 0)), subdiv=1), "Spine")
+        bk = tip.lerp(top, 0.25) + Vector((0, 0, 0.012))
+        add(fr.box(f"Buckle{sx}", bk, (0.018, 0.03, 0.006), s_m, bevel=0.002), "Spine")
+        for r_ in (0.2, 0.65):
+            add(fr.blob(f"Rivet{sx}{r_}", top.lerp(tip, r_) + Vector((0, -0.012, 0.012)), (0.005, 0.005, 0.004), s_m, subdiv=1),
+                "Spine")
+    # fine silver chain hanging on the turtleneck
+    chain = [Vector((0.04 * math.sin(a), -0.115 - 0.02 * math.cos(a), 1.42 - 0.13 * math.cos(a / 2) ** 2))
+             for a in [-math.pi / 2 + math.pi * i / 14 for i in range(15)]]
+    add(fr.tube("Chain", chain, [0.0018] * len(chain), s_m, subdiv=0, ring=6), "Spine")
 
 
 def build_tee(add, rig, colour="#f2f2ee"):
@@ -960,14 +1066,14 @@ def rip_jeans(add, skin):
                         bone)
 
 
-def build_jacket(add, rig):
+def build_jacket(add, rig, body_col="#1f2236", trim_col="#c8313a", collar_h=0.06):
     """An open anime jacket over the vest: a dark body with the front left open
     (lapels turned back in the red lining colour), a tall stand collar open at the
     throat, sleeves that bend with the arms (skinned to the arm bones) ending in
     red-trimmed cuffs, and a hem band."""
     import bmesh
-    fr.COL["jacket"] = fr.hx("#1f2236")
-    fr.COL["jacket_trim"] = fr.hx("#c8313a")
+    fr.COL["jacket"] = fr.hx(body_col)
+    fr.COL["jacket_trim"] = fr.hx(trim_col)
     jm, tm = fr.mat("jacket", 0.85), fr.mat("jacket_trim", 0.7)
     zs = [0.96, 1.07, 1.17, 1.26, 1.33, 1.385, 1.425]
     rr = [(0.165, 0.125), (0.172, 0.13), (0.2, 0.138), (0.232, 0.142), (0.238, 0.14), (0.222, 0.128), (0.16, 0.112)]
@@ -993,7 +1099,7 @@ def build_jacket(add, rig):
                                    (sx * 0.1, -0.145, 1.1)],
                     [(0.004, 0.022), (0.004, 0.03), (0.004, 0.024), (0.003, 0.012)], tm, side=Vector((0, 1, 0)), subdiv=1),
             "Spine")
-    collar = fr.tube("JacketCollar", [(0, 0.008, 1.415), (0, 0.006, 1.475)], [(0.088, 0.078), (0.078, 0.07)], jm,
+    collar = fr.tube("JacketCollar", [(0, 0.008, 1.415), (0, 0.006, 1.415 + collar_h)], [(0.088, 0.078), (0.084, 0.076)], jm,
                      caps=False, ring=40, subdiv=1)
     bm = bmesh.new()
     bm.from_mesh(collar.data)
@@ -1419,9 +1525,9 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="renders/anime")
     ap.add_argument("--size", type=int, default=900)
-    ap.add_argument("--outfit", default="tee", choices=("tee", "vest", "bare", "jacket"))
+    ap.add_argument("--outfit", default="tee", choices=("tee", "leather", "vest", "bare", "jacket"))
     ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
-    ap.add_argument("--face", default="anime", choices=tuple(FACE_STYLES))
+    ap.add_argument("--face", default="sharp", choices=tuple(FACE_STYLES))
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     scene, rig, bike = build_anime(100, outfit=a.outfit, hand=a.hand, face=a.face)

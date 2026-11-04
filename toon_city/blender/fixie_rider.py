@@ -1713,7 +1713,9 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
         # silhouette where each chunk reads as one shape.
         for i, (x0, ln, w) in enumerate(((-0.68, 0.17, 3.0), (-0.42, 0.2, 3.4), (-0.16, 0.22, 3.4), (0.12, 0.21, 3.4),
                                          (0.4, 0.2, 3.3), (0.66, 0.17, 3.0))):   # bangs to the brows
-            lock(f"HairBang{i}", (x0 * 0.9, -0.42, 0.86), (x0 * 0.3, -0.25, -1.0), ln, w, k=1.06, puff=0.05,
+            bk_, sw_ = LAYOUT.get("bang_k", 1.0), LAYOUT.get("bang_sweep", 0.0)
+            ln *= bk_
+            lock(f"HairBang{i}", (x0 * 0.9, -0.42, 0.86), (x0 * 0.3 + (1 if x0 >= 0 else -1) * sw_, -0.25, -1.0), ln, w, k=1.06, puff=0.05,
                  flick=0.05, curl=(-0.25 if x0 < 0 else 0.25), tilt=0.0, stop_brow=True)
         for i in range(9):                                   # crown: broad chunks sweeping back
             a = -math.pi * 0.88 + i * (math.pi * 1.76 / 8)
@@ -2224,6 +2226,8 @@ def build_character(rig):
 
 EXPRESSIONS = {
     # his
+    "SCOWL":   dict(lid=0.6, lid_low=0.3, brow_l=-0.004, brow_r=-0.004, ang_l=-13, ang_r=13, mouth="FLAT",
+                    gaze=(0.0, 0.0)),
     "COOL":    dict(lid=0.5, lid_low=0.25, brow_l=-0.002, brow_r=0.003, ang_l=-4, ang_r=-6, mouth="SMIRK",
                     gaze=(0.3, -0.12)),          # ref 08: a sideways glance under heavy lids
     "HAPPY":   dict(lid=1.0, lid_low=0.35, brow_l=0.006, brow_r=0.007, ang_l=-6, ang_r=6, mouth="GRIN"),
