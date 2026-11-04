@@ -51,7 +51,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     chin_drop=0.1, chin_fwd=0.42,
                     profile=2.2, jaw_plane=0.7, jaw_corner=1.0, corner_z=-0.66, corner_w=0.64, ear_x=1.0, ear_flare=15)   # side view: anime profile, crisp jaw underside, ears out
 
-NO_OUTLINE = ("JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("Rip", "JawLine", "FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -114,6 +114,9 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"
     build_hands(add, body_skin, pose=hand)
     if outfit == "jacket":
         build_jacket(add, rig)
+    if outfit == "tee":
+        build_tee(add, rig)
+        rip_jeans(add, body_skin)
     add_finger_bones(rig, body_skin)
     soft_face_paint()
     # Body skin shaded exactly like the face (same colour, same cel conversion).
@@ -784,6 +787,10 @@ def build_chest(add, skin, outfit="vest"):
     _abs_back(torso, 1.0)
     _jacked_outline(torso, 1.0)
     add(torso, "Spine")
+    if outfit == "tee":                     # the baggy tee covers the torso: no vest
+        for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
+            bpy.data.objects.remove(o)
+        return
     if outfit == "bare":
         for o in [o for o in bpy.data.objects if o.name.startswith("VestStrap")]:
             bpy.data.objects.remove(o)
@@ -840,6 +847,117 @@ def build_chest(add, skin, outfit="vest"):
             rib = fr.tube(f"VestRib{k}", path, [0.0022] * 4, vest_mat, subdiv=0, ring=6)
             _pecs(rib, depth=0.022)
             add(rib, "Spine")
+
+
+def build_tee(add, rig, colour="#f2f2ee"):
+    """Baggy oversized T-shirt: a wide boxy body hanging straight down past the belt
+    (untucked), dropped shoulders over the shoulder girdle, wide short sleeves
+    reaching toward the elbow, a ribbed crew neck, soft drape folds."""
+    import bmesh
+    fr.COL["tee_baggy"] = fr.hx(colour)
+    fr.COL["tee_rib"] = fr.hx("#dcdcd6")
+    tm, rm = fr.mat("tee_baggy", 0.9), fr.mat("tee_rib", 0.9)
+    zs = [0.9, 0.96, 1.05, 1.15, 1.25, 1.32, 1.38, 1.425]
+    rr = [(0.222, 0.155), (0.218, 0.152), (0.212, 0.148), (0.216, 0.15), (0.24, 0.152), (0.248, 0.148), (0.232, 0.136),
+          (0.165, 0.113)]
+    body = fr.tube("Tee", [(0, 0.01, z) for z in zs], rr, tm, caps=False, ring=48, rows=30, subdiv=2, crease=0.15,
+                   facet=0.012, seed=4)
+    # soft vertical drape folds hanging from the chest, deeper toward the hem
+    for v in body.data.vertices:
+        x, y, z = v.co
+        if z < 1.3:
+            a = math.atan2(y, x)
+            f = 0.0025 * math.sin(a * 7 + 0.7) * min(1.0, (1.3 - z) / 0.3)
+            v.co.x += math.cos(a) * f
+            v.co.y += math.sin(a) * f
+    m = body.modifiers.new("Thick", "SOLIDIFY")
+    m.thickness, m.offset = 0.006, 1.0
+    add(body, "Spine")
+    add(fr.tube("TeeHem", [(0, 0.01, 0.9), (0, 0.01, 0.915)], [(0.218, 0.153), (0.218, 0.153)], tm, caps=False, ring=48,
+                subdiv=1), "Spine")
+    add(fr.torus("TeeCollar", Vector((0, 0.004, 1.43)), 0.066, 0.009, rm, axis="Z"), "Spine")
+    # dropped-shoulder yoke: the shirt over the shoulder girdle and deltoids
+    for src_name, bone, push in (("Shoulders", "Spine", 0.011), ("DeltCap_L", "UpperArm_L", 0.013), ("DeltCap_R", "UpperArm_R", 0.013)):
+        src = bpy.data.objects.get(src_name)
+        if src is None:
+            continue
+        me = src.data.copy()
+        me.materials.clear()
+        me.materials.append(tm)
+        ob = fr._link(bpy.data.objects.new(f"Tee{src_name}", me))
+        ob.matrix_world = src.matrix_world.copy()
+        for v in me.vertices:
+            v.co += v.normal * (push / max(1e-6, sum(src.matrix_world.to_scale()) / 3))
+        ob.modifiers.new("Subdivision", "SUBSURF").levels = 2
+        add(ob, bone)
+    # wide short sleeves, from the dropped shoulder seam toward the elbow
+    for s_, sx in (("L", 1), ("R", -1)):
+        sho, elb = fr.jp(f"sho_{s_}"), fr.jp(f"elb_{s_}")
+        d = (elb - sho).normalized()
+        path = [sho + Vector((-sx * 0.02, 0, 0.03)), sho + d * 0.08, sho + d * 0.18, sho + d * 0.27]
+        sl = fr.tube(f"TeeSleeve_{s_}", path, [(0.074, 0.078), (0.078, 0.082), (0.08, 0.083), (0.084, 0.086)], tm,
+                     caps=False, ring=24, subdiv=2, crease=0.1)
+        sm = sl.modifiers.new("Thick", "SOLIDIFY")
+        sm.thickness, sm.offset = 0.005, 1.0
+        add(sl, f"UpperArm_{s_}")
+
+
+def rip_jeans(add, skin):
+    """Ripped jeans: torn openings at the knees and one up the left thigh - skin
+    showing through, frayed white threads strung across each tear, a lighter worn
+    rim of denim around it. Laid on the jeans' surface."""
+    from mathutils.bvhtree import BVHTree
+    fr.COL["denim_fray"] = fr.hx("#8aa2c6")
+    fr.COL["thread"] = fr.hx("#f3f1ea")
+    m_fray, m_thread = fr.mat("denim_fray", 0.9), fr.mat("thread", 0.9)
+    rips = {"L": [("knee", 0.52, 0.05, 0.032), ("thigh", 0.74, 0.04, 0.024)], "R": [("knee", 0.54, 0.052, 0.034),
+                                                                                  ("shin", 0.4, 0.03, 0.016)]}
+    for s_, sx in (("L", 1), ("R", -1)):
+        jo = bpy.data.objects.get(f"Jeans_{s_}")
+        if jo is None:
+            continue
+        bpy.context.view_layer.update()
+        me = jo.data
+        bvh = BVHTree.FromPolygons([jo.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons])
+        cx = fr.jp(f"knee_{s_}").x
+        for k, (nm, zc, hw, hh) in enumerate(rips[s_]):
+            bone = f"Thigh_{s_}" if zc > 0.5 else f"Shin_{s_}"
+
+            def on(x, z, lift):
+                hit = bvh.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
+                if hit[0] is None:
+                    return None
+                n = hit[1].normalized()
+                if n.y > 0:
+                    n = -n
+                return hit[0] + n * lift
+
+            def poly(rx, rz, lift, n=18, jag=0.0):
+                pts = []
+                for i in range(n):
+                    a = 2 * math.pi * i / n
+                    j = 1.0 + jag * (0.5 if i % 2 else -0.3)
+                    pts.append(on(cx + rx * j * math.cos(a), zc + rz * j * math.sin(a) * (0.7 + 0.3 * abs(math.cos(a))), lift))
+                return [p for p in pts if p is not None]
+            for layer, (scale, mat_, lift, jag) in enumerate(((1.25, m_fray, 0.0012, 0.25), (1.0, skin, 0.0018, 0.18))):
+                ring = poly(hw * scale, hh * scale, lift, jag=jag)
+                if len(ring) < 6:
+                    continue
+                c = on(cx, zc, lift)
+                verts = [c] + ring
+                faces = [(0, 1 + i, 1 + (i + 1) % len(ring)) for i in range(len(ring))]
+                mesh = bpy.data.meshes.new(f"Rip{nm}{layer}_{s_}")
+                mesh.from_pydata([tuple(v) for v in verts], [], faces)
+                mesh.materials.append(mat_)
+                add(fr._link(bpy.data.objects.new(f"Rip{nm}{layer}_{s_}", mesh)), bone)
+            for t in range(4):                                  # frayed threads across the tear
+                zt = zc - hh * 0.75 + t * hh * 0.5
+                a_ = on(cx - hw * 1.05, zt + 0.002 * (t % 2), 0.0024)
+                b_ = on(cx + hw * 1.05, zt - 0.002 * (t % 2), 0.0024)
+                if a_ and b_:
+                    mid = (a_ + b_) / 2 + Vector((0, -0.002, -0.003))
+                    add(fr.tube(f"RipThread{nm}{t}_{s_}", [a_, mid, b_], [0.0011, 0.0013, 0.0011], m_thread, subdiv=1, ring=6),
+                        bone)
 
 
 def build_jacket(add, rig):
@@ -1301,7 +1419,7 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="renders/anime")
     ap.add_argument("--size", type=int, default=900)
-    ap.add_argument("--outfit", default="vest", choices=("vest", "bare", "jacket"))
+    ap.add_argument("--outfit", default="tee", choices=("tee", "vest", "bare", "jacket"))
     ap.add_argument("--hand", default="relaxed", choices=("relaxed", "fist", "open"))
     ap.add_argument("--face", default="anime", choices=tuple(FACE_STYLES))
     a = ap.parse_args(argv)

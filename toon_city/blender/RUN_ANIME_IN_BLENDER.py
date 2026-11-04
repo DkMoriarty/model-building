@@ -15,7 +15,7 @@ In the built file:
 import os
 import sys
 
-OUTFIT = "vest"          # "vest" | "bare" | "jacket"
+OUTFIT = "tee"           # "tee" (baggy T-shirt + ripped jeans) | "vest" | "bare" | "jacket"
 HAND = "relaxed"         # "relaxed" | "fist" | "open"
 FACE = "anime"           # "anime" (our anime face, default) | "illustrated" (reference study)
 EXPRESSION = "COOL"      # COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE
