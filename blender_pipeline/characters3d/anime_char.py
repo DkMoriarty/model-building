@@ -46,7 +46,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     mouth_w=0.14, almond_h=1.0, liner=1.6, iris=1.3, soft=1.0, brow_drop=-0.02,
                     eye_k=(0.62, 1.15, 0.45), eye_sink=0.3, iris_x=0.06, shield=1.0, slit=1.0, iris_tall=1.35, inner_dip=0.35)
 
-NO_OUTLINE = ("Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -84,7 +84,65 @@ def build_anime(pct=100, reset=True):
         add(fr.tube(f"NeckMuscle{sx}", [(sx * 0.026, 0.004, fr.HEAD_Z - 0.1), (sx * 0.022, -0.026, 1.5),
                                         (sx * 0.011, -0.046, 1.43)],
                     [0.0065, 0.0075, 0.0055], body_skin, subdiv=1, ring=10), "Neck")
+    build_shoulders(add, body_skin)
     return scene, rig, bike
+
+
+def build_shoulders(add, skin):
+    """One continuous shoulder girdle instead of a flat plate: a loft running
+    across the body (left shoulder cap -> trapezius slope -> neck base -> right),
+    its top line rising from the round deltoid caps up the traps to the neck,
+    deepest front-to-back over the traps, rounded at both ends where the arms
+    come out. The torso's top is widened so chest and girdle blend; the separate
+    trapezius blobs and the harsh collarbone tubes it replaces are removed."""
+    for o in [o for o in bpy.data.objects if o.name.startswith(("Trap_", "Clavicle", "DeltLine", "BicepLine", "BicepFront",
+                                                                   "ForearmLine", "ElbowCrease", "Vein_"))]:
+        bpy.data.objects.remove(o)          # the scratchy arm ink strokes read as noise in the anime render
+    torso = bpy.data.objects.get("Torso")
+    if torso:                                      # rebuild the torso top: no pinch under the shoulders
+        mats = list(torso.data.materials)
+        bpy.data.objects.remove(torso)
+        t = fr.tube("Torso", [(0, 0.01, 0.95), (0, 0.01, 1.05), (0, 0.0, 1.16), (0, 0.0, 1.27), (0, 0.0, 1.34),
+                               (0, 0.004, 1.39)],
+                    [(0.145, 0.105), (0.148, 0.105), (0.16, 0.11), (0.186, 0.12), (0.2, 0.118), (0.19, 0.105)],
+                    mats[0] if mats else skin)
+        add(t, "Spine")
+    # Top-line samples across the body: (|x|, top z, vertical half-size, depth half-size, y offset)
+    spec = [(0.0, 1.47, 0.08, 0.07, 0.012), (0.05, 1.465, 0.078, 0.078, 0.012), (0.1, 1.448, 0.072, 0.092, 0.012),
+            (0.15, 1.425, 0.066, 0.092, 0.008), (0.19, 1.405, 0.062, 0.08, 0.004), (0.225, 1.38, 0.058, 0.062, 0.0),
+            (0.245, 1.35, 0.048, 0.045, 0.0)]
+    pts, radii = [], []
+    for sgn in (-1, 1):
+        rows = spec if sgn > 0 else list(reversed(spec))
+        for ax, top, rz, ry, yo in rows:
+            if sgn < 0 and ax == 0.0:
+                continue
+            pts.append((sgn * ax, yo, top - rz))
+            radii.append((rz, ry))
+    pts = [pts[i] for i in sorted(range(len(pts)), key=lambda i: pts[i][0])]
+    radii_sorted = []
+    for x, y, z in pts:
+        ax = abs(x)
+        row = min(spec, key=lambda r: abs(r[0] - ax))
+        radii_sorted.append((row[2], row[3]))
+    add(fr.tube("Shoulders", [Vector(p) for p in pts], radii_sorted, skin, ring=24, side=Vector((0, 0, 1)), subdiv=2),
+        "Spine")
+    # Deltoid caps: a round ball of muscle over each shoulder joint, wider than the
+    # girdle, so the shoulders read broad and strong (anime male: ~2.5 heads wide).
+    for s_, sx in (("L", 1), ("R", -1)):
+        sho = fr.jp(f"sho_{s_}")
+        elb = fr.jp(f"elb_{s_}")
+        # A teardrop that flows down the arm: full at the top of the shoulder, tapering
+        # into the upper arm a third of the way to the elbow (no ball sitting on top).
+        d = (elb - sho).normalized()
+        path = [sho + Vector((-sx * 0.02, 0.0, 0.03)), sho + Vector((sx * 0.012, 0.0, 0.006)),
+                sho + d * 0.07 + Vector((sx * 0.012, 0, 0)), sho + d * 0.14]
+        add(fr.tube(f"DeltCap_{s_}", path, [(0.042, 0.05), (0.058, 0.062), (0.056, 0.06), (0.046, 0.052)], skin,
+                    side=Vector((1, 0, 0)), ring=20, subdiv=2), f"UpperArm_{s_}")
+    # Collarbones: soft, drawn as a light crease rather than inked tubes.
+    for sx in (1, -1):
+        add(fr.tube(f"Collar{sx}", [(sx * 0.025, -0.072, 1.415), (sx * 0.09, -0.083, 1.418), (sx * 0.16, -0.07, 1.405)],
+                    [0.0035, 0.0045, 0.0035], skin, subdiv=1, ring=8), "Spine")
 
 
 # ---------------------------------------------------------------------------
