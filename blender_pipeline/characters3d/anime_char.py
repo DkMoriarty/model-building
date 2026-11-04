@@ -51,7 +51,7 @@ ANIME_LAYOUT = dict(eye_ux=0.43, eye_uz=-0.2, nose_z=-0.5, mouth_z=-0.7, chin_z=
                     chin_drop=0.1, chin_fwd=0.42,
                     profile=2.2, jaw_plane=0.7, ear_x=1.0, ear_flare=15)   # side view: anime profile, crisp jaw underside, ears out
 
-NO_OUTLINE = ("FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
+NO_OUTLINE = ("FaceFeatures", "FormShadow", "LashFlick", "Nostril", "LowerLip", "BangShadow", "NoseLine", "NoseTip", "Smile", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat", "Crease", "BlushLine", "NoseShadow", "DeltSep", "BicepEdge", "BicepLow", "TricepEdge", "ForeLine", "SerratusLine", "Clavicle", "ClavLine", "ClavHollow", "ClavNotch", "PecLine", "SternumLine", "VestRib", "Collar", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "LashSweep", "Lash", "Brow", "Smile", "Dimple",
               "Pout", "Mouth", "Blush", "Sparkle", "Sweat", "Hair_Profile", "GH_", "Sun", "Cyc", "Eye")
 
 
@@ -95,7 +95,7 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"
                   paint=("skin", "blush_toon", "lip_toon", None), brows="sharp", wing=0.6, eye_shape="almond",
                   layout=lay)
     build_anime_face(add, hc, size)
-    fr.ribbon_hair(add, hc, size, fr.matte_hair_material(fr.COL["hair"]), seed=21, style="anime")
+    fr.ribbon_hair(add, hc, size, anime_hair_material(fr.COL["hair"], hc, size), seed=21, style="shell")
     # A slimmer anime neck that tapers the right way: slim under the jaw,
     # flaring at the base into the traps; its two diagonal muscles sit inside
     # the silhouette (behind the ears -> the notch above the breastbone).
@@ -114,6 +114,8 @@ def build_anime(pct=100, reset=True, outfit="vest", hand="relaxed", face="anime"
     build_hands(add, body_skin, pose=hand)
     if outfit == "jacket":
         build_jacket(add, rig)
+    add_finger_bones(rig, body_skin)
+    soft_face_paint()
     # Body skin shaded exactly like the face (same colour, same cel conversion).
     fr.COL["skin_body"] = fr.COL["skin"]
     body = fr.mat("skin_body", 0.6)
@@ -137,6 +139,213 @@ def pose_a(rig, spread=0.085, lift=0.03, fwd=-0.02):
 
 
 _SAVED_J = None
+
+
+# ---------------------------------------------------------------------------
+# Techniques learned from a hand-modelled anime character (study only)
+# ---------------------------------------------------------------------------
+
+def anime_hair_material(col, hc, size):
+    """Hair base colour with the anime highlight band ("angel ring"): a lighter,
+    crisp band across the crown, from the hair's height (object space of the
+    head), so the cel pass keeps it as a clean shape."""
+    m = bpy.data.materials.new("AnimeHair")
+    if getattr(m, "node_tree", None) is None and hasattr(m, "use_nodes"):
+        m.use_nodes = True
+    nt = m.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    b.inputs["Roughness"].default_value = 0.9
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "CONSTANT"
+    lo, hi = hc.z + size[2] * 0.36, hc.z + size[2] * 0.6            # band height (world z at rest)
+    span = 0.5
+    base = tuple(col[:3])
+    light = tuple(min(1.0, c * 1.9 + 0.035) for c in base)
+    els = ramp.color_ramp.elements
+    els[0].position, els[0].color = 0.0, (*base, 1)
+    els[1].position, els[1].color = 0.72, (*base, 1)
+    e = els.new(0.44)                                       # band: 0.5 .. 0.66 of the mapped height range
+    e.color = (*light, 1)
+    mapr = nt.nodes.new("ShaderNodeMapRange")
+    mapr.inputs["From Min"].default_value = lo - (hi - lo)
+    mapr.inputs["From Max"].default_value = hi + (hi - lo) * 0.2
+    nt.links.new(geo.outputs["Position"], sep.inputs[0])
+    # zig-zag the band along x (anime highlight teeth), so it reads as light on hair, not a headband
+    mx = nt.nodes.new("ShaderNodeMath"); mx.operation = "MULTIPLY"; mx.inputs[1].default_value = 50.0
+    sn = nt.nodes.new("ShaderNodeMath"); sn.operation = "PINGPONG"; sn.inputs[1].default_value = 1.0
+    amp = nt.nodes.new("ShaderNodeMath"); amp.operation = "MULTIPLY"; amp.inputs[1].default_value = (hi - lo) * 0.3
+    add_ = nt.nodes.new("ShaderNodeMath"); add_.operation = "ADD"
+    nt.links.new(sep.outputs["X"], mx.inputs[0])
+    nt.links.new(mx.outputs[0], sn.inputs[0])
+    nt.links.new(sn.outputs[0], amp.inputs[0])
+    nt.links.new(sep.outputs["Z"], add_.inputs[0])
+    nt.links.new(amp.outputs[0], add_.inputs[1])
+    nt.links.new(add_.outputs[0], mapr.inputs["Value"])
+    nt.links.new(mapr.outputs["Result"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+    _ = span
+    return m
+
+
+def soft_face_paint():
+    """Soft painted shading under the ink (like a hand-painted face texture): the
+    face colour warms and darkens slightly toward the sides of the face and under
+    the jaw, so the flat cel face gains gentle form without extra lines."""
+    head = bpy.data.objects.get("Head")
+    if head is None or "Paint" not in head.data.attributes:
+        return
+    me = head.data
+    pa = me.attributes["Paint"]
+    mw = head.matrix_world.to_3x3()
+    c0 = sum((v.co for v in me.vertices), Vector()) / len(me.vertices)
+    zs = [v.co.z for v in me.vertices]
+    zmin, zmax = min(zs), max(zs)
+    for v in me.vertices:
+        n = (mw @ v.normal).normalized()
+        side = min(1.0, abs(n.x) ** 1.5)
+        under = max(0.0, -n.z) * max(0.0, min(1.0, (c0.z - v.co.z) / (c0.z - zmin + 1e-6)))
+        k = 1.0 - 0.07 * side - 0.12 * under
+        c = pa.data[v.index].color
+        pa.data[v.index].color = (c[0] * k, c[1] * (k - 0.015 * side), c[2] * (k - 0.03 * side), 1.0)
+
+
+FINGERS = ("Index", "Middle", "Ring", "Pinky")
+FINGER_PATHS = {}
+
+
+def add_finger_bones(rig, skin):
+    """A finger-level rig: three bones per finger and for the thumb, chained to the
+    hand, each finger mesh skinned along its chain so the fingers bend at the
+    knuckles. Pose them by hand or with curl_fingers()."""
+    paths = {}
+    for o in bpy.data.objects:
+        for s_ in ("L", "R"):
+            for i in range(4):
+                if o.name == f"Finger_{s_}{i}":
+                    paths[(s_, i)] = o
+            if o.name == f"Thumb_{s_}":
+                paths[(s_, "T")] = o
+    if not paths:
+        return
+    def spine(o):                       # the finger's centre line, as built
+        key = next((k for k, v in paths.items() if v is o), None)
+        cs = FINGER_PATHS.get(key)
+        if not cs:
+            return None
+        if len(cs) == 3:                # thumb: 3 points -> 4 joints
+            cs = [cs[0], cs[0].lerp(cs[1], 0.6), cs[1].lerp(cs[2], 0.4), cs[2]]
+        return cs
+    bpy.context.view_layer.objects.active = rig
+    for o in bpy.context.selected_objects:
+        o.select_set(False)
+    rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = rig.data.edit_bones
+    chains = {}
+    for key, o in paths.items():
+        cs = spine(o)
+        if not cs:
+            continue
+        s_, i = key
+        idx = [0, 1, 2, 3]
+        name = "Thumb" if i == "T" else FINGERS[i]
+        names, prev = [], eb[f"Hand_{s_}"]
+        for k in range(3):
+            b = eb.new(f"{name}{k + 1}_{s_}")
+            b.head, b.tail = cs[idx[k]], cs[idx[k + 1]]
+            if (b.tail - b.head).length < 1e-4:
+                b.tail = b.head + Vector((0, 0, -0.01))
+            b.parent = prev
+            b.use_connect = k > 0
+            names.append(b.name)
+            prev = b
+        chains[key] = names
+    bpy.ops.object.mode_set(mode="OBJECT")
+    for key, names in chains.items():
+        o = paths[key]
+        mw = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = mw
+        bpy.context.view_layer.update()
+        o.data.transform(o.matrix_world)
+        o.matrix_world = Matrix.Identity(4)
+        fr.skin_chain(o, rig, names, blend=0.004)
+
+
+def curl_fingers(rig, deg=60.0, thumb=30.0):
+    """Curl every finger (all three joints) by deg; thumb by `thumb`."""
+    for s_ in ("L", "R"):
+        for name in FINGERS + ("Thumb",):
+            for k in range(3):
+                pb = rig.pose.bones.get(f"{name}{k + 1}_{s_}")
+                if pb:
+                    pb.rotation_mode = "XYZ"
+                    pb.rotation_euler = (math.radians(thumb if name == "Thumb" else deg), 0, 0)
+    bpy.context.view_layer.update()
+
+
+FACE_PARTS = ("Eye", "Iris", "Pupil", "Glint", "LidLiner", "LowLiner", "Brow", "Blush", "Sparkle", "Sweat",
+              "Smile", "Dimple", "PoutUp", "PoutLow", "LowerLip", "MouthGrin", "MouthO", "MouthGasp", "MouthFlat")
+
+
+def bake_expression_shapekeys(rig, prefix="", basis="COOL",
+                              names=("HAPPY", "SMUG", "NOTICE", "SHOCK", "STRUCK", "DAZED", "SIDEEYE")):
+    """Expressions as shape keys (like the studied model): all moving face parts
+    joined into one mesh 'FaceFeatures', one shape key per expression - slide
+    them in Blender (Object Data > Shape Keys) and key them for animation."""
+    face = fr.FaceRig(rig, prefix)
+    parts = [o for o in bpy.data.objects if o.parent == rig and o.parent_bone == "Head" and o.type == "MESH"
+             and o.name.startswith(tuple(prefix + n for n in FACE_PARTS))]
+    dg = bpy.context.evaluated_depsgraph_get()
+
+    def snapshot():
+        bpy.context.view_layer.update()
+        dg.update()
+        out = []
+        for o in parts:
+            ev = o.evaluated_get(dg)
+            me = ev.to_mesh()
+            out.append(([o.matrix_world @ v.co for v in me.vertices], [tuple(p.vertices) for p in me.polygons],
+                        [p.material_index for p in me.polygons]))
+            ev.to_mesh_clear()
+        return out
+    face.pose(basis)
+    base = snapshot()
+    verts, faces, mats, mlist = [], [], [], []
+    for o, (vs, ps, mi) in zip(parts, base):
+        off = len(verts)
+        verts += vs
+        for poly, m_i in zip(ps, mi):
+            faces.append(tuple(i + off for i in poly))
+            m = o.data.materials[m_i] if m_i < len(o.data.materials) else None
+            if m not in mlist:
+                mlist.append(m)
+            mats.append(mlist.index(m))
+    me = bpy.data.meshes.new(prefix + "FaceFeatures")
+    me.from_pydata([tuple(v) for v in verts], [], faces)
+    for m in mlist:
+        me.materials.append(m)
+    for poly, m_i in zip(me.polygons, mats):
+        poly.material_index = m_i
+        poly.use_smooth = True
+    ob = fr._link(bpy.data.objects.new(prefix + "FaceFeatures", me))
+    ob.shape_key_add(name=basis)
+    for n in names:
+        face.pose(n)
+        snap = snapshot()
+        kb = ob.shape_key_add(name=n, from_mix=False)
+        flat = [v for vs, _, _ in snap for v in vs]
+        if len(flat) == len(kb.data):
+            for i, v in enumerate(flat):
+                kb.data[i].co = v
+    face.pose(basis)
+    fr.bind(ob, rig, "Head")
+    for o in parts:
+        o.hide_render = True
+        o.hide_viewport = True
+    return ob
 
 
 # ---------------------------------------------------------------------------
@@ -810,6 +1019,7 @@ def build_hands(add, skin, k=1.28, pose="relaxed"):
             for seg, (frac, ang) in enumerate(zip((0.42, 0.33, 0.25), bends)):
                 dirn = (Matrix.Rotation(math.radians(ang), 3, axis) @ dirn).normalized()
                 pts.append(pts[-1] + dirn * ln * frac * k)
+            FINGER_PATHS[(s_, i)] = [p.copy() for p in pts]
             add(fr.tube(f"Finger_{s_}{i}", pts, [0.0105 * k, 0.0095 * k, 0.0088 * k, 0.0068 * k], skin,
                         subdiv=1, ring=12), bone)
             add(fr.blob(f"Knuckle_{s_}{i}", p0 + Vector((sx * 0.008 * k, 0, 0.001 * k)), (0.0072 * k, 0.0085 * k, 0.0075 * k),
@@ -822,6 +1032,7 @@ def build_hands(add, skin, k=1.28, pose="relaxed"):
             tp = [t0, t0 + d * 0.026 * k + Vector((0, -0.016 * k, 0)), t0 + d * 0.046 * k + Vector((0, -0.024 * k, 0))]
         else:
             tp = [t0, t0 + d * 0.03 * k + Vector((0, -0.011 * k, 0)), t0 + d * 0.054 * k + Vector((-sx * 0.007 * k, -0.009 * k, 0))]
+        FINGER_PATHS[(s_, "T")] = [Vector(p) for p in tp]
         add(fr.tube(f"Thumb_{s_}", tp, [0.0135 * k, 0.0115 * k, 0.009 * k], skin, subdiv=1, ring=12), bone)
 
 

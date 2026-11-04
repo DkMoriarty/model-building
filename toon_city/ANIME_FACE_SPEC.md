@@ -27,3 +27,16 @@ Tell the agent "feature N: change X" and it edits the matching value.
 
 Expressions (FaceRig): COOL, HAPPY, SMUG, NOTICE, SHOCK, STRUCK, DAZED, SIDEEYE.
 `--face illustrated` keeps the reference-study variant (not the default).
+
+
+## Techniques learned from a studied hand-modelled anime model (applied)
+
+| Technique | Applied as |
+|---|---|
+| Hair as few big smooth chunks over a cap (clean silhouette) | `ribbon_hair(style="shell")`: 6 bangs, 9 crown, 2+2 sides, 6 back, ahoge |
+| Anime hair shine | `anime_hair_material`: a light band with a wavy lower edge across the crown |
+| Soft painted shading under the ink | `soft_face_paint`: face colour warms/darkens toward the sides and under the jaw |
+| Expressions as shape keys | `bake_expression_shapekeys`: one mesh "FaceFeatures", keys HAPPY/SMUG/NOTICE/SHOCK/STRUCK/DAZED/SIDEEYE (basis COOL) |
+| Finger-level rig | `add_finger_bones`: 3 bones per finger + thumb, fingers skinned to them; `curl_fingers(rig, deg)` |
+
+The studied model itself (a fan model of a copyrighted character) is not used or copied.

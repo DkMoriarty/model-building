@@ -1664,6 +1664,28 @@ def ribbon_hair(add, hc, size, material, seed=11, style="messy", prefix=""):
             pts.append(Vector((hc.x + q.x * sx, hc.y + q.y * sy, hc.z + q.z * sz)))
         lock(name, (0, 0, 1), (0, 0, -1), 0, width, tilt=tilt, path=pts)
 
+    if style == "shell":
+        # Shell hair (studied from a hand-modelled anime head): fewer, broader,
+        # smooth chunks with pointed tips lying close over a full cap - a clean
+        # silhouette where each chunk reads as one shape.
+        for i, (x0, ln, w) in enumerate(((-0.68, 0.17, 3.0), (-0.42, 0.2, 3.4), (-0.16, 0.22, 3.4), (0.12, 0.21, 3.4),
+                                         (0.4, 0.2, 3.3), (0.66, 0.17, 3.0))):   # bangs to the brows
+            lock(f"HairBang{i}", (x0 * 0.9, -0.42, 0.86), (x0 * 0.3, -0.25, -1.0), ln, w, k=1.06, puff=0.05,
+                 flick=0.05, curl=(-0.25 if x0 < 0 else 0.25), tilt=0.0, stop_brow=True)
+        for i in range(9):                                   # crown: broad chunks sweeping back
+            a = -math.pi * 0.88 + i * (math.pi * 1.76 / 8)
+            lock(f"HairCrown{i}", (0.06 * math.sin(a), -0.2, 0.98), (math.sin(a), 0.6 + 0.35 * abs(math.cos(a)), -0.15),
+                 0.25, 4.0, k=1.07, puff=0.07, flick=0.4, curl=0.0, tilt=0.0)
+        for sgn in (1, -1):                                  # sides past the ears, tips flicking forward
+            for i in range(2):
+                lock(f"HairSide{sgn}_{i}", (sgn * 0.8, 0.12 + 0.25 * i, 0.55), (sgn * 0.1, 0.2 + 0.15 * i, -1.0),
+                     0.19, 3.6, k=1.06, puff=0.06, flick=0.3, curl=sgn * 0.25, tilt=sgn * 0.3)
+        for i in range(6):                                   # back to the nape
+            a = -1.1 + i * 0.44
+            lock(f"HairBack{i}", (math.sin(a) * 0.7, 0.75, 0.55), (math.sin(a) * 0.4, 0.45, -1.0), 0.23, 4.0, k=1.07,
+                 puff=0.07, flick=0.55, curl=0.0, tilt=0.0)
+        lock("HairAhoge0", (0.0, 0.0, 1.0), (0.2, -0.5, 0.9), 0.11, 0.9, k=1.1, curl=1.6, free=True, lift=0.6)
+        return
     if style == "anime":
         # Sharp anime hair: a few big pointed clumps. Bangs fall in sharp
         # triangles between and over the eyes; crown spikes sweep back and flick

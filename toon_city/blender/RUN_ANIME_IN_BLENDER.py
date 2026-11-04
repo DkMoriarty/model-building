@@ -7,6 +7,10 @@
 4. File -> Save As -> anime_character.blend (saved in your version).
 
 Change the options below and run again.
+
+In the built file:
+- expressions are SHAPE KEYS on the object "FaceFeatures" (slide them, keyframe them);
+- fingers have bones (Index1_L ... Thumb3_R) - rotate them in Pose Mode to pose the hand.
 """
 import os
 import sys
@@ -40,7 +44,12 @@ for o in bpy.data.objects:     # character only (the bike is hidden)
         o.hide_viewport = True
 fr.pose_stand(rig)
 ac.pose_a(rig)
-fr.FaceRig(rig, "").pose(EXPRESSION)
+# Expressions as shape keys: select "FaceFeatures" -> Object Data -> Shape Keys,
+# slide HAPPY / SMUG / NOTICE / SHOCK / STRUCK / DAZED / SIDEEYE (basis = COOL), key them with I.
+ff = ac.bake_expression_shapekeys(rig)
+if EXPRESSION != "COOL" and EXPRESSION in ff.data.shape_keys.key_blocks:
+    ff.data.shape_keys.key_blocks[EXPRESSION].value = 1.0
+# Finger bones: Index1..3_L, Middle, Ring, Pinky, Thumb (Pose Mode, rotate X to curl). ac.curl_fingers(rig, 70) = fist.
 cam = fr.camera(scene, (0.9, -4.6, 1.05), (0, 0, 0.95), lens=50)
 ac.anime_look(scene, cam, Vector((0, 0, 1.4)))
 scene.render.resolution_x, scene.render.resolution_y = 1080, 1620
