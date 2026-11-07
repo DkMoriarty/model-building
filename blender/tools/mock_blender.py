@@ -78,6 +78,12 @@ class Matrix:
     @staticmethod
     def Diagonal(d): return Matrix(np.diag(list(d)))
     @staticmethod
+    def Rotation(angle, size, axis):
+        c, s_ = math.cos(angle), math.sin(angle)
+        R = {'X': [[1, 0, 0], [0, c, -s_], [0, s_, c]], 'Y': [[c, 0, s_], [0, 1, 0], [-s_, 0, c]],
+             'Z': [[c, -s_, 0], [s_, c, 0], [0, 0, 1]]}[axis]
+        m = np.eye(4); m[:3, :3] = R; return Matrix(m)
+    @staticmethod
     def Translation(t):
         m = np.eye(4); m[:3, 3] = list(t); return Matrix(m)
     def __matmul__(s, o): return Matrix(s.m @ o.m)
@@ -239,6 +245,7 @@ bpy.data = types.SimpleNamespace(
     lights=Blocks(lambda n, t: Stub(n)), cameras=Blocks(lambda n: Stub(n)), worlds=Blocks(lambda n: Stub(n)),
     collections=Blocks(lambda n: COLLS.append(Coll(n)) or COLLS[-1]))
 bpy.data.materials = Blocks(lambda n: Stub(n))
+bpy.data.curves = Blocks(lambda n, t: Stub(n))
 bpy.context = types.SimpleNamespace(scene=Stub('Scene'))
 bpy.ops = Stub(); bpy.path = types.SimpleNamespace(abspath=lambda p: p)
 

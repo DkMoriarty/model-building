@@ -6,11 +6,13 @@ Everything here is plain Python run inside Blender. No add-ons are needed. Each 
 
 | Path | What it is |
 |---|---|
+| `jet_assembly.py` | **Newest.** Jet airliner build: Act 1 big components join; Act 2 each component explodes and reassembles step by step with captions. |
 | `space_dock.py` | **Main scene.** 30 s sci-fi sequence: boarding at an orbital station, shuttle lift-off, flight, docking with a 1 km mothership. Sky, planet, five cameras. |
 | `ren_toon.py` | Adult toon-anime character (Ren), cel-shaded with outlines. |
 | `kai_toon.py` | Chibi toon character (Kai). |
 | `README.md` | What each scene contains and how to tune it. |
 | `tools/mock_blender.py` | Stand-ins for `bpy`, `bmesh` and `mathutils`, so the scripts can run without Blender (for testing logic). |
+| `tools/anim_preview.py` | General preview: runs a scene on the stand-ins and paints rough frames from its recorded keyframes (`ANIM`). Use it for `jet_assembly.py`. |
 | `tools/space_preview.py` | Runs `space_dock.py` on the stand-ins and rasterizes rough test shots per camera. |
 | `tools/character_export.py`, `tools/character_raster.py` | The same for the characters: exports meshes to JSON, then renders a rough image. |
 | `previews/` | Rough test renders and browser 3D previews of the characters. |
@@ -20,6 +22,18 @@ Everything here is plain Python run inside Blender. No add-ons are needed. Each 
 - **Not yet run in real Blender.** All scripts were checked with the stand-ins (they build: Space Dock 185 objects, Ren 164), and the test renders look right. The first job is to run them in Blender and fix any API errors.
 - Targets Blender 3.6 to 4.x with EEVEE. Version differences are wrapped in try/except: EEVEE vs EEVEE Next, Principled socket names, bloom, and compositor access.
 - Blender 5.x may need fixes. `scene.node_tree` (the compositor) and some material blend settings changed there.
+
+## Jet Assembly specifics
+
+- Every keyframe is also recorded in the module-level `ANIM` dict, and the captions in `CAPTIONS`. Keep the `key()` helper when adding animation, so `tools/anim_preview.py` keeps working.
+- Each component hangs under an empty named `COMP_<name>`. Act 1 moves the empties; Act 2 moves the individual parts (`PARTS`: object, group, explode vector, home position).
+- Captions are text objects parented to the camera (35 mm lens). If you change the lens, move them back into frame.
+- Check in Blender: whether the caption on/off keys are hard cuts (`set_constant` may be skipped on Blender 4.4+ layered actions), how the floor reflection looks, and whether the area-light energy (60k/25k/45k W) needs tuning for your exposure.
+
+Preview test:
+```
+python blender/tools/anim_preview.py blender/jet_assembly.py <out_dir> "380,465,725,985,1290,1525,1760"
+```
 
 ## Load it
 

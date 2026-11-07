@@ -73,8 +73,24 @@ blender -b -P blender/space_dock.py -- --render-anim --out //render/frame_
 ```
 Tune it with the constants at the top (`SHUTTLE_KEYS` for the flight path, `CAMERAS`, `COLORS`, `SEED` for a different greeble layout).
 
+## Jet Assembly: big components, then each component's assembly
+
+`jet_assembly.py` animates the build of a generic twin-engine jet airliner (38 m long, 37 m span) on a studio assembly floor. 1,780 frames at 24 fps, with on-screen captions.
+
+| Frames | Act | What happens |
+|---|---|---|
+| 1–400 | Act 1: major components | Fuselage, wings, engines, tail and landing gear arrive one after another and join |
+| 400–660 | Act 2: engine | Breaks down, then rebuilds in 12 steps: pylon, shaft, 6 compressor stages, combustor, 4 turbine stages, core casing, fan (22 blades), spinner, fan case, cowl halves, inlet lip, nozzle and plug |
+| 660–920 | Act 2: wing | 8 steps: spars, 11 ribs, lower skin, upper skin, slats, flaps, aileron, winglet |
+| 920–1220 | Act 2: fuselage | 7 steps: frames, keel and floor, 16 stringers, lower skins, upper skins, nose and tail cones, windows, windshield and doors |
+| 1220–1460 | Act 2: tail | Fin, horizontal stabilisers, rudder, elevators |
+| 1460–1700 | Act 2: main gear | Strut, piston, side brace and torque links, axle, brakes, hubs, tyres, door |
+| 1700–1780 | Finale | Wide shot, fans spinning |
+
+Change the order, timing or camera of each part in the `ACT1` / `ACT2` tables. Explode directions are the last argument of each `part(...)` call. Assembly steps follow the order of the groups in the build functions.
+
 ## More
 
 - `HANDOVER.md`: status, how to load and test, where to continue.
-- `tools/`: run the scripts without Blender to check logic and get rough test renders.
+- `tools/`: run the scripts without Blender to check logic and get rough test renders. `tools/anim_preview.py` works for any scene that records its keys in `ANIM` (`jet_assembly.py` does).
 - `previews/`: rough test renders, plus browser 3D previews of the characters (`ren_preview.html`, `kai_preview.html`).
