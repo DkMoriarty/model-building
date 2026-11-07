@@ -252,6 +252,78 @@ def glow_shell_mat(name, color, strength, edge=True):
     return m
 
 
+def plume_mat(name, color, strength):
+    """Additive see-through exhaust: white-hot at the nozzle, engine colour further out,
+    faded to nothing before the tip and soft at the silhouette. Uses Generated Z, which
+    runs 0 at the nozzle to 1 at the tip on the cones built by cone()."""
+    if name in _MATS:
+        return _MATS[name]
+    m = _new_mat(name, color, strength * 0.5)
+    N, L = m.node_tree.nodes, m.node_tree.links
+    out = N.new("ShaderNodeOutputMaterial")
+    tc = N.new("ShaderNodeTexCoord")
+    sep = N.new("ShaderNodeSeparateXYZ")
+    L.new(tc.outputs["Generated"], sep.inputs[0])
+    # Length fade: 1 at the nozzle, gone by 75% of the length
+    lr = N.new("ShaderNodeValToRGB")
+    lr.color_ramp.interpolation = "EASE"
+    e = lr.color_ramp.elements
+    e[0].position, e[0].color = 0.0, (1, 1, 1, 1)
+    e[1].position, e[1].color = 0.75, (0, 0, 0, 1)
+    mid = e.new(0.2)
+    mid.color = (0.18, 0.18, 0.18, 1)
+    L.new(sep.outputs["Z"], lr.inputs["Fac"])
+    # Core fade: bright where the surface faces the camera, soft to 0 at the silhouette
+    lw = N.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.5
+    cr = N.new("ShaderNodeValToRGB")
+    cr.color_ramp.interpolation = "EASE"
+    c = cr.color_ramp.elements
+    c[0].position, c[0].color = 0.0, (1, 1, 1, 1)
+    c[1].position, c[1].color = 0.85, (0, 0, 0, 1)
+    L.new(lw.outputs["Facing"], cr.inputs["Fac"])
+    mul = N.new("ShaderNodeMath")
+    mul.operation = "MULTIPLY"
+    L.new(lr.outputs["Color"], mul.inputs[0])
+    L.new(cr.outputs["Color"], mul.inputs[1])
+    st = N.new("ShaderNodeMath")
+    st.operation = "MULTIPLY"
+    st.inputs[1].default_value = strength
+    L.new(mul.outputs[0], st.inputs[0])
+    # Colour: white-hot near the nozzle, engine colour further out
+    pw = N.new("ShaderNodeMath")
+    pw.operation = "POWER"
+    pw.inputs[1].default_value = 3.0
+    L.new(lr.outputs["Color"], pw.inputs[0])
+    try:  # Blender 3.4+: generic Mix node
+        cm = N.new("ShaderNodeMix")
+        cm.data_type = "RGBA"
+        a_in, b_in, fac_in, res = cm.inputs[6], cm.inputs[7], cm.inputs[0], cm.outputs[2]
+    except RuntimeError:  # older: MixRGB
+        cm = N.new("ShaderNodeMixRGB")
+        a_in, b_in, fac_in, res = cm.inputs[1], cm.inputs[2], cm.inputs[0], cm.outputs[0]
+    a_in.default_value = srgb(color)
+    b_in.default_value = (1, 1, 1, 1)
+    L.new(pw.outputs[0], fac_in)
+    em = N.new("ShaderNodeEmission")
+    em.name = "Emission"
+    L.new(res, em.inputs["Color"])
+    L.new(st.outputs[0], em.inputs["Strength"])
+    tr = N.new("ShaderNodeBsdfTransparent")
+    add = N.new("ShaderNodeAddShader")
+    L.new(tr.outputs["BSDF"], add.inputs[0])
+    L.new(em.outputs["Emission"], add.inputs[1])
+    L.new(add.outputs["Shader"], out.inputs["Surface"])
+    for attr, val in (("blend_method", "BLEND"), ("surface_render_method", "BLENDED"),
+                      ("shadow_method", "NONE"), ("show_transparent_back", False),
+                      ("use_transparency_overlap", False)):
+        try:
+            setattr(m, attr, val)
+        except (AttributeError, TypeError):
+            pass
+    return m
+
+
 def planet_mat():
     m = _new_mat("Planet", "#2F6B8F")
     N, L = m.node_tree.nodes, m.node_tree.links
@@ -686,14 +758,14 @@ def build_shuttle(rng):
              cap=False)
         cone(f"Engine_core{s:+d}", emit_mat("Engine_core", COLORS["engine"], 0), C,
              (x, -16.2, 0.0), (0, -1, 0), 0.1, 1.25, 1.25, 32, ship)
-        cone(f"Plume{s:+d}", glow_shell_mat("Plume", COLORS["engine"], 12, edge=False), C,
+        cone(f"Plume{s:+d}", plume_mat("Plume", COLORS["engine"], 8), C,
              (x, -16.4, 0.0), (0, -1, 0), 14, 1.3, 0.1, 32, ship, cap=False)
 
     # Centre engine
     cone("Nozzle_main", dark, C, (0, -16.0, 0.6), (0, -1, 0), 1.2, 1.4, 1.75, 32, ship, cap=False)
     cone("Engine_core_main", emit_mat("Engine_core", COLORS["engine"], 0), C,
          (0, -16.2, 0.6), (0, -1, 0), 0.1, 1.35, 1.35, 32, ship)
-    cone("Plume_main", glow_shell_mat("Plume", COLORS["engine"], 12, edge=False), C,
+    cone("Plume_main", plume_mat("Plume", COLORS["engine"], 8), C,
          (0, -16.4, 0.6), (0, -1, 0), 18, 1.5, 0.1, 32, ship, cap=False)
     sphere("Tail_strobe", emit_mat("Strobe", COLORS["strobe"], 0), C, (0, -16.3, 2.4), 0.2,
            parent=ship)
@@ -789,7 +861,7 @@ def build_mothership(rng):
         cone(f"M_nozzle{i}", dark, C, (-500, y, z), (-1, 0, 0), 40, 26, 34, 48, root, cap=False)
         cone(f"M_core{i}", emit_mat("M_engine_core", COLORS["engine"], 25), C,
              (-505, y, z), (-1, 0, 0), 1, 25, 25, 48, root)
-        cone(f"M_plume{i}", glow_shell_mat("M_plume", COLORS["engine"], 6, edge=False), C,
+        cone(f"M_plume{i}", plume_mat("M_plume", COLORS["engine"], 5), C,
              (-510, y, z), (-1, 0, 0), 160, 26, 4, 48, root, cap=False)
 
     # Greebles: thousands of blocks over the top, belly and flanks; trenches; windows
