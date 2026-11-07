@@ -1,0 +1,204 @@
+<title>Kai Toon Preview</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one centred column; the 4:5 render frame is the hero, controls sit under it */
+:root{
+  --bg:#F6F1EC; --panel:#FFFFFF; --fg:#1C1626; --muted:#6B6176; --line:#E3D9D0; --accent:#E8602A;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17131D;--panel:#211B29;--fg:#F3EEF6;--muted:#A99FB4;--line:#352C40;--accent:#FF8A55;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17131D;--panel:#211B29;--fg:#F3EEF6;--muted:#A99FB4;--line:#352C40;--accent:#FF8A55;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+main{max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0}
+.frame{position:relative;width:100%;max-width:100%;aspect-ratio:4/5;border-radius:14px;overflow:hidden;border:2px solid var(--fg);background:#FFD9A8}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.hint{position:absolute;left:10px;bottom:10px;font-size:12px;background:rgba(28,22,38,.78);color:#fff;padding:4px 9px;border-radius:999px;pointer-events:none}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.controls label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.controls label span b{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:700}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--fg);background:var(--panel);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.note{font-size:13px;color:var(--muted);margin:0}
+code{font-size:12.5px;background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:5px}
+@media (max-width:420px){.controls{grid-template-columns:1fr}}
+</style>
+
+<main>
+  <h1>Kai, toon-shaded</h1>
+  <p class="sub">The character from <code>blender/kai_toon.py</code>, built in your browser with the same shapes, palette, cel bands and outlines.</p>
+  <div class="frame">
+    <canvas id="c" aria-label="3D preview of Kai, an original toon anime character"></canvas>
+    <div class="hint">Drag to orbit · pinch or scroll to zoom</div>
+  </div>
+  <div class="controls">
+    <label for="ow"><span>Outline width <b id="owv">0.014</b></span><input id="ow" type="range" min="0" max="0.03" step="0.001" value="0.014"></label>
+    <label for="sh"><span>Shadow amount <b id="shv">0.72</b></span><input id="sh" type="range" min="0.4" max="1" step="0.01" value="0.72"></label>
+    <label for="bs"><span>Band split <b id="bsv">0.45</b></span><input id="bs" type="range" min="0.1" max="0.9" step="0.01" value="0.45"></label>
+    <label for="la"><span>Sun angle <b id="lav">-35°</b></span><input id="la" type="range" min="-180" max="180" step="1" value="-35"></label>
+    <div class="row">
+      <button id="hl" aria-pressed="true">Highlight band</button>
+      <button id="bd" aria-pressed="true">City backdrop</button>
+      <button id="spin" aria-pressed="false">Turntable</button>
+      <button id="reset">Reset view</button>
+    </div>
+  </div>
+  <p class="note">Sliders match the <code>STYLE</code> settings at the top of the script. Blender's EEVEE render will look very close to this, but not pixel-identical.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const P={skin:"#FFE0C6",hair:"#2EC4B6",headband:"#FFD23F",hoodie:"#FF7A3D",hoodie_dark:"#E8602A",pants:"#2B3A67",shoes:"#F4F4F4",sole:"#FF4F5E",eye_white:"#FFFFFF",iris:"#1E7F9E",pupil:"#0E2A38",mouth:"#B8323A",blush:"#FF9AA2",string:"#FFFFFF",outline:"#1C1626",building:"#7A6FC4",window:"#FFE27A",ground:"#E9B98A",sun:"#FFB25C",sky:"#FFD9A8"};
+const S={ow:0.014,shadow:0.72,cool:0.06,split:0.45,hl:true};
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const HEAD_C=V(0,0,1.75),HEAD_R=0.38;
+
+function rgb(h){h=h.replace("#","");return[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255);}
+function shade(h,mul,cool){let[r,g,b]=rgb(h);r*=mul;g*=mul;b*=(mul+cool);r=Math.max(0,r-cool*.5);return V(Math.min(r,1),Math.min(g,1),Math.min(b,1));}
+
+// Blender sun: euler (50°,0,a) -> direction toward the light, in Blender coords
+const L=V(0,0,1);
+function setSun(deg){const e=new THREE.Euler(THREE.MathUtils.degToRad(50),0,THREE.MathUtils.degToRad(deg),"XYZ");
+  const d=V(0,0,-1).applyEuler(e).negate();L.set(d.x,d.z,-d.y).normalize();} // to three (Y-up)
+setSun(-35);
+
+const toonMats=[];
+const vsT=`varying vec3 vN;void main(){vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+const fsT=`uniform vec3 uB,uS,uH,uL;uniform float uSplit,uHL;varying vec3 vN;
+void main(){vec3 n=normalize(vN);if(!gl_FrontFacing)n=-n;float f=.955*max(dot(n,uL),0.);
+vec3 c=f<uSplit?uS:(uHL>.5&&f>.92?uH:uB);gl_FragColor=vec4(c,1.);}`;
+function toon(key,hl){const m=new THREE.ShaderMaterial({uniforms:{uB:{value:V(...rgb(P[key]))},uS:{value:shade(P[key],S.shadow,S.cool)},
+  uH:{value:shade(P[key],1.12,0)},uL:{value:L},uSplit:{value:S.split},uHL:{value:(hl===false?0:1)}},vertexShader:vsT,fragmentShader:fsT,side:THREE.DoubleSide});
+  m.userData={key,hl:hl!==false};toonMats.push(m);return m;}
+const TM={};const tm=(k,hl)=>{const id=k+(hl===false?"_n":"");return TM[id]||(TM[id]=toon(k,hl));};
+const FM={};const flat=k=>FM[k]||(FM[k]=new THREE.MeshBasicMaterial({color:new THREE.Color(P[k]),side:THREE.DoubleSide}));
+
+const outlineMat=new THREE.ShaderMaterial({uniforms:{uW:{value:S.ow},uC:{value:V(...rgb(P.outline))}},
+  vertexShader:`attribute vec3 onorm;uniform float uW;uniform float uK;void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position+onorm*uW*uK,1.);}`,
+  fragmentShader:`uniform vec3 uC;void main(){gl_FragColor=vec4(uC,1.);}`,side:THREE.BackSide});
+const outlineMats=[];
+function oMat(k){const m=outlineMat.clone();m.uniforms.uW=outlineMat.uniforms.uW;m.uniforms.uC=outlineMat.uniforms.uC;m.uniforms.uK={value:k};outlineMats.push(m);return m;}
+
+// averaged normals so the hull has no gaps at hard edges (like Solidify on shared verts)
+function addOutlineNormals(g){const p=g.attributes.position,n=g.attributes.normal,map=new Map(),key=i=>`${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`;
+  for(let i=0;i<p.count;i++){const k=key(i);const a=map.get(k)||V(0,0,0);a.x+=n.getX(i);a.y+=n.getY(i);a.z+=n.getZ(i);map.set(k,a);}
+  const o=new Float32Array(p.count*3);for(let i=0;i<p.count;i++){const a=map.get(key(i)).clone().normalize();o.set([a.x,a.y,a.z],i*3);}
+  g.setAttribute("onorm",new THREE.BufferAttribute(o,3));}
+
+const kai=new THREE.Group(),city=new THREE.Group(),world=new THREE.Group();
+world.add(kai,city);world.rotation.x=-Math.PI/2; // Blender Z-up -> three Y-up
+let parent=kai;
+
+function finish(g,mat,loc,q,outline=true,width){
+  const mesh=new THREE.Mesh(g,mat);mesh.position.copy(loc);if(q)mesh.quaternion.copy(q);parent.add(mesh);
+  if(outline){addOutlineNormals(g);const k=(width===undefined?1:width/0.014);const o=new THREE.Mesh(g,oMat(k));mesh.add(o);}
+  return mesh;}
+function sphere(mat,loc,scale=[1,1,1],r=1,q=null,seg=32,ring=16,outline=true,width,keep){
+  let g=new THREE.SphereGeometry(r,seg,ring);g.rotateX(Math.PI/2); // poles on Z like Blender
+  if(keep){const p=g.attributes.position,idx=g.index.array,out=[];
+    for(let i=0;i<idx.length;i+=3){const ok=[0,1,2].every(j=>{const v=idx[i+j];return keep(V(p.getX(v),p.getY(v),p.getZ(v)));});if(ok)out.push(idx[i],idx[i+1],idx[i+2]);}
+    g.setIndex(out);}
+  g.scale(scale[0],scale[1],scale[2]);g.computeVertexNormals();
+  return finish(g,mat,V(...(loc.isVector3?loc.toArray():loc)),q,outline,width);}
+function cone(mat,base,dir,len,r1,r2=0,seg=16,outline=true){
+  const g=new THREE.CylinderGeometry(r2,r1,len,seg);g.translate(0,len/2,0);
+  const q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),dir.clone().normalize());
+  return finish(g,mat,base,q,outline);}
+function tube(mat,a,b,r){a=V(...a);b=V(...b);const d=b.clone().sub(a);return cone(mat,a,d,d.length(),r,r,20);}
+function limb(mat,pts,r){for(let i=0;i<pts.length-1;i++)tube(mat,pts[i],pts[i+1],r);pts.forEach(p=>sphere(mat,p,[1,1,1],r,null,20,10));}
+function torus(mat,loc,R,r,q){const g=new THREE.TorusGeometry(R,r,12,48);return finish(g,mat,loc,q,true);}
+function box(mat,loc,size,outline=true,width){const g=new THREE.BoxGeometry(...size);return finish(g,mat,V(...loc),null,outline,width);}
+function onHead(x,dz,lift=0){const y=-Math.sqrt(Math.max(HEAD_R**2-x*x-dz*dz,1e-6));const n=V(x,y,dz).normalize();
+  const yA=n.clone().negate(),zA=V(0,0,1).sub(yA.clone().multiplyScalar(yA.z)).normalize(),xA=new THREE.Vector3().crossVectors(yA,zA);
+  const q=new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA,yA,zA));
+  return[HEAD_C.clone().add(n.multiplyScalar(HEAD_R+lift)),q];}
+const axisQ=(ax,deg)=>new THREE.Quaternion().setFromAxisAngle(V(...ax),THREE.MathUtils.degToRad(deg));
+const rad=THREE.MathUtils.degToRad;
+
+// ---- head
+const skin=tm("skin");
+sphere(skin,HEAD_C,[1,1,1],HEAD_R,null,48,24);
+const hr=0.41,hairC=HEAD_C.clone().add(V(0,0.02,0.03));
+sphere(tm("hair"),hairC,[1,1,1],hr,null,48,24,true,undefined,co=>co.z>=-0.09-0.21*(co.y/hr));
+const spikes=[];
+for(const el of[85,60,35,12])for(let az=0;az<360;az+=(el<80?30:120)){
+  const n=V(Math.cos(rad(el))*Math.sin(rad(az)),Math.cos(rad(el))*Math.cos(rad(az)),Math.sin(rad(el)));
+  if(n.y<-0.25&&el<60)continue;if(el===12&&n.y<0.2)continue;spikes.push(n);}
+spikes.forEach((n,i)=>{const tilt=n.clone().add(V(0,0.25,0.35)).normalize();const len=0.28+0.08*((i*7)%3);
+  cone(tm("hair"),hairC.clone().add(n.clone().multiplyScalar(hr*0.82)),tilt,len,0.10);});
+[-0.22,-0.08,0.08,0.22].forEach(x=>cone(tm("hair"),hairC.clone().add(V(x,-0.30,0.20)),V(x*0.8,-0.35,1.0),0.24,0.085));
+torus(tm("headband",false),V(0,0,1.80),0.40,0.035,axisQ([1,0,0],-11));
+for(const s of[-1,1])sphere(skin,[s*0.37,0.02,1.70],[0.05,0.08,0.10],1,null,20,10);
+for(const s of[-1,1]){const ex=s*0.14,ez=-0.07;let p,q;
+  [p,q]=onHead(ex,ez,0);sphere(flat("eye_white"),p,[0.095,0.025,0.125],1,q,24,12,true,0.008);
+  [p,q]=onHead(ex+s*0.005,ez-0.01,0.012);sphere(flat("iris"),p,[0.068,0.02,0.095],1,q,24,12,false);
+  [p,q]=onHead(ex+s*0.006,ez-0.02,0.022);sphere(flat("pupil"),p,[0.035,0.012,0.052],1,q,16,8,false);
+  [p,q]=onHead(ex-0.025,ez+0.035,0.032);sphere(flat("eye_white"),p,[0.022,0.01,0.022],1,q,12,6,false);
+  [p,q]=onHead(ex+0.02,ez-0.05,0.03);sphere(flat("eye_white"),p,[0.011,0.008,0.011],1,q,10,5,false);
+  [p,q]=onHead(s*0.15,0.085,0.01);sphere(flat("outline"),p,[0.075,0.012,0.014],1,q.clone().multiply(axisQ([0,1,0],s*8)),16,8,false);
+  [p,q]=onHead(s*0.23,-0.17,0.004);sphere(flat("blush"),p,[0.05,0.008,0.025],1,q,16,8,false);}
+{let[p,q]=onHead(0,-0.13,0);sphere(skin,p,[0.02,0.018,0.02],1,q,12,6,false);
+ [p,q]=onHead(0,-0.21,0);sphere(flat("mouth"),p,[0.075,0.02,0.05],1,q,24,12,true,0.008,co=>co.z<=0.05);}
+
+// ---- body
+const hood=tm("hoodie"),dark=tm("hoodie_dark",false),str=tm("string",false);
+tube(skin,[0,0.02,1.28],[0,0.02,1.45],0.085);
+sphere(hood,[0,0,1.0],[0.36,0.26,0.40]);
+torus(dark,V(0,0.04,1.36),0.17,0.07,axisQ([1,0,0],12));
+sphere(dark,[0,-0.236,0.86],[0.20,0.03,0.075],1,null,24,12,true,0.008);
+for(const s of[-1,1]){tube(str,[s*0.06,-0.19,1.28],[s*0.07,-0.25,1.08],0.012);sphere(str,[s*0.07,-0.25,1.07],[1,1,1],0.022,null,12,6,true,0.006);}
+limb(hood,[[0.32,0,1.25],[0.55,-0.04,1.40],[0.62,-0.06,1.66]],0.07);
+sphere(skin,[0.63,-0.07,1.75],[0.075,0.06,0.09],1,null,20,10);
+sphere(skin,[0.56,-0.09,1.73],[0.025,0.025,0.04],1,null,12,6);
+limb(hood,[[-0.32,0,1.25],[-0.45,0,1.0],[-0.50,-0.02,0.80]],0.07);
+sphere(skin,[-0.51,-0.03,0.72],[0.065,0.06,0.085],1,null,20,10);
+for(const s of[-1,1]){limb(tm("pants"),[[s*0.13,0,0.72],[s*0.14,-0.02,0.40],[s*0.14,0,0.14]],0.09);
+  sphere(tm("shoes"),[s*0.14,-0.06,0.09],[0.11,0.18,0.085],1,null,24,12);
+  sphere(tm("sole",false),[s*0.14,-0.06,0.03],[0.115,0.185,0.03],1,null,24,8);}
+
+// ---- backdrop
+parent=city;
+sphere(tm("ground",false),[0,2,-0.02],[7,5,0.02],1,null,48,8,false);
+[[-3.6,1.0,3.2],[-2.6,0.9,4.2],[-1.7,0.8,2.8],[1.6,0.9,3.6],[2.5,0.8,4.6],[3.5,0.9,3.0]].forEach(([x,w,h],i)=>{
+  const y=3.5;box(tm("building",false),[x,y,h/2],[w,0.8,h],true,0.03);
+  for(let row=0;row<Math.floor(h/0.6);row++)for(const col of[-1,1]){if((((i+row+col)%3)+3)%3===0)continue;
+    box(flat("window"),[x+col*w*0.22,y-0.41,0.5+row*0.6],[0.16,0.02,0.2],false);}});
+sphere(flat("sun"),[1.9,6.0,3.6],[1,1,1],0.9,null,32,16,false);
+
+// ---- render
+const canvas=document.getElementById("c");
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene=new THREE.Scene();scene.background=new THREE.Color(P.sky);scene.add(world);
+const cam=new THREE.PerspectiveCamera(2*Math.atan(18/55)*180/Math.PI,0.8,0.1,100);
+const home={pos:V(0,1.25,6.2),tgt:V(0,1.12,0)};
+cam.position.copy(home.pos);
+const ctl=new THREE.OrbitControls(cam,canvas);ctl.target.copy(home.tgt);ctl.enableDamping=true;ctl.minDistance=1.5;ctl.maxDistance=14;ctl.update();
+function size(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+new ResizeObserver(size).observe(canvas);size();
+let spin=false;const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+(function loop(){requestAnimationFrame(loop);if(spin)kai.rotation.z+=reduce?0:0.006;ctl.update();renderer.render(scene,cam);})();
+
+// ---- controls
+const $=id=>document.getElementById(id);
+function refreshToon(){toonMats.forEach(m=>{m.uniforms.uS.value=shade(P[m.userData.key],S.shadow,S.cool);m.uniforms.uSplit.value=S.split;m.uniforms.uHL.value=(S.hl&&m.userData.hl)?1:0;});}
+$("ow").oninput=e=>{S.ow=+e.target.value;outlineMat.uniforms.uW.value=S.ow;$("owv").textContent=S.ow.toFixed(3);};
+$("sh").oninput=e=>{S.shadow=+e.target.value;$("shv").textContent=S.shadow.toFixed(2);refreshToon();};
+$("bs").oninput=e=>{S.split=+e.target.value;$("bsv").textContent=S.split.toFixed(2);refreshToon();};
+$("la").oninput=e=>{setSun(+e.target.value);$("lav").textContent=e.target.value+"°";};
+function tog(id,fn){const b=$(id);b.onclick=()=>{const v=b.getAttribute("aria-pressed")!=="true";b.setAttribute("aria-pressed",v);fn(v);};}
+tog("hl",v=>{S.hl=v;refreshToon();});
+tog("bd",v=>{city.visible=v;});
+tog("spin",v=>{spin=v;if(!v)kai.rotation.z=0;});
+$("reset").onclick=()=>{cam.position.copy(home.pos);ctl.target.copy(home.tgt);kai.rotation.z=0;ctl.update();};
+})();
+</script>

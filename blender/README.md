@@ -72,3 +72,9 @@ blender -b -P blender/space_dock.py -- --render-frame 560 --out shot.png
 blender -b -P blender/space_dock.py -- --render-anim --out //render/frame_
 ```
 Tune it with the constants at the top (`SHUTTLE_KEYS` for the flight path, `CAMERAS`, `COLORS`, `SEED` for a different greeble layout).
+
+## More
+
+- `HANDOVER.md`: status, how to load and test, where to continue.
+- `tools/`: run the scripts without Blender to check logic and get rough test renders.
+- `previews/`: rough test renders, plus browser 3D previews of the characters (`ren_preview.html`, `kai_preview.html`).

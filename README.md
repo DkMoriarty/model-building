@@ -6,6 +6,7 @@ a synchronized score and sound design, and every frame checked.
 
 - [`alan_pipeline/`](./alan_pipeline): the studio (episodes, tools, docs).
 - [`.claude/skills/storyline-to-film/`](./.claude/skills/storyline-to-film): the full production method, as a Claude Code skill.
+- [`blender/`](./blender): Blender scenes built from Python: the Space Dock sci-fi sequence and the toon-anime characters (start with [`blender/HANDOVER.md`](./blender/HANDOVER.md)).
 
 Episodes: **FIRST GAME** (`render:game`), **FIRST LIGHT** (`render:light`),
 **The Entangled Blade** (`render:space`).
